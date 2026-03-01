@@ -1,0 +1,1375 @@
+/* ==========================================
+   RESET Y VARIABLES
+   ========================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --color-primary: #ff6b9c46;
+    --color-secondary: #C06C84;
+    --color-dark: #333;
+    --color-light: #C06C84; 
+    --color-success: #28a745;
+    --color-danger: #dc3545;
+    --color-warning: #ffc107;
+    --color-white: #ffffff;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--color-dark);
+    background: linear-gradient(rgba(231, 227, 230, 0.5), rgba(255, 238, 248, 0.445)), 
+                url('../img/fondo.jpg'); 
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed; 
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ==========================================
+   PANTALLA DE LOGIN - CON PROTECCIÓN MEJORADA
+   ========================================== */
+/*.login-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: linear-gradient(135deg, #ff6b9c, #C06C84);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}*/
+
+.login-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background-image: url('../img/fondo.jpg'); 
+    background-size: cover;               
+    background-position: center;           
+    background-repeat: no-repeat;          
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+
+/* ⚠️ PROTECCIÓN: Cuando el login se oculta, debe ser totalmente invisible */
+.login-container[style*="display: none"],
+.login-container[style*="display:none"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    z-index: -1 !important;
+}
+
+.login-card {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 450px;
+    text-align: center;
+}
+
+.login-logo {
+    width: 120px;
+    margin-bottom: 20px;
+}
+
+.login-card h2 {
+    color: #C06C84;
+    margin-bottom: 30px;
+    font-size: 1.8rem;
+}
+
+.login-card .form-group {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.login-card label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555;
+    font-size: 0.95rem;
+}
+
+.login-card input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.login-card input:focus {
+    outline: none;
+    border-color: #C06C84;
+}
+
+.btn-login {
+    width: 100%;
+    background: linear-gradient(135deg, #ff6b9c, #C06C84);
+    color: white;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s;
+}
+
+.btn-login:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+}
+
+.btn-login:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.login-info {
+    margin-top: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #17a2b8;
+}
+
+.login-info p {
+    margin: 5px 0;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.login-info strong {
+    color: #333;
+}
+
+/* ==========================================
+   MAIN APP - DEBE ESTAR SIEMPRE SOBRE EL LOGIN
+   ========================================== */
+#main-app {
+    position: relative;
+    z-index: 10; /* Menor que login, pero visible cuando login está oculto */
+}
+
+/* ==========================================
+   HEADER Y NAVEGACIÓN
+   ========================================== */
+header {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    padding: 30px 0;
+    text-align: center;
+}
+
+.header-logo {
+    max-width: 200px;
+    height: auto;
+}
+
+nav {
+    background-color: var(--color-white);
+    border-bottom: 2px solid #f0f0f0;
+    padding: 12px 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.nav-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nav-links button {
+    background: transparent;
+    border: none;
+    color: #555;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.nav-links button:hover {
+    background-color: #fff0f3;
+    color: var(--color-secondary);
+}
+
+.user-status-card {
+    background-color: #f1f8f4;
+    border: 1px solid #d4edda;
+    border-radius: 50px;
+    padding: 6px 6px 6px 18px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #2d5a39;
+}
+
+.user-icon {
+    font-size: 1.2rem;
+}
+
+.btn-logout {
+    background-color: var(--color-secondary);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-logout:hover {
+    background-color: #a7a85a;
+    transform: scale(1.05);
+}
+
+/* ==========================================
+   SECCIONES
+   ========================================== */
+.section {
+    display: none;
+    padding: 20px 0;
+}
+
+.section.active {
+    display: block;
+}
+
+.section h1, .section h2 {
+    font-size: 2rem;
+    color: var(--color-secondary);
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* ==========================================
+   TARJETAS DE SERVICIOS
+   ========================================== */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 25px;
+    padding: 20px 0;
+}
+
+.servicio-card {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.servicio-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 30px rgba(192, 108, 132, 0.2);
+}
+
+.servicio-imagen {
+    width: 100%;
+    height: 200px;
+    background-size: cover;
+    background-position: center;
+}
+
+.servicio-contenido {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.servicio-contenido h3 {
+    font-size: 1.3rem;
+    margin-bottom: 10px;
+    color: var(--color-dark);
+}
+
+.servicio-descripcion {
+    font-size: 0.95rem;
+    color: #666;
+    margin-bottom: 15px;
+    flex-grow: 1;
+}
+
+.servicio-footer {
+    margin-top: auto;
+}
+
+.servicio-precio {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+    margin: 10px 0;
+}
+
+.servicio-accion {
+    margin-top: 15px;
+}
+
+.btn-agendar-mini {
+    display: block;
+    width: 100%;
+    background: linear-gradient(135deg, #ff6b9c, #C06C84);
+    color: white;
+    padding: 12px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-agendar-mini:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+}
+
+/* ==========================================
+   EDITOR DE SERVICIOS (ADMIN)
+   ========================================== */
+#lista-precios-editar {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    padding: 20px 0;
+}
+
+.editor-servicio-card {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    border-left: 5px solid var(--color-secondary);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.editor-servicio-card > div:first-child {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.editor-servicio-card img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    flex-shrink: 0;
+}
+
+.editor-servicio-card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--color-dark);
+}
+
+.editor-servicio-card small {
+    display: block;
+    margin-top: 5px;
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.editor-servicio-card > div:nth-child(2) {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.editor-servicio-card label {
+    display: block;
+    font-weight: bold;
+    color: var(--color-dark);
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+}
+
+.editor-servicio-card input[type="text"],
+.editor-servicio-card input[type="number"],
+.editor-servicio-card textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: border-color 0.3s;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.editor-servicio-card input:focus,
+.editor-servicio-card textarea:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+}
+
+.editor-servicio-card textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.grid-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+.editor-servicio-card > div:last-child {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 15px;
+    border-top: 2px solid #f0f0f0;
+}
+
+.editor-servicio-card button {
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-reset {
+    background: linear-gradient(135deg,#ff6b9c, #C06C84);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-reset:hover {
+    background: #ff6b9c;
+    transform: translateY(-2px);
+}
+
+.btn-guardar {
+    width: 100%;
+    background: linear-gradient(135deg,#ff6b9c, #C06C84);
+    color: white;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s;
+}
+
+
+.btn-guardar:hover {
+    background: #ff6b9c, #C06C84;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+/* ==========================================
+   FORMULARIOS
+   ========================================== */
+.form-card {
+    background: white;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    border-top: 8px solid var(--color-secondary);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 1rem;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #444;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+    background-color: white;
+}
+
+.btn {
+    padding: 12px 30px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    width: 100%;
+    background: linear-gradient(135deg,#ff6b9c, #C06C84);
+    color: white;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin: top 20px;
+    transition: all 0.3s;
+   
+}
+
+.btn-primary:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+}
+
+/* ==========================================
+   GESTIÓN DE HORARIOS
+   ========================================== */
+.horarios-grid {
+    display: grid;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.dia-config {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+}
+
+.dia-config label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.dia-config input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.horas-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 30px;
+}
+
+.horas-input input[type="time"] {
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+}
+
+.horas-input span {
+    color: #666;
+    font-weight: bold;
+}
+
+/* Estilos para los botones de horarios */
+.selector-horas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 8px;
+}
+
+.btn-hora {
+    background: #f8f9fa;
+    border: 2px solid #ddd;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.btn-hora:hover {
+    background-color: #e0e0e0;
+    border-color: #bbb;
+}
+
+/* Cuando el botón está seleccionado se pone rosa/oscuro */
+.btn-hora.seleccionado {
+    background-color: #C06C84 !important; /* Tu color secundario */
+    color: white !important;
+    border-color: #a05060 !important;
+    box-shadow: 0 2px 8px rgba(192, 108, 132, 0.3);
+}
+
+/* ==========================================
+   ESTADÍSTICAS (ADMIN)
+   ========================================== */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #fff0f5, #ffffff);
+    padding: 25px;
+    border-radius: 15px;
+    text-align: center;
+    border: 2px solid #ffe0f0;
+    transition: transform 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(192, 108, 132, 0.2);
+}
+
+.stat-card h3 {
+    color: var(--color-secondary);
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+    margin: 10px 0;
+}
+
+/* ==========================================
+   INFO CARDS
+   ========================================== */
+.info-card {
+    background: #ffffff !important;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    margin-bottom: 20px;
+}
+
+.horarios-section {
+    background: none !important; /* Quita fondos heredados */
+}
+
+/* ==========================================
+   TABLAS
+   ========================================== */
+.tabla-turnos {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.tabla-turnos thead {
+    background: var(--color-secondary);
+    color: white;
+}
+
+.tabla-turnos th,
+.tabla-turnos td {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.tabla-turnos tbody tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.tabla-turnos tbody tr:hover {
+    background: #fff0f3;
+}
+
+/* ==========================================
+   FOOTER
+   ========================================== */
+footer {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 20px 0;
+    text-align: center;
+    margin-top: 50px;
+    border-top: 2px solid #f0f0f0;
+}
+
+footer p {
+    color: #666;
+    margin: 5px 0;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+@media (max-width: 768px) {
+    .nav-wrapper {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .nav-links {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .nav-links button {
+        width: 100%;
+        text-align: center;
+    }
+
+    #lista-precios-editar {
+        grid-template-columns: 1fr;
+    }
+
+    .editor-servicio-card > div:first-child {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .grid-row {
+        grid-template-columns: 1fr;
+    }
+
+    .login-card {
+        margin: 20px;
+        padding: 30px 20px;
+    }
+    
+    .selector-horas {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+    #lista-precios-editar {
+        grid-template-columns: 1fr;
+    }
+}
+/* ==========================================
+   MODAL PARA EDITAR TURNO
+   ========================================== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    cursor: pointer;
+}
+
+.modal-contenido {
+    position: relative;
+    background: white;
+    border-radius: 15px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--color-secondary);
+}
+
+.modal-cerrar {
+    background: #f0f0f0;
+    border: none;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.modal-cerrar:hover {
+    background: #dc3545;
+    color: white;
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { 
+        opacity: 0;
+        transform: translateY(50px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==========================================
+   TABLA DE GESTIÓN DE TURNOS
+   ========================================== */
+.turnos-admin-table {
+    width: 100%;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.turnos-admin-table thead {
+    background: linear-gradient(135deg, #C06C84, #a85a70);
+    color: white;
+}
+
+.turnos-admin-table th,
+.turnos-admin-table td {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.turnos-admin-table tbody tr {
+    border-bottom: 1px solid #f0f0f0;
+    transition: all 0.3s;
+}
+
+.turnos-admin-table tbody tr:hover {
+    background: #fff0f3;
+    transform: scale(1.01);
+}
+
+.turnos-admin-table .acciones {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ==========================================
+   BOTONES DE ACCIÓN
+   ========================================== */
+.btn-editar {
+    background:linear-gradient(135deg,#04f023, #297022);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-editar:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.btn-eliminar {
+    background: linear-gradient(135deg,#f00404, #9b1717);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-eliminar:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+/* ==========================================
+   BADGES DE ESTADO
+   ========================================== */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.badge-pendiente {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.badge-confirmado {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-completado {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.badge-cancelado {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ==========================================
+   FILTROS - MODERNIZADOS
+   ========================================== */
+.filtros-container {
+    background: white;
+    padding: 30px 35px; /* Más grande */
+    border-radius: 20px; /* Más redondeado */
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12); /* Sombra más suave y moderna */
+    margin-bottom: 25px;
+    border: none;
+    
+}
+
+.filtros-container h3 {
+    margin-top: 0;
+    color: var(--color-secondary);
+}
+
+.filtros-container label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.filtros-container select,
+.filtros-container input[type="date"] {
+    width: 100%;
+    padding: 12px 16px; /* Más padding */
+    border: 1px solid #e0e0e0;
+    border-radius: 12px; /* Más redondeado */
+    font-size: 0.95rem;
+    transition: border-color 0.3s;
+}
+
+.filtros-container select:focus,
+.filtros-container input[type="date"]:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+}
+
+.filtro-turnos button {
+    border-radius: 12px; /* Más redondeado */
+    padding: 12px 24px; /* Más grande */
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+/* ==========================================
+   RESPONSIVE PARA MODAL
+   ========================================== */
+@media (max-width: 768px) {
+    .modal-contenido {
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    .modal-body {
+        padding: 15px;
+    }
+    
+    .turnos-admin-table {
+        font-size: 0.85rem;
+    }
+    
+    .turnos-admin-table th,
+    .turnos-admin-table td {
+        padding: 8px 10px;
+    }
+    
+    .turnos-admin-table .acciones {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .btn-editar,
+    .btn-eliminar {
+        width: 100%;
+        font-size: 0.8rem;
+    }
+}
+
+/* ==========================================
+   CONTADOR DE TURNOS
+   ========================================== */
+.contador-turnos {
+    background: linear-gradient(135deg, #ff6b9c, #C06C84 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.contador-turnos h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.contador-turnos .numero {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+/* ==========================================
+   MENSAJE VACÍO
+   ========================================== */
+.mensaje-vacio {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.mensaje-vacio img {
+    width: 100px;
+    opacity: 0.5;
+    margin-bottom: 20px;
+}
+
+.mensaje-vacio h3 {
+    color: #999;
+    margin-bottom: 10px;
+}
+
+.profesional-horarios {
+    background: #ffffff !important; /* Fondo blanco sólido */
+    padding: 20px;
+    border-radius: 15px; /* Más redondeado para mejor aspecto */
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* Sombra mejorada */
+}
+
+.profesional-horarios h3 {
+    margin-top: 0;
+    color:  linear-gradient(135deg, #ff6b9c 0%, #C06C84 100%);
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+.dia-horarios {
+    margin-bottom: 15px;
+}
+
+.dia-horarios strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.horas-disponibles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.badge-hora-libre {
+    display: inline-block;
+    background: linear-gradient(135deg, #ff6b9c 0%, #C06C84 100%);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.badge-hora-libre:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* ==========================================
+   TARJETAS DE INFORMACIÓN - FONDO BLANCO
+   ========================================== */
+.info-card,
+.horarios-disponibles-card,
+.disponibles-card,
+.alert-info {
+    background-color: #ffffff !important; /* Fondo blanco sólido */
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* Tarjeta específica de horarios disponibles */
+.profesional-horarios .info-card,
+.profesional-horarios > div:first-child {
+    background-color: #ffffff !important;
+}
+#registrar-profesionales form {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#registrar-profesionales .form-group select[multiple] {
+    height: 150px; /* Para múltiples selecciones */
+}
+/* ==========================================
+   CORRECCIÓN CSS - EDITAR PRECIOS
+   ========================================== */
+
+/* 🔥 CORRECCIÓN: Layout mejorado para editor de servicios */
+.editor-servicio-card {
+    display: grid;
+    grid-template-columns: 200px 1fr 180px;
+    gap: 20px;
+    align-items: start;
+    background: #ffffff !important;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Primera columna: Imagen + info básica */
+.editor-servicio-card > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.editor-servicio-card > div:first-child img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #e8d0da;
+}
+
+.editor-servicio-card > div:first-child > div {
+    text-align: center;
+}
+
+.editor-servicio-card > div:first-child h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #C06C84;
+}
+
+.editor-servicio-card > div:first-child small {
+    color: #999;
+    font-size: 0.85rem;
+}
+
+/* Segunda columna: Formulario de edición */
+.editor-servicio-card > div:nth-child(2) {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.grid-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.grid-row > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.editor-servicio-card label {
+    font-weight: 600;
+    color: #555;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.editor-servicio-card input,
+.editor-servicio-card textarea {
+    padding: 10px;
+    border: 2px solid #e8d0da;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.editor-servicio-card input:focus,
+.editor-servicio-card textarea:focus {
+    outline: none;
+    border-color: #C06C84;
+}
+
+.editor-servicio-card textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* Tercera columna: Botones de acción */
+.editor-servicio-card > div:last-child {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: flex-start;
+}
+
+/* 🔥 Responsivo para pantallas pequeñas */
+@media (max-width: 968px) {
+    .editor-servicio-card {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .editor-servicio-card > div:first-child {
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .editor-servicio-card > div:first-child img {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .editor-servicio-card > div:last-child {
+        flex-direction: row;
+        justify-content: flex-end;
+    }
+}
+
+/* Asegurar que el contenedor principal tenga el padding correcto */
+#lista-precios-editar {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
