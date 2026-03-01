@@ -176,28 +176,94 @@ app.get('/api/servicios', async (req, res) => {
 
 app.put('/api/servicios/:id', async (req, res) => {
     const { id } = req.params;
-    const { nombre, descripcion, precio, imagen } = req.body;
-    
+    const { nombre, descripcion, precio, imagen, activo } = req.body;
+
     try {
         let fields = [];
         let values = [];
-        
+
+        if (activo !== undefined) { fields.push('activo = ?'); values.push(activo ? 1 : 0); }
         if (precio !== undefined) { fields.push('precio = ?'); values.push(precio); }
         if (nombre !== undefined) { fields.push('nombre = ?'); values.push(nombre); }
         if (descripcion !== undefined) { fields.push('descripcion = ?'); values.push(descripcion); }
         if (imagen !== undefined) { fields.push('imagen = ?'); values.push(imagen); }
-        
+
         if (fields.length === 0) {
             return res.status(400).json({ error: 'No hay campos para actualizar' });
         }
-        
+
         values.push(id);
         await pool.query(`UPDATE servicios SET ${fields.join(', ')} WHERE id = ?`, values);
-        
-        res.json({ success: true });
+
+        res.json({ success: true, message: activo !== undefined ? (activo ? 'Servicio activado' : 'Servicio pausado') : 'Actualizado' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
+});
+
+// ============================================
+// 📦 SERVICIOS — CREAR / PAUSAR / ELIMINAR
+// ============================================
+
+// Obtener TODOS los servicios incluyendo pausados (para el admin editor)
+app.get('/api/servicios/todos', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM servicios ORDER BY activo DESC, id');
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Crear nuevo servicio
+app.post('/api/servicios', async (req, res) => {
+    const { nombre, descripcion, precio, imagen } = req.body;
+    if (!nombre || !precio) return res.status(400).json({ success: false, message: 'Nombre y precio son obligatorios' });
+    try {
+        const [r] = await pool.query(
+            'INSERT INTO servicios (nombre, descripcion, precio, imagen, activo) VALUES (?, ?, ?, ?, TRUE)',
+            [nombre.trim(), descripcion||'', parseFloat(precio), imagen||'img/default.jpg']
+        );
+        res.json({ success: true, id: r.insertId, message: 'Servicio creado correctamente' });
+    } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Pausar / reactivar servicio (toggle activo)
+app.patch('/api/servicios/:id/activo', async (req, res) => {
+    const { activo } = req.body; // true o false
+    try {
+        await pool.query('UPDATE servicios SET activo = ? WHERE id = ?', [activo ? 1 : 0, req.params.id]);
+        res.json({ success: true, message: activo ? 'Servicio reactivado' : 'Servicio pausado' });
+    } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Eliminar servicio (solo si no tiene turnos futuros)
+app.delete('/api/servicios/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const hoy = new Date().toISOString().split('T')[0];
+        const [turnos] = await pool.query(
+            'SELECT COUNT(*) as cnt FROM turnos WHERE servicio_id = ? AND fecha >= ?', [id, hoy]
+        );
+        if (turnos[0].cnt > 0) {
+            return res.status(400).json({ success: false, message: `No se puede eliminar: tiene ${turnos[0].cnt} turno(s) próximo(s). Pausalo primero.` });
+        }
+        await pool.query('DELETE FROM profesional_servicios WHERE servicio_id = ?', [id]);
+        await pool.query('DELETE FROM servicios WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Servicio eliminado' });
+    } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// DELETE /api/usuarios
+app.delete('/api/usuarios/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [u] = await pool.query('SELECT rol, nombre FROM usuarios WHERE id = ?', [id]);
+        if (!u.length) return res.status(404).json({ success: false, message: 'No encontrado' });
+        if (u[0].rol === 'admin') return res.status(403).json({ success: false, message: 'No se puede eliminar admin' });
+        await pool.query('DELETE FROM profesional_servicios WHERE profesional_id = ?', [id]);
+        await pool.query('DELETE FROM disponibilidad_fechas WHERE profesional_id = ?', [id]);
+        await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
+        res.json({ success: true, message: `"${u[0].nombre}" eliminado` });
+    } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 // ============================================
@@ -631,7 +697,7 @@ app.get('/api/turnos/profesional/:id', async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT t.id, t.fecha, t.hora_inicio,
-                    COALESCE(t.cliente_nombre, u.nombre)   as cliente_nombre,
+                    COALESCE(t.cliente_nombre, u.nombre)     as cliente_nombre,
                     COALESCE(t.cliente_telefono, u.telefono) as telefono,
                     u.nombre as registrado_por,
                     s.nombre as servicio
@@ -671,9 +737,7 @@ app.get('/api/turnos/cliente/:id', async (req, res) => {
 // Crear turno
 app.post('/api/turnos', async (req, res) => {
     const { cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio } = req.body;
-
     console.log('📝 Creando turno:', { cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio });
-
     try {
         const [existente] = await pool.query(
             'SELECT id FROM turnos WHERE profesional_id = ? AND fecha = ? AND hora_inicio = ?',
@@ -682,20 +746,16 @@ app.post('/api/turnos', async (req, res) => {
         if (existente.length > 0) {
             return res.status(400).json({ success: false, message: 'Este horario ya está ocupado. Por favor selecciona otro.' });
         }
-
-        // Usar el nombre del formulario; si no vino, usar el del usuario logueado
         let nombreFinal = (cliente_nombre || '').trim();
         if (!nombreFinal && cliente_id) {
             const [u] = await pool.query('SELECT nombre FROM usuarios WHERE id = ?', [cliente_id]);
             if (u.length) nombreFinal = u[0].nombre;
         }
         const telFinal = (cliente_telefono || '').trim() || null;
-
         await pool.query(
             'INSERT INTO turnos (cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [cliente_id, nombreFinal || null, telFinal, profesional_id, servicio_id, fecha, hora_inicio]
         );
-
         console.log('✅ Turno creado — nombre:', nombreFinal, '| tel:', telFinal);
         res.json({ success: true, message: 'Turno agendado correctamente' });
     } catch (error) {
@@ -764,22 +824,6 @@ app.delete('/api/turnos/:id', async (req, res) => {
         console.error('❌ Error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
-});
-
-// ============================================
-// 🗑️ ELIMINAR PROFESIONAL
-// ============================================
-app.delete('/api/usuarios/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [u] = await pool.query('SELECT rol, nombre FROM usuarios WHERE id = ?', [id]);
-        if (!u.length) return res.status(404).json({ success: false, message: 'No encontrado' });
-        if (u[0].rol === 'admin') return res.status(403).json({ success: false, message: 'No se puede eliminar admin' });
-        await pool.query('DELETE FROM profesional_servicios WHERE profesional_id = ?', [id]);
-        await pool.query('DELETE FROM disponibilidad_fechas WHERE profesional_id = ?', [id]);
-        await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
-        res.json({ success: true, message: `"${u[0].nombre}" eliminado` });
-    } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 // ============================================
