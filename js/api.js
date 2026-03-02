@@ -1,6 +1,6 @@
 /// api.js - Conexión del frontend con el backend MySQL
 
-const API_URL = 'https://chamas-backend.onrender.com/api';
+const API_URL = 'window.API_BASE;';
 
 // ==========================================
 // FUNCIONES DE SERVICIOS
