@@ -1,10 +1,15 @@
 const mysql = require('mysql2/promise');
 
 const dbConfig = {
-    host: 'localhost',
-    user: 'root',      
-    password: '1234',  
-    database: 'chamas_spa'
+    DB_HOST: 'gateway01.us-east-1.prod.aws.tidbcloud.com',
+    DB_USER: '32KigEkWVRSwsCK.root',      
+    DB_PASSWORD: 'iCIQV3U87i7OTXmh',  
+    DB_NAME: 'test',
+    DB_PORT: 4000,
+    ssl: {
+        rejectUnauthorized: false
+    }
+
 };
 
 async function diagnosticoHorarios() {

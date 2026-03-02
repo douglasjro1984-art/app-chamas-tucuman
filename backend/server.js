@@ -866,7 +866,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('\n' + '='.repeat(70));
     console.log('🚀  SERVIDOR CHAMAS INICIADO');
     console.log('='.repeat(70));
-    console.log(`📍  URL: http://localhost:${PORT}`);
+    console.log(`📍  URL: https://chamas-backend.onrender.com`);
     console.log(`⏰  Hora: ${new Date().toLocaleString()}`);
     console.log('='.repeat(70));
     console.log('\n📋  RUTAS DISPONIBLES:\n');

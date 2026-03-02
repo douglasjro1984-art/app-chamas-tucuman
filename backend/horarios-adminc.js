@@ -54,7 +54,7 @@ async function cargarGestionHorariosAdmin(container) {
 
     // Llenar el select con profesionales
     try {
-        const res = await fetch('http://localhost:3000/api/usuarios/profesionales');
+        const res = await fetch('https://chamas-backend.onrender.com/api/usuarios/profesionales');
         const profesionales = await res.json();
 
         const select = document.getElementById('select-profesional-horario');
@@ -143,7 +143,7 @@ async function renderHorariosPanel(profesionalId, nombreProfesional) {
 
     try {
         // 🔥 Cargar disponibilidad_completa (que devuelve fecha y hora_inicio)
-        const res = await fetch(`http://localhost:3000/api/disponibilidad_completa/${profesionalId}`);
+        const res = await fetch(`https://chamas-backend.onrender.com/api/disponibilidad_completa/${profesionalId}`);
         const disponibilidadDB = await res.json();
 
         // 🔥 NUEVA LÓGICA: Mapear las fechas disponibles a días de semana y horas
@@ -277,7 +277,7 @@ async function enviarDisponibilidad(profesionalId, nombreProfesional) {
 
     try {
         // 🔥 CORRECCIÓN: Enviar desde y hasta
-        const res = await fetch('http://localhost:3000/api/disponibilidad', {
+        const res = await fetch('https://chamas-backend.onrender.com/api/disponibilidad', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 

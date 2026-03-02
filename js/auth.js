@@ -139,7 +139,7 @@ document.getElementById('form-registro-cliente')?.addEventListener('submit', asy
     btn.disabled = true;
     
     try {
-        const response = await fetch('http://localhost:3000/api/auth/registro', {
+        const response = await fetch('https://chamas-backend.onrender.com/api/auth/registro', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nombre, email, telefono, password, rol: 'cliente' })
@@ -181,7 +181,7 @@ document.getElementById('form-registro-cliente')?.addEventListener('submit', asy
 // ==========================================
 async function loginAPI(emailOTelefono, password) {
     try {
-        const response = await fetch('http://localhost:3000/api/auth/login', {
+        const response = await fetch('https://chamas-backend.onrender.com/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ emailOTelefono, password })

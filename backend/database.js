@@ -12,4 +12,15 @@ const pool = mysql.createPool({
     ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
 });
 
+// Prueba la conexión al arrancar
+pool.getConnection()
+  .then(connection => {
+    console.log('✅ Conexión a la base de datos establecida correctamente');
+    connection.release();
+  })
+  .catch(err => {
+    console.error('❌ Error al conectar a la base de datos:', err.message);
+  });
+
+
 module.exports = pool;

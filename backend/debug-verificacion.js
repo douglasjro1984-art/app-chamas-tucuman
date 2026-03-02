@@ -20,7 +20,7 @@ if (usuario) {
 // 2. Verificar conexión con backend
 async function verificarBackend() {
     try {
-        const res = await fetch('http://localhost:3000/api/health');
+        const res = await fetch(`${window.API_BASE}/health`);
         const data = await res.json();
         if (data.status === 'ok') {
             console.log('\n✅ Backend conectado correctamente');
@@ -35,52 +35,23 @@ async function verificarBackend() {
 
 // 3. Verificar disponibilidad de horarios (si hay usuario profesional/admin)
 async function verificarHorariosAPI() {
-    if (!usuario || usuario.rol === 'cliente') {
-        console.log('\n⏭️ Saltando verificación de horarios (solo para admin/profesional)');
-        return;
-    }
-    
+    if (!usuario || usuario.rol === 'cliente') return console.log('\n⏭️ Saltando horarios');
     try {
-        const idProfesional = usuario.rol === 'profesional' ? usuario.id : 1;
-        const res = await fetch(`http://localhost:3000/api/disponibilidad_completa/${idProfesional}`);
+        const id = usuario.rol === 'profesional' ? usuario.id : 1;
+        const res = await fetch(`${window.API_BASE}/disponibilidad_completa/${id}`); // <--- CORREGIDO
         const horarios = await res.json();
-        
-        console.log('\n📅 Horarios disponibles en DB:');
-        if (horarios.length === 0) {
-            console.log('   ⚠️ No hay horarios configurados');
-        } else {
-            const porDia = {};
-            horarios.forEach(h => {
-                if (!porDia[h.dia_semana]) porDia[h.dia_semana] = [];
-                porDia[h.dia_semana].push(h.hora_inicio.substring(0,5));
-            });
-            
-            Object.keys(porDia).forEach(dia => {
-                console.log(`   ${dia}: ${porDia[dia].join(', ')}`);
-            });
-        }
-    } catch (error) {
-        console.log('\n❌ Error obteniendo horarios:', error.message);
-    }
+        console.log('\n📅 Horarios en DB:', horarios);
+    } catch (e) { console.log('\n❌ Error horarios:', e.message); }
 }
+
 
 // 4. Verificar servicios
 async function verificarServicios() {
     try {
-        const res = await fetch('http://localhost:3000/api/servicios');
+        const res = await fetch(`${window.API_BASE}/servicios`);
         const servicios = await res.json();
-        
-        console.log('\n💅 Servicios disponibles:');
-        if (servicios.length === 0) {
-            console.log('   ⚠️ No hay servicios registrados');
-        } else {
-            servicios.forEach(s => {
-                console.log(`   - ${s.nombre} ($${s.precio})`);
-            });
-        }
-    } catch (error) {
-        console.log('\n❌ Error obteniendo servicios:', error.message);
-    }
+        console.log('\n💅 Servicios:', servicios);
+    } catch (e) { console.log('\n❌ Error servicios:', e.message); }
 }
 
 // 5. Verificar elementos del DOM
