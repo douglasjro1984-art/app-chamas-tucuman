@@ -89,11 +89,9 @@ app.post('/api/auth/registro', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Ese email ya está registrado' });
         }
 
-        // Verificar teléfono duplicado
-        const telefonoLimpio = telefono.replace(/\D/g, '');
+        // Verificar teléfono duplicado (compatible con TiDB Cloud)
         const [porTelefono] = await pool.query(
-            'SELECT id FROM usuarios WHERE REGEXP_REPLACE(telefono, "[^0-9]", "") = ?',
-            [telefonoLimpio]
+            'SELECT id FROM usuarios WHERE telefono = ?', [telefono]
         );
         if (porTelefono.length > 0) {
             return res.status(400).json({ success: false, message: 'Ese teléfono ya está registrado' });
