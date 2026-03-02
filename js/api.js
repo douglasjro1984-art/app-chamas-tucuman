@@ -1,6 +1,6 @@
 /// api.js - Conexión del frontend con el backend MySQL
 
-const API_URL = 'window.API_BASE;';
+const API_URL = window.API_BASE;
 
 // ==========================================
 // FUNCIONES DE SERVICIOS
