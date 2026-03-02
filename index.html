@@ -9,6 +9,11 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/13-galeria.css">
     <link rel="stylesheet" href="css/fix-backgrounds.css">
+    <script>
+        window.API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000'
+            : window.location.origin;
+    </script>
 </head>
 <body>
    

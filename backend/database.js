@@ -1,24 +1,15 @@
 const mysql = require('mysql2/promise');
 
-// Configuramos la conexión con tus datos actuales
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',      
-    password: '1234',  
-    database: 'chamas_spa', 
+    host:     process.env.DB_HOST,
+    user:     process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port:     process.env.DB_PORT || 3306,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
 });
-
-// Verificación rápida en la terminal al arrancar
-pool.getConnection()
-    .then(conn => {
-        console.log("✅ Conexión exitosa a MySQL");
-        conn.release();
-    })
-    .catch(err => {
-        console.error("❌ Error conectando a MySQL:", err.message);
-    });
 
 module.exports = pool;

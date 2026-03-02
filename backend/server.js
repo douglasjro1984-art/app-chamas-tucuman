@@ -859,9 +859,9 @@ app.get('/api/health', (req, res) => {
 // ============================================
 // 🚀 INICIAR SERVIDOR
 // ============================================
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.clear();
     console.log('\n' + '='.repeat(70));
     console.log('🚀  SERVIDOR CHAMAS INICIADO');
