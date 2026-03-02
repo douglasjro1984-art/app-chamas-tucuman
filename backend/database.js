@@ -9,7 +9,10 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
+    // Forzamos SSL para que TiDB no rechace la conexión en la nube
+    ssl: { 
+        rejectUnauthorized: false 
+    }
 });
 
 // Prueba la conexión al arrancar
@@ -21,6 +24,5 @@ pool.getConnection()
   .catch(err => {
     console.error('❌ Error al conectar a la base de datos:', err.message);
   });
-
 
 module.exports = pool;
