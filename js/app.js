@@ -1,122 +1,136 @@
+// ==========================================
 // app.js - Gestión de la Interfaz y Servicios
-// No definimos API_BASE aquí para evitar conflictos con el index.html y api.js
+// ==========================================
 
-// ==========================================
-// 1. VARIABLES GLOBALES
-// ==========================================
+// 1. CONFIGURACIÓN DE URL (Usa la variable de index.html)
+const URL_BASE = window.API_BASE; 
+
+// 2. VARIABLES GLOBALES
 let servicios = [];
 let _calendario_mes_actual = new Date();
 let _calendario_dias_seleccionados = {};
 
-// Usamos window.API_BASE que ya viene configurado desde el index.html
-const URL_FINAL = window.API_BASE; 
-
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log("🚀 Aplicación iniciada conectando a:", URL_FINAL);
+    console.log("🚀 Aplicación iniciada conectando a:", URL_BASE);
     const usuario = obtenerUsuarioActual();
+    
     if (usuario) {
-        console.log("👤 Usuario actual:", usuario);
+        // Si hay usuario, mostramos la App
         document.getElementById('main-app').style.display = 'block';
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('user-name').textContent = usuario.nombre;
         
         await cargarDatosDesdeAPI();
-        showSection('servicios');
         
-        if (usuario.rol === 'admin') {
+        // Si tienes la función de estadísticas en roles-funciones.js, la llama
+        if (usuario.rol === 'admin' && typeof cargarEstadisticas === 'function') {
             cargarEstadisticas();
         }
     }
 });
 
+// --- FUNCIONES DE NAVEGACIÓN Y SESIÓN ---
 function obtenerUsuarioActual() {
     const usuarioStr = localStorage.getItem('usuario');
     if (!usuarioStr) return null;
     try {
         return JSON.parse(usuarioStr);
     } catch (error) {
-        console.error('❌ Error:', error);
         localStorage.removeItem('usuario');
         return null;
     }
 }
 
+// --- CARGAR SERVICIOS DESDE EL BACKEND ---
 async function cargarDatosDesdeAPI() {
     try {
-        const res = await fetch(`${API_BASE}/api/servicios`);
+        // Importante: URL_BASE ya incluye /api, así que solo sumamos /servicios
+        const res = await fetch(`${URL_BASE}/servicios`);
         const datosS = await res.json();
+        
         servicios = datosS.map(s => {
             let valorImagen = s.imagen || 'default.jpg';
+            // Limpiamos rutas de imagen por si vienen con barras raras
             let rutaLimpia = valorImagen.split('\\').join('/').replace(/"/g, '');
             let rutaParaNavegador = rutaLimpia.startsWith('http') || rutaLimpia.startsWith('img/') 
                 ? rutaLimpia : `img/${rutaLimpia}`;
+                
             return {
-                id: s.id, nombre: s.nombre || "Servicio", precio: parseFloat(s.precio) || 0,
-                descripcion: s.descripcion || "", categoria_id: s.categoria_id || 1, 
-                imagen: rutaParaNavegador, imagenBD: valorImagen
+                id: s.id, 
+                nombre: s.nombre || "Servicio", 
+                precio: parseFloat(s.precio) || 0,
+                descripcion: s.descripcion || "", 
+                imagen: rutaParaNavegador, 
+                imagenBD: valorImagen,
+                activo: s.activo
             };
         });
         renderizarServicios();
-        llenarSelectServicios();
     } catch (error) {
-        console.error('❌ Error:', error);
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        console.error('❌ Error al cargar servicios:', error);
     }
 }
+
+function renderizarServicios() {
+    const grid = document.getElementById('servicios-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = servicios.filter(s => s.activo).map(s => `
+        <div class="servicio-card">
+            <div class="servicio-imagen" style="background-image: url('${encodeURI(s.imagen)}')"></div>
+            <div class="servicio-contenido">
+                <h3>${s.nombre}</h3>
+                <p class="servicio-descripcion">${s.descripcion}</p>
+                <div class="servicio-footer">
+                    <p class="servicio-precio">$${s.precio.toLocaleString()}</p>
+                    <button class="btn-agendar-mini" onclick="prepararAgendado(${s.id})">AGENDAR</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// --- REGISTRO DE PROFESIONALES (ADMIN) ---
 document.getElementById('form-registro-profesional')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const nombre = document.getElementById('prof-nombre').value.trim();
-    const email = document.getElementById('prof-email').value.trim();
-    const password = document.getElementById('prof-password').value;
-    const telefono = document.getElementById('prof-telefono').value.trim();
-    const serviciosSelect = document.getElementById('prof-servicios');
-    const servicios = Array.from(serviciosSelect.selectedOptions).map(opt => parseInt(opt.value));
-    
-    // Validaciones frontend
-    if (!nombre || !email || !password || !telefono) {
-        mostrarNotificacion('❌ Completa todos los campos requeridos', 'error');
-        return;
-    }
-    if (!validarEmail(email)) {
-        mostrarNotificacion('❌ Email inválido', 'error');
-        return;
-    }
-    if (!validarTelefono(telefono)) {
-        mostrarNotificacion('❌ Teléfono inválido (mínimo 10 dígitos)', 'error');
-        return;
-    }
-    if (password.length < 6) {
-        mostrarNotificacion('❌ Contraseña debe tener al menos 6 caracteres', 'error');
-        return;
-    }
-    
     const btn = e.target.querySelector('button[type="submit"]');
+    const datos = {
+        nombre: document.getElementById('prof-nombre').value.trim(),
+        email: document.getElementById('prof-email').value.trim(),
+        password: document.getElementById('prof-password').value,
+        telefono: document.getElementById('prof-telefono').value.trim(),
+        rol: 'profesional',
+        servicios: Array.from(document.getElementById('prof-servicios').selectedOptions).map(opt => parseInt(opt.value))
+    };
+
     btn.disabled = true;
-    btn.textContent = 'Registrando...';
-    
+    btn.textContent = 'Guardando...';
+
     try {
-        const response = await fetch(`${API_BASE}/api/usuarios`, {
+        const response = await fetch(`${URL_BASE}/auth/registro`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, email, password, telefono, servicios })
+            body: JSON.stringify(datos)
         });
         
         const data = await response.json();
-        
         if (data.success) {
-            mostrarNotificacion('✅ Profesional registrado exitosamente');
-            e.target.reset(); // Limpia el formulario
+            alert('✅ Profesional registrado con éxito');
+            e.target.reset();
         } else {
-            mostrarNotificacion('❌ ' + data.message, 'error');
+            alert('❌ ' + (data.message || 'Error al registrar'));
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        alert('❌ Error de conexión con el servidor');
     } finally {
         btn.disabled = false;
         btn.textContent = 'Registrar Profesional';
     }
 });
+
+// Nota: Las funciones de calendario y edición de precios siguen igual, 
+// asegúrate de que usen `${URL_BASE}/...` para sus fetch.
 
 function renderizarServicios() {
     const grid = document.getElementById('servicios-grid');
