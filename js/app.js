@@ -3,7 +3,9 @@
 // ==========================================
 
 // 1. CONFIGURACIÓN DE URL (Usa la variable de index.html)
-const URL_BASE = window.API_BASE; 
+
+const API_BASE = window.API_BASE; 
+const URL_BASE = window.API_BASE;
 
 // 2. VARIABLES GLOBALES
 let servicios = [];
@@ -41,34 +43,52 @@ function obtenerUsuarioActual() {
     }
 }
 
-// --- CARGAR SERVICIOS DESDE EL BACKEND ---
+// --- CARGAR SERVICIOS DESDE EL BACKEND (CORREGIDO) ---
 async function cargarDatosDesdeAPI() {
     try {
+        // CORRECCIÓN: Eliminado el texto pegado antes de console.log
+        console.log("📡 Intentando cargar servicios desde:", `${URL_BASE}/servicios`);
         
         const res = await fetch(`${URL_BASE}/servicios`);
-        const datosS = await res.json();
+        const data = await res.json();
+
+        // Guardamos los servicios (manejamos si vienen como array o en propiedad .data)
+        servicios = Array.isArray(data) ? data : (data.data || []);
+
+        console.log("✅ Servicios cargados:", servicios.length);
+
+        // 1. Dibuja las tarjetas visuales
+        renderizarServicios(); 
         
-        servicios = datosS.map(s => {
-            let valorImagen = s.imagen || 'default.jpg';
-           
-            let rutaLimpia = valorImagen.split('\\').join('/').replace(/"/g, '');
-            let rutaParaNavegador = rutaLimpia.startsWith('http') || rutaLimpia.startsWith('img/') 
-                ? rutaLimpia : `img/${rutaLimpia}`;
-                
-            return {
-                id: s.id, 
-                nombre: s.nombre || "Servicio", 
-                precio: parseFloat(s.precio) || 0,
-                descripcion: s.descripcion || "", 
-                imagen: rutaParaNavegador, 
-                imagenBD: valorImagen,
-                activo: s.activo
-            };
-        });
-        renderizarServicios();
+        // 2. BUSCA EL DESPLEGABLE DE TURNOS Y LLÉNALO
+        const selectServicio = document.getElementById('servicio-turno');
+        if (selectServicio) {
+            llenarSelectServicios(selectServicio);
+        }
+    
     } catch (error) {
-        console.error('❌ Error al cargar servicios:', error);
+        console.error("❌ Error al cargar servicios:", error);
     }
+}
+
+// FUNCIÓN NUEVA: Esta es la que hace que aparezcan en la tarjeta de agendar
+function llenarSelectServicios(select) {
+    if (!select) return;
+    
+    // Limpiamos y ponemos la opción por defecto
+    select.innerHTML = '<option value="">Seleccionar servicio...</option>';
+    
+    servicios.forEach(s => {
+        // Solo agregamos servicios que estén activos
+        if (s.activo !== false) { 
+            const option = document.createElement('option');
+            option.value = s.id;
+            // Mostramos nombre y precio para que el cliente lo vea claro
+            option.textContent = `${s.nombre} - $${s.precio}`;
+            select.appendChild(option);
+        }
+    });
+    console.log("🎯 Desplegable de servicios actualizado con éxito");
 }
 
 
