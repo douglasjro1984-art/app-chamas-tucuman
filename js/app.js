@@ -44,26 +44,28 @@ function obtenerUsuarioActual() {
 }
 
 // --- CARGAR SERVICIOS DESDE EL BACKEND (CORREGIDO) ---
+// --- CARGAR SERVICIOS DESDE EL BACKEND (CORREGIDO) ---
 async function cargarDatosDesdeAPI() {
     try {
-        // CORRECCIÓN: Eliminado el texto pegado antes de console.log
         console.log("📡 Intentando cargar servicios desde:", `${URL_BASE}/servicios`);
-        
         const res = await fetch(`${URL_BASE}/servicios`);
         const data = await res.json();
 
-        // Guardamos los servicios (manejamos si vienen como array o en propiedad .data)
+        // Si data es un array directo lo usamos, si viene en .data también
         servicios = Array.isArray(data) ? data : (data.data || []);
 
         console.log("✅ Servicios cargados:", servicios.length);
 
-        // 1. Dibuja las tarjetas visuales
-        renderizarServicios(); 
+        renderizarServicios();
         
-        // 2. BUSCA EL DESPLEGABLE DE TURNOS Y LLÉNALO
-        const selectServicio = document.getElementById('servicio-turno');
+        // --- CORRECCIÓN CRÍTICA AQUÍ ---
+        // Cambiamos 'servicio-turno' por 'servicio-select' para que coincida con tu HTML
+        const selectServicio = document.getElementById('servicio-select'); 
+        
         if (selectServicio) {
             llenarSelectServicios(selectServicio);
+        } else {
+            console.warn("⚠️ No se encontró el elemento 'servicio-select' en el HTML");
         }
     
     } catch (error) {
@@ -75,22 +77,18 @@ async function cargarDatosDesdeAPI() {
 function llenarSelectServicios(select) {
     if (!select) return;
     
-    // Limpiamos y ponemos la opción por defecto
     select.innerHTML = '<option value="">Seleccionar servicio...</option>';
-    
     servicios.forEach(s => {
-        // Solo agregamos servicios que estén activos
+        
         if (s.activo !== false) { 
             const option = document.createElement('option');
             option.value = s.id;
-            // Mostramos nombre y precio para que el cliente lo vea claro
             option.textContent = `${s.nombre} - $${s.precio}`;
             select.appendChild(option);
         }
     });
     console.log("🎯 Desplegable de servicios actualizado con éxito");
 }
-
 
 // --- REGISTRO DE PROFESIONALES (ADMIN) ---
 document.getElementById('form-registro-profesional')?.addEventListener('submit', async (e) => {
