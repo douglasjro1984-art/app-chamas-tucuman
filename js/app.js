@@ -2406,3 +2406,42 @@ async function actualizarHorariosEnTarjeta(profesionalId, fecha) {
         console.log(`✅ Se cargaron ${disponibles.length} horarios libres para la fecha ${fecha}`);
     }
 }
+
+// ==========================================
+// CONEXIÓN DE INTERFAZ PARA FILTRADO
+// ==========================================
+
+function conectarFiltrosDeTurnos() {
+    const selectProfe = document.getElementById('servicio-profesional');
+    const inputFecha = document.getElementById('servicio-fecha');
+
+    if (selectProfe && inputFecha) {
+        // Cada vez que cambie el profesional o la fecha, refrescamos las horas
+        const actualizar = async () => {
+            const profesionalId = selectProfe.value;
+            const fecha = inputFecha.value;
+
+            if (profesionalId && fecha) {
+                console.log(`🔍 Filtrando horas para Profe: ${profesionalId} en Fecha: ${fecha}`);
+                
+                // Llamamos a la función que ya agregaste antes
+                // Pero corregimos el ID del contenedor a 'servicio-turno-hora'
+                const ocupadas = await obtenerHorasOcupadasAPI(profesionalId, fecha);
+                const horasBase = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00"];
+                const disponibles = horasBase.filter(h => !ocupadas.includes(h));
+
+                const selectHora = document.getElementById('servicio-turno-hora');
+                if (selectHora) {
+                    selectHora.innerHTML = '<option value="">Seleccionar hora...</option>' + 
+                        disponibles.map(h => `<option value="${h}">${h}</option>`).join('');
+                }
+            }
+        };
+
+        selectProfe.addEventListener('change', actualizar);
+        inputFecha.addEventListener('change', actualizar);
+    }
+}
+
+// Ejecutamos la conexión cuando carga la página
+document.addEventListener('DOMContentLoaded', conectarFiltrosDeTurnos);
