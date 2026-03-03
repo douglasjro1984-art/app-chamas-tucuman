@@ -1428,3 +1428,50 @@ footer p {
         font-size: 0.8rem !important;
     }
 }
+/* ==========================================
+   SISTEMA DE DESPLIEGUE (ACORDEÓN)
+   ========================================== */
+
+/* La línea azul (el contenedor contraído) */
+.seccion-desplegable {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #C06C84; /* Tu línea azul/rosa */
+    border-radius: 15px;
+    overflow: hidden; /* Esconde lo que sobra */
+    transition: max-height 0.5s ease-in-out; /* Animación de despliegue */
+    max-height: 80px; /* Altura de la barra cerrada (donde va el logo) */
+}
+
+/* Cuando le das click y se despliega */
+.seccion-desplegable.abierta {
+    max-height: 2000px; /* Altura suficiente para mostrar las tarjetas */
+}
+
+/* El área del logo (lo que siempre se ve) */
+.cabecera-despliegue {
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    background: #fff;
+}
+
+.logo-admin-verde {
+    height: 60px; /* Ajusta al tamaño de tu logo */
+    transition: transform 0.3s;
+}
+
+/* El contenido que está adentro (las tarjetas) */
+.contenido-interno {
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.seccion-desplegable.abierta .contenido-interno {
+    opacity: 1;
+}
