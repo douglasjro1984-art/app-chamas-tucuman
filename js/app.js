@@ -71,24 +71,6 @@ async function cargarDatosDesdeAPI() {
     }
 }
 
-function renderizarServicios() {
-    const grid = document.getElementById('servicios-grid');
-    if (!grid) return;
-    
-    grid.innerHTML = servicios.filter(s => s.activo).map(s => `
-        <div class="servicio-card">
-            <div class="servicio-imagen" style="background-image: url('${encodeURI(s.imagen)}')"></div>
-            <div class="servicio-contenido">
-                <h3>${s.nombre}</h3>
-                <p class="servicio-descripcion">${s.descripcion}</p>
-                <div class="servicio-footer">
-                    <p class="servicio-precio">$${s.precio.toLocaleString()}</p>
-                    <button class="btn-agendar-mini" onclick="prepararAgendado(${s.id})">AGENDAR</button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
 
 // --- REGISTRO DE PROFESIONALES (ADMIN) ---
 document.getElementById('form-registro-profesional')?.addEventListener('submit', async (e) => {
@@ -108,7 +90,7 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
     btn.textContent = 'Guardando...';
 
     try {
-        const response = await fetch(`${URL_BASE}/auth/registro`, {
+        const response = await fetch(`${URL_BASE}/usuarios`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(datos)
@@ -162,12 +144,12 @@ async function cargarEditorPrecios() {
     // Cargar TODOS los servicios (activos + pausados) para el editor
     let todosLosServicios = servicios;
     try {
-        const r = await fetch(`${API_BASE}/api/servicios/todos`);
+        const r = await fetch(`${API_BASE}/servicios/todos`);
         if (r.ok) {
             todosLosServicios = await r.json();
         } else {
             // El server no tiene el endpoint /todos aún — cargar todos igualmente
-            const r2 = await fetch(`${API_BASE}/api/servicios`);
+            const r2 = await fetch(`${API_BASE}/servicios`);
             if (r2.ok) todosLosServicios = await r2.json();
         }
     } catch(e) {}
@@ -365,7 +347,7 @@ async function confirmarNuevoServicio() {
     if (!precio || parseFloat(precio) <= 0) { mostrarNotificacion('⚠️ Ingresá un precio válido','error'); return; }
     if (imagen && !imagen.startsWith('http') && !imagen.startsWith('img/')) imagen = 'img/'+imagen;
     try {
-        const res = await fetch(`${API_BASE}/api/servicios`, {
+        const res = await fetch(`${API_BASE}/servicios`, {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ nombre, descripcion: desc, precio: parseFloat(precio), imagen: imagen||'img/default.jpg' })
         });
@@ -396,7 +378,7 @@ async function togglePausarServicio(id, activoActual) {
         if (desc)    body.descripcion = desc;
         if (imagen)  body.imagen      = imagen;
 
-        const res = await fetch(`${API_BASE}/api/servicios/${id}`, {
+        const res = await fetch(`${API_BASE}/servicios/${id}`, {
             method: 'PUT', headers: {'Content-Type':'application/json'},
             body: JSON.stringify(body)
         });
@@ -413,7 +395,7 @@ async function togglePausarServicio(id, activoActual) {
 async function eliminarServicio(id, nombre) {
     if (!confirm(`⚠️ ¿Eliminar el servicio "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausalo.`)) return;
     try {
-        const res = await fetch(`${API_BASE}/api/servicios/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${API_BASE}/servicios/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
             mostrarNotificacion('🗑️ Servicio "'+nombre+'" eliminado');
@@ -433,7 +415,7 @@ async function guardarCambiosServicioCompleto(id) {
         return;
     }
     try {
-        const res = await fetch(`${API_BASE}/api/servicios/${id}`, {
+        const res = await fetch(`${API_BASE}/servicios/${id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nombre: nuevoNombre, precio: nuevoPrecio, descripcion: nuevaDesc, imagen: nuevaImagen })
         });
@@ -504,7 +486,7 @@ async function _renderSelectorProfesionalCalendario(container) {
     `;
 
     try {
-        const res = await fetch(`${API_BASE}/api/usuarios/profesionales`);
+        const res = await fetch(`${API_BASE}/usuarios/profesionales`);
         const profesionales = await res.json();
         const select = document.getElementById('select-prof-calendario');
         if (!select) return;
@@ -546,7 +528,7 @@ async function _renderCalendarioInteractivo(profesionalId, nombreProfesional) {
 
     // Cargar horarios ya guardados
     try {
-        const res = await fetch(`${API_BASE}/api/disponibilidad_completa/${profesionalId}`);
+        const res = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}`);
         const disponibilidad = await res.json();
         
         if (Array.isArray(disponibilidad)) {
@@ -793,7 +775,7 @@ async function _guardarHorariosSeleccionados(profesionalId) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/api/disponibilidad/guardar-directas`, {
+        const res = await fetch(`${API_BASE}/disponibilidad/guardar-directas`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -824,7 +806,7 @@ async function _actualizarHorariosGuardados(profesionalId) {
     if (!container) return;
 
     try {
-        const res = await fetch(`${API_BASE}/api/disponibilidad_completa/${profesionalId}`);
+        const res = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}`);
         const disponibilidad = await res.json();
 
         if (!disponibilidad || disponibilidad.length === 0) {
@@ -899,7 +881,7 @@ async function eliminarDiaCompleto(fecha, profesionalId) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/api/disponibilidad/eliminar-fecha`, {
+        const res = await fetch(`${API_BASE}/disponibilidad/eliminar-fecha`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -952,7 +934,7 @@ async function _renderSelectorProfesional(container) {
     `;
 
     try {
-        const res = await fetch(`${API_BASE}/api/usuarios/profesionales`);
+        const res = await fetch(`${API_BASE}/usuarios/profesionales`);
         const profesionales = await res.json();
         const select = document.getElementById('select-prof-horario');
         if (!select) return;
@@ -1091,7 +1073,7 @@ async function _cargarResumenSlots(profesionalId) {
     const el = document.getElementById('resumen-slots');
     if (!el) return;
     try {
-        const res   = await fetch(`${API_BASE}/api/disponibilidad_completa/${profesionalId}`);
+        const res   = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}`);
         const slots = await res.json();
         if (!slots.length) {
             el.innerHTML = '📭 Sin horarios cargados. Definí el rango y guardá.';
@@ -1153,7 +1135,7 @@ async function enviarDisponibilidad(profesionalId) {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando...'; }
 
     try {
-        const res  = await fetch(`${API_BASE}/api/disponibilidad`, {
+        const res  = await fetch(`${API_BASE}/disponibilidad`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ profesional_id: idFinal, desde, hasta, horarios })
@@ -1182,11 +1164,11 @@ async function cargarTurnosCliente() {
 
     try {
         // Obtener turnos del cliente
-        const resTurnos = await fetch(`${API_BASE}/api/turnos/cliente/${usuario.id}`);
+        const resTurnos = await fetch(`${API_BASE}/turnos/cliente/${usuario.id}`);
         const turnos = await resTurnos.json();
 
         // Obtener horarios disponibles de todos los profesionales
-        const resProfs = await fetch(`${API_BASE}/api/usuarios/profesionales`);
+        const resProfs = await fetch(`${API_BASE}/usuarios/profesionales`);
         const profesionales = await resProfs.json();
 
         let html = '';
@@ -1202,7 +1184,7 @@ async function cargarTurnosCliente() {
         const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
         for (const prof of profesionales) {
-            const resDisp = await fetch(`${API_BASE}/api/disponibilidad_completa/${prof.id}`);
+            const resDisp = await fetch(`${API_BASE}/disponibilidad_completa/${prof.id}`);
             const disponibilidad = await resDisp.json();
 
             if (!disponibilidad || disponibilidad.length === 0) {
@@ -1360,17 +1342,17 @@ async function cargarTurnosProfesional() {
         // Horarios: solo para profesional
         let disponibilidad = [];
         if (!esAdmin) {
-            const resDisp = await fetch(`${API_BASE}/api/disponibilidad_completa/${usuario.id}`);
+            const resDisp = await fetch(`${API_BASE}/disponibilidad_completa/${usuario.id}`);
             disponibilidad = await resDisp.json();
         }
 
         // Turnos: admin ve todos, profesional ve los suyos
         let turnos = [];
         if (esAdmin) {
-            const r = await fetch(`${API_BASE}/api/turnos/todos`);
+            const r = await fetch(`${API_BASE}/turnos/todos`);
             turnos = await r.json();
         } else {
-            const resTurnos = await fetch(`${API_BASE}/api/turnos/profesional/${usuario.id}`);
+            const resTurnos = await fetch(`${API_BASE}/turnos/profesional/${usuario.id}`);
             turnos = await resTurnos.json();
         }
 
@@ -1543,7 +1525,7 @@ async function cargarProfesionalesFiltro() {
     const select = document.getElementById('filtro-profesional');
     if (!select) return;
     try {
-        const res = await fetch(`${API_BASE}/api/usuarios/profesionales`);
+        const res = await fetch(`${API_BASE}/usuarios/profesionales`);
         const profesionales = await res.json();
         select.innerHTML = '<option value="">Todos</option>' + profesionales.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
     } catch (error) { }
@@ -1558,7 +1540,7 @@ function limpiarFiltros() {
 
 async function abrirModalEditar(turnoId) {
     try {
-        const res = await fetch(`${API_BASE}/api/turnos/${turnoId}`);
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}`);
         const turno = await res.json();
         document.getElementById('edit-turno-id').value = turno.id;
         document.getElementById('edit-cliente-nombre').value = turno.cliente_nombre || turno.cliente || '';
@@ -1582,7 +1564,7 @@ function cerrarModalEditar() {
 async function cargarServiciosModal() {
     const select = document.getElementById('edit-servicio-select');
     if (!select) return;
-    const res = await fetch(`${API_BASE}/api/servicios`);
+    const res = await fetch(`${API_BASE}/servicios`);
     const servicios = await res.json();
     select.innerHTML = '<option value="">Seleccionar...</option>' + servicios.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
     select.onchange = async (e) => { await cargarProfesionalesModal(e.target.value); };
@@ -1591,7 +1573,7 @@ async function cargarServiciosModal() {
 async function cargarProfesionalesModal(servicioId) {
     const select = document.getElementById('edit-profesional-select');
     if (!servicioId || !select) return;
-    const res = await fetch(`${API_BASE}/api/profesionales/servicio/${servicioId}`);
+    const res = await fetch(`${API_BASE}/profesionales/servicio/${servicioId}`);
     const profesionales = await res.json();
     select.innerHTML = '<option value="">Seleccionar...</option>' + profesionales.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
     select.onchange = async () => {
@@ -1610,9 +1592,9 @@ async function cargarHorariosModal(profesionalId, fecha, turnoIdActual) {
     const fechaObj = new Date(fecha + 'T00:00:00');
     const diaSemana = diasSemana[fechaObj.getDay()];
     try {
-        const resDisp = await fetch(`${API_BASE}/api/disponibilidad/${profesionalId}/${diaSemana}`);
+        const resDisp = await fetch(`${API_BASE}/disponibilidad/${profesionalId}/${diaSemana}`);
         const horariosDisp = await resDisp.json();
-        const resOcup = await fetch(`${API_BASE}/api/horarios-ocupados/${profesionalId}/${fecha}?excluir=${turnoIdActual}`);
+        const resOcup = await fetch(`${API_BASE}/horarios-ocupados/${profesionalId}/${fecha}?excluir=${turnoIdActual}`);
         const horariosOcup = await resOcup.json();
         const horariosLibres = horariosDisp.filter(disp => {
             const horaDisp = disp.hora_inicio.substring(0, 5);
@@ -1634,7 +1616,7 @@ document.getElementById('form-editar-turno')?.addEventListener('submit', async (
         return;
     }
     try {
-        const res = await fetch(`${API_BASE}/api/turnos/${turnoId}`, {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ servicio_id: parseInt(servicioId), profesional_id: parseInt(profesionalId), fecha: fecha, hora_inicio: hora + ':00' })
         });
@@ -1654,7 +1636,7 @@ document.getElementById('form-editar-turno')?.addEventListener('submit', async (
 async function eliminarTurno(turnoId) {
     if (!confirm('⚠️ ¿Eliminar este turno?')) return;
     try {
-        const res = await fetch(`${API_BASE}/api/turnos/${turnoId}`, { method: 'DELETE' });
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
             mostrarNotificacion('✅ Eliminado');
@@ -1696,7 +1678,7 @@ async function cargarProfesionalesPorServicio(servicioId) {
     selectHora.innerHTML = '<option value="">Primero seleccioná profesional...</option>';
 
     try {
-        const res = await fetch(`${API_BASE}/api/profesionales/servicio/${servicioId}`);
+        const res = await fetch(`${API_BASE}/profesionales/servicio/${servicioId}`);
         const profesionales = await res.json();
         selectPro.disabled = false;
         selectPro.innerHTML = '<option value="">Seleccionar profesional...</option>' +
@@ -1727,7 +1709,7 @@ async function cargarHorariosDisponibles() {
 
     try {
         // Nueva ruta: devuelve solo horas libres para esa fecha exacta
-        const res = await fetch(`${API_BASE}/api/disponibilidad/${profesionalId}/${fecha}`);
+        const res = await fetch(`${API_BASE}/disponibilidad/${profesionalId}/${fecha}`);
         const horas = await res.json();
 
         if (!Array.isArray(horas) || horas.length === 0) {
@@ -1761,7 +1743,7 @@ async function marcarFechasDisponibles(profesionalId) {
     document.getElementById('turno-hora').innerHTML = '<option value="">Primero seleccioná una fecha...</option>';
 
     try {
-        const res = await fetch(`${API_BASE}/api/disponibilidad/rango/${profesionalId}`);
+        const res = await fetch(`${API_BASE}/disponibilidad/rango/${profesionalId}`);
         const fechasDisp = await res.json(); // array de "YYYY-MM-DD"
 
         if (fechasDisp.length === 0) {
@@ -1811,7 +1793,7 @@ document.getElementById('form-turno')?.addEventListener('submit', async (e) => {
     if (!clienteNombre) { mostrarNotificacion('⚠️ Ingresá el Nombre Completo','error'); document.getElementById('cliente-nombre')?.focus(); return; }
     if (!servicioId || !profesionalId || !fecha || !hora) { mostrarNotificacion('⚠️ Completa todos los campos','error'); return; }
     try {
-        const res = await fetch(`${API_BASE}/api/turnos`, {
+        const res = await fetch(`${API_BASE}/turnos`, {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ cliente_id: parseInt(usuario.id), cliente_nombre: clienteNombre,
                 cliente_email: clienteEmail, cliente_telefono: clienteTelefono,
@@ -1893,7 +1875,7 @@ function prepararAgendado(id) {
 // ==========================================
 async function cargarEstadisticas() {
     try {
-        const res = await fetch(`${API_BASE}/api/estadisticas`);
+        const res = await fetch(`${API_BASE}/estadisticas`);
         const stats = await res.json();
         const elH=document.getElementById('stat-turnos-hoy'); if(elH) elH.textContent=stats.turnosHoy||0;
         const elI=document.getElementById('stat-ingresos');   if(elI) elI.textContent='$'+(stats.ingresosMes||0).toLocaleString();
@@ -1926,7 +1908,7 @@ async function cargarEstadisticas() {
         <div id="g-resultados"></div>`;
     section.appendChild(panel);
     try {
-        const rp=await fetch(`${API_BASE}/api/usuarios/profesionales`);
+        const rp=await fetch(`${API_BASE}/usuarios/profesionales`);
         const ps=await rp.json();
         const sel=document.getElementById('g-prof');
         ps.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.nombre;sel.appendChild(o);});
@@ -2001,7 +1983,7 @@ async function calcG() {
     const cont=document.getElementById('g-resultados'); if(!cont) return;
     cont.innerHTML='<p style="color:#888;text-align:center;padding:16px;">⏳ Calculando...</p>';
     try {
-        let url=`${API_BASE}/api/turnos/todos?`;
+        let url=`${API_BASE}/turnos/todos?`;
         if(desde) url+='fecha_desde='+desde+'&';
         if(hasta) url+='fecha_hasta='+hasta+'&';
         if(profId) url+='profesional_id='+profId+'&';
@@ -2196,7 +2178,7 @@ async function cargarTodosLosTurnos() {
         const profesionalId = document.getElementById('filtro-profesional')?.value || '';
         const fechaDesde = document.getElementById('filtro-fecha-desde')?.value || '';
         const fechaHasta = document.getElementById('filtro-fecha-hasta')?.value || '';
-        let url = `${API_BASE}/api/turnos/todos`;
+        let url = `${API_BASE}/turnos/todos`;
         const params = new URLSearchParams();
         if (profesionalId) params.append('profesional_id', profesionalId);
         if (fechaDesde) params.append('fecha_desde', fechaDesde);
@@ -2313,7 +2295,7 @@ async function confirmarPago(turnoId) {
         return;
     }
     try {
-        const res = await fetch(`${API_BASE}/api/turnos/${turnoId}`, {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}`, {
             method: 'PUT', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ estado: 'finalizado', monto_pagado: parseFloat(monto), metodo_pago: metodo })
         });
@@ -2333,7 +2315,7 @@ async function cargarListaProfesionalesAdmin() {
     const container = document.getElementById('lista-profesionales-admin');
     if (!container) return;
     try {
-        const res = await fetch(`${API_BASE}/api/usuarios/profesionales`);
+        const res = await fetch(`${API_BASE}/usuarios/profesionales`);
         const profs = await res.json();
         if (!profs.length) {
             container.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">No hay profesionales registrados aún.</p>';
@@ -2360,7 +2342,7 @@ async function cargarListaProfesionalesAdmin() {
 async function eliminarProfesional(id, nombre) {
     if (!confirm(`¿Eliminar a "${nombre}"?\nEsto eliminará también sus horarios y disponibilidad.`)) return;
     try {
-        const res = await fetch(`${API_BASE}/api/usuarios/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${API_BASE}/usuarios/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
             mostrarNotificacion(`🗑️ "${nombre}" eliminada`);
