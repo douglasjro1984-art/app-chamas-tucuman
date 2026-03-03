@@ -1377,32 +1377,54 @@ footer p {
 /* ==========================================
    SOLUCIÓN FINAL DE RESPONSIVIDAD
    ========================================== */
+/* ==========================================
+   SUPER PARCHE RESPONSIVO (USANDO .grid)
+   ========================================== */
 @media (max-width: 600px) {
-    /* 1. Forzamos que las tarjetas ocupen el ancho disponible sin salirse */
-    .servicios-grid {
-        grid-template-columns: 1fr !important; /* Una sola columna obligatoria */
-        gap: 10px !important;
-        padding: 5px !important;
+    /* 1. Ajustamos el contenedor principal de servicios */
+    .grid {
+        grid-template-columns: 1fr !important; /* Una sola columna */
         display: flex !important;
         flex-direction: column !important;
-    }
-
-    /* 2. EVITA QUE TAPEN TODO: Limita la altura de la sección de servicios */
-    #seccion-servicios, .seccion-app {
-        max-height: 60vh !important; /* Solo usa el 60% de la altura del cel */
-        overflow-y: auto !important;  /* Permite scroll solo adentro de las tarjetas */
-        padding-bottom: 20px !important;
-        -webkit-overflow-scrolling: touch; /* Suavidad en iPhone */
-    }
-
-    /* 3. Reducimos el tamaño de la tarjeta para que no sea gigante */
-    .servicio-card {
-        width: 100% !important;
-        margin: 5px 0 !important;
+        gap: 15px !important;
         padding: 10px !important;
     }
 
-    .servicio-card img {
-        height: 120px !important; /* Imagen más pequeña para que no estorbe */
+    /* 2. LIMITAMOS LA ALTURA (Esto evita que tape toda la pantalla) */
+    /* Aplicamos a la sección donde vive la clase .grid */
+    .section.active, #servicios, .seccion-app {
+        max-height: 70vh !important; /* Solo el 70% de la altura del móvil */
+        overflow-y: auto !important;  /* Scroll interno */
+        border-radius: 15px;
+        -webkit-overflow-scrolling: touch;
+        background: rgba(255, 255, 255, 0.3); /* Un toque de transparencia para ver el fondo */
+        padding: 10px !important;
+    }
+
+    /* 3. Ajustamos la tarjeta para que no sea gigante */
+    .servicio-card {
+        width: 100% !important;
+        min-height: auto !important;
+        margin-bottom: 5px !important;
+    }
+
+    .servicio-imagen {
+        height: 140px !important; /* Imagen más pequeña en el móvil */
+    }
+
+    .servicio-contenido h3 {
+        font-size: 1.1rem !important;
+    }
+
+    /* 4. Ajuste del menú de navegación para que no estorbe */
+    .nav-links {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr; /* Botones de 2 en 2 para ahorrar espacio */
+        gap: 5px !important;
+    }
+    
+    .nav-links button {
+        padding: 8px !important;
+        font-size: 0.8rem !important;
     }
 }
