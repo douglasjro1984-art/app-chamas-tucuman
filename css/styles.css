@@ -1373,3 +1373,38 @@ footer p {
     flex-direction: column;
     gap: 0;
 }
+
+/* ==========================================
+   AJUSTE PARA MÓVILES (RESPONSIVE)
+   ========================================== */
+@media (max-width: 600px) {
+    /* 1. Ajustamos la cuadrícula para que no sea tan ancha */
+    .servicios-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
+        gap: 15px !important;
+        padding: 10px !important;
+    }
+
+    /* 2. Hacemos que la sección de la App no ocupe espacio infinito */
+    #main-app {
+        padding: 10px !important;
+    }
+
+    /* 3. Ajuste de las tarjetas de servicios para que no tapen todo */
+    .servicio-card {
+        margin-bottom: 10px !important;
+        padding: 15px !important;
+    }
+
+    /* 4. Si tienes muchas tarjetas, esto permite ver el fondo y no perderse */
+    .seccion-app {
+        max-height: 85vh; /* Evita que la sección sea más larga que la pantalla */
+        overflow-y: auto;  /* Permite deslizar solo dentro de la lista de tarjetas */
+        border-radius: 15px;
+    }
+
+    /* 5. Ajuste de imágenes para que no ocupen media pantalla */
+    .servicio-card img {
+        height: 150px !important;
+    }
+}
