@@ -46,3 +46,32 @@ async function probarConexionAPI() {
         return false;
     }
 }
+// ==========================================
+// FUNCIONES DE TURNOS (NUEVAS)
+// ==========================================
+async function obtenerTurnosOcupadosAPI(profesionalId, fecha) {
+    try {
+        // Consultamos al backend por profesional y fecha específica
+        const response = await fetch(`${API_URL}/turnos?profesionalId=${profesionalId}&fecha=${fecha}`);
+        const data = await response.json();
+        // Retornamos solo el array de horas ocupadas para facilitar el filtro
+        return Array.isArray(data) ? data.map(t => t.hora) : [];
+    } catch (error) {
+        console.error('Error al obtener turnos ocupados:', error);
+        return [];
+    }
+}
+
+async function guardarTurnoAPI(turnoData) {
+    try {
+        const response = await fetch(`${API_URL}/turnos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(turnoData)
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error al guardar turno:', error);
+        return { success: false };
+    }
+}

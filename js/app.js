@@ -2368,3 +2368,41 @@ async function eliminarProfesional(id, nombre) {
         } else { mostrarNotificacion('❌ '+(data.message||'Error'),'error'); }
     } catch(e) { mostrarNotificacion('❌ Error de conexión','error'); }
 }
+
+// ==========================================
+// FUNCIONES DE TURNOS (NUEVAS)
+// ==========================================
+
+// Trae las horas ocupadas de un profesional en un día específico
+async function obtenerHorasOcupadasAPI(profesionalId, fecha) {
+    try {
+        const response = await fetch(`${API_URL}/turnos?profesionalId=${profesionalId}&fecha=${fecha}`);
+        const turnosOcupados = await response.json();
+        // Devolvemos un array de horas: ["08:00", "12:00"]
+        return Array.isArray(turnosOcupados) ? turnosOcupados.map(t => t.hora) : [];
+    } catch (error) {
+        console.error('❌ Error al obtener turnos ocupados:', error);
+        return [];
+    }
+}
+// --- FILTRADO DE HORARIOS DISPONIBLES ---
+async function actualizarHorariosEnTarjeta(profesionalId, fecha) {
+    // 1. Buscamos las horas que YA están reservadas
+    const ocupadas = await obtenerHorasOcupadasAPI(profesionalId, fecha);
+    
+    // 2. Definimos las horas que el profesional atiende (ajusta esto según tu necesidad)
+    const horasBase = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00"];
+    
+    // 3. FILTRO: Solo dejamos las que NO están en la lista de ocupadas
+    const disponibles = horasBase.filter(h => !ocupadas.includes(h));
+    
+    // 4. Buscamos el lugar donde se muestran las horas en tu HTML
+    // NOTA: Revisa que el ID 'contenedor-horas' exista en tu index.html
+    const contenedor = document.getElementById('edit-turno-hora') || document.getElementById('contenedor-horas');
+    
+    if (contenedor) {
+        contenedor.innerHTML = '<option value="">Seleccionar hora...</option>' + 
+            disponibles.map(h => `<option value="${h}">${h}</option>`).join('');
+        console.log(`✅ Se cargaron ${disponibles.length} horarios libres para la fecha ${fecha}`);
+    }
+}
