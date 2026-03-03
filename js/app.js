@@ -44,34 +44,37 @@ function obtenerUsuarioActual() {
 // --- CARGAR SERVICIOS DESDE EL BACKEND ---
 async function cargarDatosDesdeAPI() {
     try {
-        // Importante: URL_BASE ya incluye /api, así que solo sumamos /servicios
-        const res = await fetch(`${URL_BASE}/servicios`);
-        const datosS = await res.json();
         
-        servicios = datosS.map(s => {
-            let valorImagen = s.imagen || 'default.jpg';
-            // Limpiamos rutas de imagen por si vienen con barras raras
-            let rutaLimpia = valorImagen.split('\\').join('/').replace(/"/g, '');
-            let rutaParaNavegador = rutaLimpia.startsWith('http') || rutaLimpia.startsWith('img/') 
-                ? rutaLimpia : `img/${rutaLimpia}`;
-                
-            return {
-                id: s.id, 
-                nombre: s.nombre || "Servicio", 
-                precio: parseFloat(s.precio) || 0,
-                descripcion: s.descripcion || "", 
-                imagen: rutaParaNavegador, 
-                imagenBD: valorImagen,
-                activo: s.activo
-            };
-        });
+        cargarDatosDesdeAPIconsole.log("📡 Intentando cargar servicios desde:", `${URL_BASE}/servicios`);
+        const res = await fetch(`${URL_BASE}/servicios`);
+        const data = await res.json();
+
+        servicios = Array.isArray(data) ? data : (data.data || []);
+
+        console.log("✅ Servicios cargados:", servicios.length);
+
         renderizarServicios();
+        
+        const selectServicio = document.getElementById('servicio-turno');
+        if (selectServicio) {
+            llenarSelectServicios(selectServicio);
+        }
+    
     } catch (error) {
-        console.error('❌ Error al cargar servicios:', error);
+        console.error("❌ Error al cargar servicios:", error);
     }
 }
-
-
+                
+           function llenarSelectServicios(select) {
+    select.innerHTML = '<option value="">Seleccionar servicio...</option>';
+    servicios.forEach(s => {
+        const option = document.createElement('option');
+        option.value = s.id;
+        option.textContent = `${s.nombre} - $${s.precio}`;
+        select.appendChild(option);
+    });
+}
+   
 // --- REGISTRO DE PROFESIONALES (ADMIN) ---
 document.getElementById('form-registro-profesional')?.addEventListener('submit', async (e) => {
     e.preventDefault();
