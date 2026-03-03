@@ -2446,56 +2446,44 @@ function conectarFiltrosDeTurnos() {
 // Ejecutamos la conexión cuando carga la página
 document.addEventListener('DOMContentLoaded', conectarFiltrosDeTurnos);
 
-// ==========================================
-// CONEXIÓN AUTOMÁTICA DE FILTROS (PEGAR AL FINAL)
-// ==========================================
-
-function conectarFiltrosDeTurnos() {
-    // Estos son los IDs reales que saqué de tu index.html
-    const selectProfe = document.getElementById('servicio-profesional');
-    const inputFecha = document.getElementById('servicio-fecha');
+// --- FUNCIÓN QUIRÚRGICA DE FILTRADO ---
+async function filtrarHorariosOcupados() {
+    // Buscamos los elementos por los IDs que realmente usas
+    const selectProfe = document.getElementById('profesional-select');
+    const inputFecha = document.getElementById('fecha-turno');
     const selectHora = document.getElementById('servicio-turno-hora');
 
-    if (selectProfe && inputFecha && selectHora) {
-        console.log("🔗 Sistema de filtros de turnos activado.");
+    if (!selectProfe || !inputFecha || !selectHora) {
+        console.error("❌ No se encuentran los IDs en el HTML");
+        return;
+    }
 
-        const refrescar = async () => {
-            const profeId = selectProfe.value;
-            const fecha = inputFecha.value;
+    const profeId = selectProfe.value;
+    const fecha = inputFecha.value;
 
-            if (profeId && fecha) {
-                console.log(`📡 Buscando ocupados para: ${profeId} el día ${fecha}`);
-                
-                // Usamos la función que ya tienes en api.js
-                const ocupados = await obtenerTurnosOcupadosAPI(profeId, fecha);
-                
-                // Horarios disponibles del local
-                const todosLosHorarios = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00"];
+    if (profeId && fecha) {
+        console.log(`🔍 Filtrando para: Profe ${profeId} - Fecha ${fecha}`);
+        
+        // 1. Pedimos los turnos que ya existen
+        const ocupados = await obtenerHorasOcupadasAPI(profeId, fecha);
+        
+        // 2. Tus horarios base
+        const horariosBase = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00"];
 
-                // FILTRADO: Solo dejamos las horas que NO están en 'ocupados'
-                const disponibles = todosLosHorarios.filter(h => !ocupados.includes(h));
+        // 3. El filtro real: Solo lo que NO está ocupado
+        const disponibles = horariosBase.filter(h => !ocupados.includes(h));
 
-                // Actualizamos el selector visualmente
-                selectHora.innerHTML = '<option value="">Seleccionar hora...</option>';
-                disponibles.forEach(h => {
-                    const opt = document.createElement('option');
-                    opt.value = h;
-                    opt.textContent = h;
-                    selectHora.appendChild(opt);
-                });
-                
-                console.log("✅ Lista de horarios actualizada (Ocupados ocultos)");
-            }
-        };
-
-        // Escuchamos cambios en Profesional y Fecha
-        selectProfe.addEventListener('change', refrescar);
-        inputFecha.addEventListener('change', refrescar);
+        // 4. Actualizamos el selector visualmente
+        selectHora.innerHTML = '<option value="">Seleccionar hora...</option>' + 
+            disponibles.map(h => `<option value="${h}">${h}</option>`).join('');
+        
+        console.log("✅ Horarios libres cargados:", disponibles);
     }
 }
 
-// Esto hace que la conexión se active apenas carga la página
-document.addEventListener('DOMContentLoaded', () => {
-    // Un pequeño delay para asegurar que el HTML terminó de renderizar
-    setTimeout(conectarFiltrosDeTurnos, 500);
+// ESTO CONECTA EL HTML CON EL FILTRO DE FORMA FORZADA
+document.addEventListener('change', (e) => {
+    if (e.target.id === 'profesional-select' || e.target.id === 'fecha-turno') {
+        filtrarHorariosOcupados();
+    }
 });
