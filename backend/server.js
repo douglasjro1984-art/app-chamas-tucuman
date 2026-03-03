@@ -98,15 +98,33 @@ app.post('/api/auth/registro', async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const [result] = await pool.query(
-            'INSERT INTO usuarios (nombre, email, password, rol, telefono) VALUES (?, ?, ?, ?, ?)',
-            [nombre, email, hashedPassword, 'cliente', telefono]
-        );
-        console.log('✅ Cliente registrado ID:', result.insertId);
+
+        // Intentar insertar con telefono; si falla por columna inexistente, insertar sin él
+        try {
+            const [result] = await pool.query(
+                'INSERT INTO usuarios (nombre, email, password, rol, telefono) VALUES (?, ?, ?, ?, ?)',
+                [nombre, email, hashedPassword, 'cliente', telefono]
+            );
+            console.log('✅ Cliente registrado ID:', result.insertId);
+        } catch (insertError) {
+            // Si falla por columna telefono inexistente, intentar sin telefono
+            if (insertError.code === 'ER_BAD_FIELD_ERROR' && insertError.message.includes('telefono')) {
+                console.warn('⚠️ Columna telefono no encontrada, insertando sin ella...');
+                const [result] = await pool.query(
+                    'INSERT INTO usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)',
+                    [nombre, email, hashedPassword, 'cliente']
+                );
+                console.log('✅ Cliente registrado (sin tel) ID:', result.insertId);
+            } else {
+                throw insertError;
+            }
+        }
+
         res.json({ success: true, message: '¡Cuenta creada exitosamente!' });
     } catch (error) {
         console.error('❌ Error en registro:', error);
-        res.status(500).json({ success: false, message: 'Error en el servidor' });
+        // Devolver el error REAL para poder diagnosticar
+        res.status(500).json({ success: false, message: 'Error en el servidor: ' + error.message });
     }
 });
 
