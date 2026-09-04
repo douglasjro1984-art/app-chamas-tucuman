@@ -1,0 +1,136 @@
+/* ==========================================
+   CORRECCIÓN CSS - EDITAR PRECIOS
+   ========================================== */
+
+/* 🔥 CORRECCIÓN: Layout mejorado para editor de servicios */
+.editor-servicio-card {
+    display: grid;
+    grid-template-columns: 200px 1fr 180px;
+    gap: 20px;
+    align-items: start;
+    background: #ffffff !important;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Primera columna: Imagen + info básica */
+.editor-servicio-card > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.editor-servicio-card > div:first-child img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #e8d0da;
+}
+
+.editor-servicio-card > div:first-child > div {
+    text-align: center;
+}
+
+.editor-servicio-card > div:first-child h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #C06C84;
+}
+
+.editor-servicio-card > div:first-child small {
+    color: #999;
+    font-size: 0.85rem;
+}
+
+/* Segunda columna: Formulario de edición */
+.editor-servicio-card > div:nth-child(2) {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.grid-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.grid-row > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.editor-servicio-card label {
+    font-weight: 600;
+    color: #555;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.editor-servicio-card input,
+.editor-servicio-card textarea {
+    padding: 10px;
+    border: 2px solid #e8d0da;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.editor-servicio-card input:focus,
+.editor-servicio-card textarea:focus {
+    outline: none;
+    border-color: #C06C84;
+}
+
+.editor-servicio-card textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* Tercera columna: Botones de acción */
+.editor-servicio-card > div:last-child {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: flex-start;
+}
+
+/* 🔥 Responsivo para pantallas pequeñas */
+@media (max-width: 968px) {
+    .editor-servicio-card {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .editor-servicio-card > div:first-child {
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .editor-servicio-card > div:first-child img {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .editor-servicio-card > div:last-child {
+        flex-direction: row;
+        justify-content: flex-end;
+    }
+}
+
+/* Asegurar que el contenedor principal tenga el padding correcto */
+#lista-precios-editar {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}

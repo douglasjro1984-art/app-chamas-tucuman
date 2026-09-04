@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Archivos con credenciales o datos sensibles
+*update_passwords*.js
+*verificar_db*.js
+*TiDB*Cloud*.md
+*credentials*
