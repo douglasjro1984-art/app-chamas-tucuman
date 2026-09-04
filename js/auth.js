@@ -282,6 +282,7 @@ function configurarInterfazPorRol(rol) {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'none');
     
     const usuario = obtenerUsuarioActual();
     if (usuario) {
@@ -293,10 +294,13 @@ function configurarInterfazPorRol(rol) {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
     } else if (rol === 'profesional') {
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
     } else if (rol === 'cliente') {
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
+    } else if (rol === 'caja') {
+        document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
     }
     
     console.log('✅ Interfaz de', rol.toUpperCase(), 'activada');
@@ -314,7 +318,7 @@ function tienePermiso(accion) {
         'ver_estadisticas':    ['admin'],
         'gestionar_horarios':  ['admin', 'profesional'],
         'agendar_turno':       ['admin', 'profesional', 'cliente'],
-        'ver_catalogo':        ['admin', 'profesional', 'cliente']
+        'ver_catalogo':        ['admin', 'profesional', 'cliente', 'caja']
     };
     
     return permisos[accion]?.includes(usuario.rol) || false;

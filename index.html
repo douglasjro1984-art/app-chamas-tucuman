@@ -96,6 +96,7 @@
             <div class="container nav-wrapper">
                 <div class="nav-links">
                     <button onclick="showSection('servicios')">📦 Servicios</button>
+                    <button class="caja-only" onclick="showSection('caja')">💵 Caja</button>
                     <button onclick="showSection('agendar')" class="cliente-puede">📝 Agendar</button>
                     <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">📅 Mis Turnos</button>
                     <button class="prof-only" onclick="showSection('mis-turnos-profesional')">👥 Citas clientes</button>
@@ -121,6 +122,12 @@
             <section id="servicios" class="section active">
                 <h2>📦 Nuestros Servicios</h2>
                 <div id="servicios-grid" class="grid"></div>
+            </section>
+
+            <section id="caja" class="section">
+                <h2>💵 Caja - Turnos del Día</h2>
+                <p style="color: #666; margin-bottom: 20px;">Acá podés ver los turnos del día, cobrar y emitir el ticket.</p>
+                <div id="caja-turnos-dia"></div>
             </section>
 
             <section id="mis-turnos-cliente" class="section">
@@ -261,6 +268,13 @@
                         <input type="tel" id="prof-telefono" required placeholder="+54 9 11 1234-5678">
                     </div>
                     <div class="form-group">
+                        <label>🎭 Tipo de Usuario</label>
+                        <select id="prof-rol" onchange="toggleRolUsuario()">
+                            <option value="profesional">👩‍💼 Profesional</option>
+                            <option value="caja">💵 Caja</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="prof-servicios-grupo">
                         <label>💆 Servicios Asignados (opcional — Ctrl/Cmd para seleccionar varios)</label>
                         <select id="prof-servicios" multiple style="min-height: 150px;">
                             <!-- Se llena dinámicamente desde JS -->
@@ -269,7 +283,7 @@
                             💡 Mantén Ctrl (Windows) o Cmd (Mac) para seleccionar varios servicios
                         </small>
                     </div>
-                    <button type="submit" class="btn-guardar">✅ Registrar Profesional</button>
+                    <button type="submit" class="btn-guardar">✅ Registrar</button>
                 </form>
 
                 <!-- Lista de profesionales registradas -->

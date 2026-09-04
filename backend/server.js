@@ -266,8 +266,8 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
     }
     
-    if (rol !== 'profesional' && rol !== 'cliente') {
-        return res.status(400).json({ success: false, message: 'Solo se pueden crear profesionales o clientes' });
+    if (rol !== 'profesional' && rol !== 'cliente' && rol !== 'caja') {
+        return res.status(400).json({ success: false, message: 'Solo se pueden crear profesionales, caja o clientes' });
     }
 
     if (password.length < 6) {
@@ -1011,6 +1011,151 @@ app.get('/api/estadisticas', autenticar, autorizar(['admin']), async (req, res) 
     } catch (error) {
         console.error('❌ Error estadísticas:', error.message);
         res.status(500).json({ error: 'Error al obtener las estadísticas' });
+    }
+});
+
+// ============================================
+// 💵 CAJA - PANEL DE COBRO Y TICKETS
+// ============================================
+
+// Configuración del local (para el ticket)
+app.get('/api/caja/config', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT clave, valor FROM configuracion');
+        const config = {};
+        rows.forEach(r => config[r.clave] = r.valor);
+        res.json(config);
+    } catch (e) {
+        console.error('❌ Error configuracion:', e.message);
+        res.status(500).json({ error: 'Error al obtener configuración' });
+    }
+});
+
+// Editar configuración del local (solo admin)
+app.put('/api/caja/config', autenticar, autorizar(['admin']), async (req, res) => {
+    const { local_nombre, local_cuit, local_direccion, local_telefono, punto_venta } = req.body;
+    try {
+        const mapa = { local_nombre, local_cuit, local_direccion, local_telefono, punto_venta };
+        for (const [clave, valor] of Object.entries(mapa)) {
+            if (valor !== undefined) {
+                await pool.query('INSERT INTO configuracion (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)', [clave, String(valor)]);
+            }
+        }
+        res.json({ success: true, message: 'Configuración guardada' });
+    } catch (e) {
+        console.error('❌ Error guardando config:', e.message);
+        res.status(500).json({ success: false, message: 'Error al guardar configuración' });
+    }
+});
+
+// Turnos del día para el panel de caja
+app.get('/api/caja/dia', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT t.id, t.fecha, DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio, t.estado,
+                    COALESCE(t.cliente_nombre, c.nombre) as cliente_nombre,
+                    COALESCE(t.cliente_telefono, c.telefono) as cliente_telefono,
+                    t.cliente_email,
+                    s.nombre as servicio,
+                    COALESCE(NULLIF(t.precio,0), s.precio) as precio,
+                    p.nombre as profesional
+             FROM turnos t
+             JOIN servicios s ON t.servicio_id = s.id
+             LEFT JOIN usuarios p ON t.profesional_id = p.id
+             LEFT JOIN usuarios c ON t.cliente_id = c.id
+             WHERE t.fecha = CURDATE()
+             ORDER BY t.hora_inicio ASC`
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('❌ Error caja dia:', e.message);
+        res.status(500).json({ error: 'Error al obtener turnos del día' });
+    }
+});
+
+// Cobrar un turno + generar ticket (comprobante no fiscal)
+app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    const { id } = req.params;
+    const { monto, metodo_pago } = req.body;
+    try {
+        const [turno] = await pool.query('SELECT * FROM turnos WHERE id = ?', [id]);
+        if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
+        if (turno[0].estado === 'cobrado') {
+            return res.status(400).json({ success: false, message: 'Este turno ya fue cobrado' });
+        }
+
+        const montoFinal = parseFloat(monto);
+        if (!montoFinal || montoFinal <= 0) {
+            return res.status(400).json({ success: false, message: 'Monto inválido' });
+        }
+        const metodo = metodo_pago || 'efectivo';
+
+        // Marcar turno como cobrado
+        await pool.query('UPDATE turnos SET estado = ?, precio = ? WHERE id = ?', ['cobrado', montoFinal, id]);
+
+        // Datos del turno para el ticket
+        const [d] = await pool.query(
+            `SELECT COALESCE(t.cliente_nombre, c.nombre) as cliente_nombre,
+                    COALESCE(t.cliente_telefono, c.telefono) as cliente_telefono,
+                    t.cliente_email,
+                    s.nombre as servicio,
+                    p.nombre as profesional
+             FROM turnos t
+             JOIN servicios s ON t.servicio_id = s.id
+             LEFT JOIN usuarios p ON t.profesional_id = p.id
+             LEFT JOIN usuarios c ON t.cliente_id = c.id
+             WHERE t.id = ?`, [id]
+        );
+        const dato = d[0] || {};
+
+        // Número correlativo de ticket
+        const [ult] = await pool.query('SELECT COALESCE(MAX(numero), 0) as max FROM tickets');
+        const numero = ult[0].max + 1;
+
+        const items = JSON.stringify([{ servicio: dato.servicio || 'Servicio', importe: montoFinal }]);
+
+        // Guardar ticket con campos de respaldo para futura integracion ARCA
+        const [tick] = await pool.query(
+            `INSERT INTO tickets (numero, turno_id, cliente_nombre, cliente_telefono, cliente_email,
+                                  profesional_nombre, items, subtotal, descuento, total, metodo_pago,
+                                  cajero_id, cajero_nombre, tipo_comprobante)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ticket')`,
+            [numero, id, dato.cliente_nombre || null, dato.cliente_telefono || null, dato.cliente_email || null,
+             dato.profesional || null, items, montoFinal, 0, montoFinal, metodo,
+             req.usuario.id, req.usuario.nombre || null]
+        );
+
+        // Datos del local para el encabezado del ticket
+        const [cfgRows] = await pool.query('SELECT clave, valor FROM configuracion');
+        const cfg = {};
+        cfgRows.forEach(r => cfg[r.clave] = r.valor);
+
+        res.json({
+            success: true,
+            message: 'Turno cobrado y ticket generado',
+            ticket: {
+                id: tick.insertId,
+                numero,
+                local_nombre: cfg.local_nombre || 'CHAMAS SPA',
+                local_cuit: cfg.local_cuit || '',
+                local_direccion: cfg.local_direccion || '',
+                local_telefono: cfg.local_telefono || '',
+                punto_venta: cfg.punto_venta || '1',
+                fecha_emision: new Date().toLocaleString('es-AR'),
+                cliente_nombre: dato.cliente_nombre,
+                cliente_telefono: dato.cliente_telefono,
+                cliente_email: dato.cliente_email,
+                profesional: dato.profesional,
+                items: [{ servicio: dato.servicio, importe: montoFinal }],
+                subtotal: montoFinal,
+                descuento: 0,
+                total: montoFinal,
+                metodo_pago: metodo
+            }
+        });
+    } catch (e) {
+        console.error('❌ Error al cobrar turno:', e.message);
+        res.status(500).json({ success: false, message: 'Error al procesar el cobro' });
     }
 });
 

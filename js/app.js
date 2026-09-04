@@ -90,18 +90,21 @@ function llenarSelectServicios(select) {
     console.log("🎯 Desplegable de servicios actualizado con éxito");
 }
 
-// --- REGISTRO DE PROFESIONALES (ADMIN) ---
+// --- REGISTRO DE PROFESIONALES / CAJA (ADMIN) ---
 document.getElementById('form-registro-profesional')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const btn = e.target.querySelector('button[type="submit"]');
+    const rol = document.getElementById('prof-rol')?.value || 'profesional';
     const datos = {
         nombre: document.getElementById('prof-nombre').value.trim(),
         email: document.getElementById('prof-email').value.trim(),
         password: document.getElementById('prof-password').value,
         telefono: document.getElementById('prof-telefono').value.trim(),
-        rol: 'profesional',
-        servicios: Array.from(document.getElementById('prof-servicios').selectedOptions).map(opt => parseInt(opt.value))
+        rol: rol,
+        servicios: rol === 'profesional'
+            ? Array.from(document.getElementById('prof-servicios').selectedOptions).map(opt => parseInt(opt.value))
+            : []
     };
 
     btn.disabled = true;
@@ -116,8 +119,10 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
         
         const data = await response.json();
         if (data.success) {
-            alert('✅ Profesional registrado con éxito');
+            alert(`✅ ${rol === 'caja' ? 'Usuario de caja' : 'Profesional'} registrado con éxito`);
             e.target.reset();
+            if (typeof llenarSelectServiciosRegistro === 'function') llenarSelectServiciosRegistro();
+            else cargarListaProfesionalesAdmin();
         } else {
             alert('❌ ' + (data.message || 'Error al registrar'));
         }
@@ -125,9 +130,16 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
         alert('❌ Error de conexión con el servidor');
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Registrar Profesional';
+        btn.textContent = 'Registrar';
     }
 });
+
+// Muestra u oculta el selector de servicios según el tipo de usuario
+function toggleRolUsuario() {
+    const rol = document.getElementById('prof-rol')?.value;
+    const grupo = document.getElementById('prof-servicios-grupo');
+    if (grupo) grupo.style.display = (rol === 'caja') ? 'none' : 'block';
+}
 
 // Nota: Las funciones de calendario y edición de precios siguen igual, 
 // asegúrate de que usen `${URL_BASE}/...` para sus fetch.
@@ -1980,6 +1992,10 @@ function showSection(sectionId) {
     if (sectionId === 'mis-turnos-profesional') {
         cargarTurnosProfesional();
     }
+
+    if (sectionId === 'caja') {
+        cargarTurnosCaja();
+    }
 }
 
 // =====================================================
@@ -2487,3 +2503,191 @@ document.addEventListener('change', (e) => {
         filtrarHorariosOcupados();
     }
 });
+
+// =====================================================
+// 💵 MÓDULO DE CAJA — turnos del día, cobro y ticket
+// =====================================================
+
+// Carga los turnos del día para el panel de caja
+async function cargarTurnosCaja() {
+    const container = document.getElementById('caja-turnos-dia');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:24px;">⏳ Cargando turnos del día...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/caja/dia`);
+        if (!res.ok) throw new Error('Error');
+        const turnos = await res.json();
+        if (!Array.isArray(turnos) || !turnos.length) {
+            container.innerHTML = '<div style="background:white;border-radius:14px;padding:28px;text-align:center;color:#888;box-shadow:0 2px 10px rgba(0,0,0,0.06);">📭 No hay turnos para hoy.</div>';
+            return;
+        }
+
+        const hoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const pendientes = turnos.filter(t => (t.estado || 'pendiente') !== 'cobrado');
+        const cobrados = turnos.filter(t => (t.estado || '') === 'cobrado');
+
+        const tarjeta = (t, esCobrado) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;padding:14px 18px;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${esCobrado ? '#28a745' : '#C06C84'};flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                    <div style="display:flex;flex-direction:column;align-items:center;background:${esCobrado ? '#eafaf1' : '#fdf0f4'};padding:6px 12px;border-radius:8px;min-width:60px;">
+                        <strong style="color:#C06C84;font-size:1.1rem;">${t.hora_inicio}</strong>
+                    </div>
+                    <div>
+                        <strong style="color:#333;">${t.cliente_nombre || 'Cliente'}</strong>
+                        <small style="color:#888;display:block;">💆 ${t.servicio} · 👩‍💼 ${t.profesional || 'Sin profesional'}${t.cliente_telefono ? ' · 📞 ' + t.cliente_telefono : ''}</small>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <strong style="color:#28a745;font-size:1.15rem;">$${parseFloat(t.precio || 0).toFixed(2)}</strong>
+                    ${esCobrado
+                        ? '<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">✔ Cobrado</span>'
+                        : `<button onclick="abrirModalCobro(${t.id},'${(t.cliente_nombre||'').replace(/'/g,"\\'")}','${(t.servicio||'').replace(/'/g,"\\'")}',${t.precio||0})" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">💳 Cobrar</button>`}
+                </div>
+            </div>`;
+
+        container.innerHTML = `
+            <div style="background:white;border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;">
+                <h3 style="margin:0;color:#C06C84;text-transform:capitalize;">📅 ${hoy}</h3>
+                <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">${pendientes.length} pendientes · ${cobrados.length} cobrados</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                ${pendientes.map(t => tarjeta(t, false)).join('')}
+                ${cobrados.map(t => tarjeta(t, true)).join('')}
+            </div>`;
+    } catch (e) {
+        console.error('❌ Error caja:', e);
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:20px;">❌ Error al cargar los turnos del día</p>';
+    }
+}
+
+// Modal de cobro
+function abrirModalCobro(turnoId, cliente, servicio, precio) {
+    document.getElementById('modal-cobro')?.remove();
+    const precioBase = (parseFloat(precio) || 0).toFixed(2);
+    const modal = document.createElement('div');
+    modal.id = 'modal-cobro';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;padding:32px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">💵 Cobrar Turno #${turnoId}</h3>
+            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">👤 ${cliente} | 💆 ${servicio}</p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto a cobrar ($)</label>
+                    <input type="number" id="cobro-monto" value="${precioBase}" step="0.01" min="0"
+                           style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💳 Método de pago</label>
+                    <select id="cobro-metodo" style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                        <option value="efectivo">💵 Efectivo</option>
+                        <option value="transferencia">🏦 Transferencia</option>
+                        <option value="debito">💳 Débito</option>
+                        <option value="credito">💳 Crédito</option>
+                    </select>
+                </div>
+                <label style="display:flex;align-items:center;gap:8px;color:#555;font-size:0.88rem;cursor:pointer;">
+                    <input type="checkbox" id="cobro-print" checked> 🖨️ Imprimir ticket al confirmar
+                </label>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button onclick="confirmarCobro(${turnoId})"
+                        style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">
+                    ✅ Confirmar Cobro
+                </button>
+                <button onclick="document.getElementById('modal-cobro').remove();"
+                        style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">
+                    ✖ Cancelar
+                </button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    setTimeout(() => document.getElementById('cobro-monto')?.focus(), 80);
+}
+
+// Confirma el cobro: marca el turno cobrado + genera el ticket
+async function confirmarCobro(turnoId) {
+    const monto = document.getElementById('cobro-monto')?.value;
+    const metodo = document.getElementById('cobro-metodo')?.value || 'efectivo';
+    const imprimir = !!document.getElementById('cobro-print')?.checked;
+    if (!monto || parseFloat(monto) <= 0) {
+        mostrarNotificacion('⚠️ Ingresá el monto a cobrar', 'error');
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/caja/turnos/${turnoId}/cerrar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto: parseFloat(monto), metodo_pago: metodo })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('modal-cobro')?.remove();
+            mostrarNotificacion('✅ Turno cobrado correctamente');
+            if (imprimir && data.ticket) imprimirTicket(data.ticket);
+            cargarTurnosCaja();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
+}
+
+// Genera e imprime el ticket (comprobante NO fiscal, formato térmico 80mm).
+// Dejado preparado para la futura integración con ARCA (ex AFIP): cuando la
+// herramienta esté homologada, este mismo bloque usará el WSFEv1 para obtener
+// el CAE y reemplazar/complementar el contenido por el comprobante oficial.
+function imprimirTicket(t) {
+    const itemsHtml = (t.items || []).map(it =>
+        `<tr><td style="padding:2px 0;">${it.servicio}</td><td style="padding:2px 0;text-align:right;">$${parseFloat(it.importe).toFixed(2)}</td></tr>`
+    ).join('');
+
+    const cuitLine = t.local_cuit ? `<p style="margin:2px 0;">CUIT: ${t.local_cuit}</p>` : '';
+    const direccionLine = t.local_direccion ? `<p style="margin:2px 0;">${t.local_direccion}</p>` : '';
+    const telLine = t.local_telefono ? `<p style="margin:2px 0;">Tel: ${t.local_telefono}</p>` : '';
+
+    const win = window.open('', '_blank', 'width=360,height=640');
+    win.document.write(`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Ticket ${t.numero}</title>
+<style>
+  body{font-family:'Courier New',Courier,monospace;width:80mm;margin:0 auto;color:#000;font-size:12px;}
+  .center{text-align:center;} .bold{font-weight:700;}
+  table{width:100%;border-collapse:collapse;} th{border-top:1px dashed #000;border-bottom:1px dashed #000;}
+  hr{border:none;border-top:1px dashed #000;margin:6px 0;}
+  .footer{text-align:center;font-size:11px;margin-top:8px;}
+  @media print{ body{width:80mm;} }
+</style></head><body>
+  <div class="center">
+    <h2 style="margin:4px 0;">${t.local_nombre}</h2>
+    ${cuitLine}${direccionLine}${telLine}
+    <p style="margin:2px 0;">Punto de Venta: ${t.punto_venta}</p>
+    <p style="margin:2px 0;">TICKET N° ${String(t.numero).padStart(6,'0')}</p>
+    <p style="margin:2px 0;">${t.fecha_emision}</p>
+  </div>
+  <hr>
+  <p>${t.cliente_nombre ? 'Cliente: ' + t.cliente_nombre : ''}</p>
+  ${t.cliente_telefono ? '<p>Tel: ' + t.cliente_telefono + '</p>' : ''}
+  ${t.profesional ? '<p>Profesional: ' + t.profesional + '</p>' : ''}
+  <table>
+    <thead><tr><th align="left">Detalle</th><th align="right">Importe</th></tr></thead>
+    <tbody>${itemsHtml}</tbody>
+  </table>
+  <hr>
+  <div style="text-align:right;">
+    <p style="margin:2px 0;">Subtotal: $${parseFloat(t.subtotal).toFixed(2)}</p>
+    ${t.descuento ? '<p style="margin:2px 0;">Descuento: -$' + parseFloat(t.descuento).toFixed(2) + '</p>' : ''}
+    <p class="bold" style="margin:2px 0;font-size:14px;">TOTAL: $${parseFloat(t.total).toFixed(2)}</p>
+  </div>
+  <hr>
+  <p style="margin:2px 0;">Método de pago: ${t.metodo_pago}</p>
+  <div class="footer">
+    <p>Comprobante NO FISCAL</p>
+    <p>Gracias por su visita. ¡Vuelva pronto!</p>
+  </div>
+  <script>window.onload=()=>{window.print();}<\/script>
+</body></html>`);
+    win.document.close();
+    win.focus();
+}
