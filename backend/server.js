@@ -306,24 +306,6 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
 });
 
 // Obtener un profesional/usuario con sus servicios asignados
-app.get('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [u] = await pool.query(
-            'SELECT id, nombre, email, telefono, rol FROM usuarios WHERE id = ?', [id]
-        );
-        if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
-        const usuario = u[0];
-        const [servicios] = await pool.query(
-            'SELECT servicio_id FROM profesional_servicios WHERE profesional_id = ?', [id]
-        );
-        res.json({ success: true, usuario: { ...usuario, servicios: servicios.map(s => s.servicio_id) } });
-    } catch (error) {
-        console.error('❌ Error obteniendo usuario:', error.message);
-        res.status(500).json({ success: false, message: 'Error al obtener el usuario' });
-    }
-});
-
 // Editar un profesional/usuario (nombre, email, telefono, rol, servicios, contraseña opcional)
 app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) => {
     const { id } = req.params;
@@ -525,6 +507,25 @@ app.get('/api/usuarios/profesionales', autenticar, async (req, res) => {
     } catch (error) {
         console.error('❌ Error profesionales:', error.message);
         res.status(500).json({ error: 'Error al obtener profesionales' });
+    }
+});
+
+// Obtener un profesional/usuario con sus servicios asignados
+app.get('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [u] = await pool.query(
+            'SELECT id, nombre, email, telefono, rol FROM usuarios WHERE id = ?', [id]
+        );
+        if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        const usuario = u[0];
+        const [servicios] = await pool.query(
+            'SELECT servicio_id FROM profesional_servicios WHERE profesional_id = ?', [id]
+        );
+        res.json({ success: true, usuario: { ...usuario, servicios: servicios.map(s => s.servicio_id) } });
+    } catch (error) {
+        console.error('❌ Error obteniendo usuario:', error.message);
+        res.status(500).json({ success: false, message: 'Error al obtener el usuario' });
     }
 });
 
