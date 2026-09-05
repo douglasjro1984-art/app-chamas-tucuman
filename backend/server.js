@@ -305,6 +305,71 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
     }
 });
 
+// Obtener un profesional/usuario con sus servicios asignados
+app.get('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [u] = await pool.query(
+            'SELECT id, nombre, email, telefono, rol FROM usuarios WHERE id = ?', [id]
+        );
+        if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        const usuario = u[0];
+        const [servicios] = await pool.query(
+            'SELECT servicio_id FROM profesional_servicios WHERE profesional_id = ?', [id]
+        );
+        res.json({ success: true, usuario: { ...usuario, servicios: servicios.map(s => s.servicio_id) } });
+    } catch (error) {
+        console.error('❌ Error obteniendo usuario:', error.message);
+        res.status(500).json({ success: false, message: 'Error al obtener el usuario' });
+    }
+});
+
+// Editar un profesional/usuario (nombre, email, telefono, rol, servicios, contraseña opcional)
+app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) => {
+    const { id } = req.params;
+    const { nombre, email, telefono, password, rol, servicios } = req.body;
+    try {
+        const [u] = await pool.query('SELECT id, rol FROM usuarios WHERE id = ?', [id]);
+        if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        if (u[0].rol === 'admin') return res.status(403).json({ success: false, message: 'No se puede editar el admin' });
+
+        // Validar email único (excepto a sí mismo)
+        if (email) {
+            const [existe] = await pool.query('SELECT id FROM usuarios WHERE email = ? AND id != ?', [email, id]);
+            if (existe.length) return res.status(400).json({ success: false, message: 'El email ya está registrado' });
+        }
+
+        let campos = [];
+        let valores = [];
+        if (nombre !== undefined) { campos.push('nombre = ?'); valores.push(nombre); }
+        if (email !== undefined) { campos.push('email = ?'); valores.push(email); }
+        if (telefono !== undefined) { campos.push('telefono = ?'); valores.push(telefono); }
+        if (rol !== undefined) { campos.push('rol = ?'); valores.push(rol); }
+        if (password) {
+            const hashed = await bcrypt.hash(password, 10);
+            campos.push('password = ?'); valores.push(hashed);
+        }
+        if (campos.length) {
+            valores.push(id);
+            await pool.query(`UPDATE usuarios SET ${campos.join(', ')} WHERE id = ?`, valores);
+        }
+
+        // Reemplazar servicios del profesional
+        if (u[0].rol === 'profesional' && Array.isArray(servicios)) {
+            await pool.query('DELETE FROM profesional_servicios WHERE profesional_id = ?', [id]);
+            const nuevos = servicios.map(s => [id, parseInt(s)]).filter(([, s]) => !isNaN(s));
+            if (nuevos.length) {
+                await pool.query('INSERT INTO profesional_servicios (profesional_id, servicio_id) VALUES ?', [nuevos]);
+            }
+        }
+
+        res.json({ success: true, message: 'Profesional actualizado correctamente' });
+    } catch (error) {
+        console.error('❌ Error editando usuario:', error.message);
+        res.status(500).json({ success: false, message: 'Error al editar el usuario' });
+    }
+});
+
 // ============================================
 // 📦 SERVICIOS
 // ============================================

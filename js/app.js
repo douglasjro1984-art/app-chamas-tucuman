@@ -2382,13 +2382,106 @@ async function cargarListaProfesionalesAdmin() {
                         <strong style="color:#333;">${p.nombre}</strong>
                         <small style="color:#888;display:block;">📧 ${p.email||'N/A'} &nbsp;📞 ${p.telefono||'N/A'}</small>
                     </div>
+                    <div style="display:flex;gap:8px;">
+                    <button onclick="abrirModalEditarProfesional(${p.id})"
+                            style="background:#f39c12;color:white;padding:7px 13px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">
+                        ✏️ Editar
+                    </button>
                     <button onclick="eliminarProfesional(${p.id},'${p.nombre.replace(/'/g,"\\'")}')"
                             style="background:#dc3545;color:white;padding:7px 13px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">
                         🗑️ Eliminar
                     </button>
+                    </div>
                 </div>`).join('')}
             </div>`;
     } catch(e) { container.innerHTML = '<p style="color:#dc3545;">❌ Error al cargar</p>'; }
+}
+
+// Modal para editar un profesional existente
+async function abrirModalEditarProfesional(id) {
+    document.getElementById('modal-editar-profesional')?.remove();
+    try {
+        const res = await fetch(`${API_BASE}/usuarios/${id}`);
+        const data = await res.json();
+        if (!data.success) { mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error'); return; }
+        const p = data.usuario;
+
+        const modal = document.createElement('div');
+        modal.id = 'modal-editar-profesional';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+        modal.innerHTML = `
+            <div style="background:white;border-radius:20px;padding:30px;max-width:440px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">
+                <h3 style="color:#C06C84;margin:0 0 18px 0;">✏️ Editar Profesional</h3>
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">👤 Nombre</label>
+                        <input type="text" id="ep-nombre" value="${(p.nombre||'').replace(/"/g,'&quot;')}" required
+                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📧 Email</label>
+                        <input type="email" id="ep-email" value="${(p.email||'').replace(/"/g,'&quot;')}" required
+                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📞 Teléfono</label>
+                        <input type="tel" id="ep-telefono" value="${(p.telefono||'').replace(/"/g,'&quot;')}"
+                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">🔑 Nueva contraseña (opcional)</label>
+                        <input type="password" id="ep-password" placeholder="Dejalo vacío para no cambiarla"
+                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💆 Servicios asignados (Ctrl/Cmd para varios)</label>
+                        <select id="ep-servicios" multiple style="width:100%;min-height:120px;padding:8px;border:2px solid #e0e0e0;border-radius:9px;box-sizing:border-box;">
+                            ${servicios.map(s => `<option value="${s.id}" ${(p.servicios||[]).includes(s.id) ? 'selected' : ''}>${s.nombre}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:22px;">
+                    <button onclick="guardarProfesional(${id})"
+                            style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Guardar</button>
+                    <button onclick="document.getElementById('modal-editar-profesional').remove();"
+                            style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    } catch (e) {
+        mostrarNotificacion('❌ Error al cargar el profesional', 'error');
+    }
+}
+
+async function guardarProfesional(id) {
+    const nombre = document.getElementById('ep-nombre')?.value.trim();
+    const email = document.getElementById('ep-email')?.value.trim();
+    const telefono = document.getElementById('ep-telefono')?.value.trim();
+    const password = document.getElementById('ep-password')?.value;
+    const serviciosSel = Array.from(document.getElementById('ep-servicios')?.selectedOptions || []).map(o => parseInt(o.value));
+
+    if (!nombre || !email) { mostrarNotificacion('⚠️ Nombre y email son obligatorios', 'error'); return; }
+
+    const body = { nombre, email, telefono, servicios: serviciosSel };
+    if (password) body.password = password;
+
+    try {
+        const res = await fetch(`${API_BASE}/usuarios/${id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('modal-editar-profesional')?.remove();
+            mostrarNotificacion('✅ Profesional actualizado');
+            cargarListaProfesionalesAdmin();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
 }
 
 async function eliminarProfesional(id, nombre) {
