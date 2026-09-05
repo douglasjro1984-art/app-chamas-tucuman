@@ -96,12 +96,11 @@
             <div class="container nav-wrapper">
                 <div class="nav-links">
                     <button onclick="showSection('servicios')">📦 Servicios</button>
-                    <button class="caja-only" onclick="showSection('caja')">💵 Caja</button>
+                    <button class="caja-only" onclick="showSection('caja')">💵 Caja y Turnos</button>
                     <button onclick="showSection('agendar')" class="cliente-puede">📝 Agendar</button>
                     <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">📅 Mis Turnos</button>
                     <button class="prof-only" onclick="showSection('mis-turnos-profesional')">👥 Citas clientes</button>
                     <button class="prof-only" onclick="showSection('gestionar-horarios')">⏰ Mis Horarios</button>
-                    <button class="admin-only" onclick="showSection('gestionar-turnos')">📋 Gestionar Turnos</button>
                     <button class="admin-only" onclick="showSection('editar-precios')">💰 Editar Precios</button>
                     <button class="admin-only" onclick="showSection('admin')">📊 Estadísticas</button>
                     <button class="admin-only" onclick="showSection('registrar-profesionales')">👤 Registrar Profesionales</button>
@@ -125,10 +124,39 @@
             </section>
 
             <section id="caja" class="section">
-                <h2>💵 Caja - Turnos del Día</h2>
+                <h2>💵 Caja y Turnos</h2>
                 <p style="color: #666; margin-bottom: 20px;">Acá podés abrir/cerrar la caja, ver los turnos del día, cobrar y emitir el ticket.</p>
                 <div id="caja-estado"></div>
                 <div id="caja-turnos-dia"></div>
+
+                <div class="admin-only" style="margin-top: 30px;">
+                    <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
+                        <p><strong>⚙️ Gestión de Turnos:</strong> Aquí puedes ver, editar y eliminar TODOS los turnos del sistema.</p>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <h3>🔍 Filtrar Turnos</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                            <div>
+                                <label>Profesional:</label>
+                                <select id="filtro-profesional" onchange="cargarTodosLosTurnos()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Fecha desde:</label>
+                                <input type="date" id="filtro-fecha-desde" onchange="cargarTodosLosTurnos()">
+                            </div>
+                            <div>
+                                <label>Fecha hasta:</label>
+                                <input type="date" id="filtro-fecha-hasta" onchange="cargarTodosLosTurnos()">
+                            </div>
+                            <div style="display: flex; align-items: flex-end;">
+                                <button onclick="limpiarFiltros()" class="btn-reset" style="width: 100%;">🔄 Limpiar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="todos-turnos-lista"></div>
+                </div>
             </section>
 
             <section id="mis-turnos-cliente" class="section">
@@ -141,36 +169,6 @@
                 <h1>👥 Citas de Clientes</h1>
                 <p style="color: #666; margin-bottom: 20px;">Aquí puedes ver todos los turnos que tus clientes han agendado contigo.</p>
                 <div id="turnos-profesional-lista"></div>
-            </section>
-
-            <section id="gestionar-turnos" class="section">
-                <h1>📋 Gestión de Turnos (Admin)</h1>
-                <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
-                    <p><strong>⚙️ Panel de Administración:</strong> Aquí puedes ver, editar y eliminar TODOS los turnos del sistema.</p>
-                </div>
-                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                    <h3>🔍 Filtrar Turnos</h3>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
-                        <div>
-                            <label>Profesional:</label>
-                            <select id="filtro-profesional" onchange="cargarTodosLosTurnos()">
-                                <option value="">Todos</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label>Fecha desde:</label>
-                            <input type="date" id="filtro-fecha-desde" onchange="cargarTodosLosTurnos()">
-                        </div>
-                        <div>
-                            <label>Fecha hasta:</label>
-                            <input type="date" id="filtro-fecha-hasta" onchange="cargarTodosLosTurnos()">
-                        </div>
-                        <div style="display: flex; align-items: flex-end;">
-                            <button onclick="limpiarFiltros()" class="btn-reset" style="width: 100%;">🔄 Limpiar</button>
-                        </div>
-                    </div>
-                </div>
-                <div id="todos-turnos-lista"></div>
             </section>
 
             <section id="gestionar-horarios" class="section">

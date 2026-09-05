@@ -1998,9 +1998,13 @@ function showSection(sectionId) {
     if (sectionId === 'gestionar-horarios')      cargarGestionHorarios();
     if (sectionId === 'admin')                   cargarEstadisticas();
 
-    if (sectionId === 'gestionar-turnos') {
-        cargarTodosLosTurnos();
-        cargarProfesionalesFiltro();
+    if (sectionId === 'caja') {
+        cargarEstadoCaja();
+        cargarTurnosCaja();
+        if (usuario.rol === 'admin') {
+            cargarTodosLosTurnos();
+            cargarProfesionalesFiltro();
+        }
     }
 
     if (sectionId === 'mis-turnos-cliente') {
@@ -2009,11 +2013,6 @@ function showSection(sectionId) {
 
     if (sectionId === 'mis-turnos-profesional') {
         cargarTurnosProfesional();
-    }
-
-    if (sectionId === 'caja') {
-        cargarEstadoCaja();
-        cargarTurnosCaja();
     }
 }
 
