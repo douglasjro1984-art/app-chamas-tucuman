@@ -20,7 +20,8 @@ const allowedOrigins = [
     'http://localhost:5500',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5500',
-    'https://chamas-backend.onrender.com'
+    'https://chamas-backend.onrender.com',
+    'https://chamas-spa.onrender.com'
 ];
 
 // Limitador de peticiones general: máx 300 por IP cada 15 min
