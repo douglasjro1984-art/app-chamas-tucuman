@@ -20,7 +20,6 @@ const allowedOrigins = [
     'http://localhost:5500',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5500',
-    'https://chamas-backend.onrender.com',
     'https://chamas-spa.onrender.com'
 ];
 
@@ -1177,7 +1176,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('\n' + '='.repeat(70));
     console.log('🚀  SERVIDOR CHAMAS INICIADO');
     console.log('='.repeat(70));
-    console.log(`📍  URL: https://chamas-backend.onrender.com`);
+    console.log(`📍  URL: https://chamas-spa.onrender.com`);
     console.log(`⏰  Hora: ${new Date().toLocaleString()}`);
     console.log('='.repeat(70));
     console.log('\n📋  RUTAS DISPONIBLES:\n');
