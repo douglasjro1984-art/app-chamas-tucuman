@@ -1307,7 +1307,7 @@ async function cargarTurnosCliente() {
 
         html += `
                 <p style="font-size:0.9rem;color:#666;margin-top:15px;">
-                    💡 Haz click en "<strong>Agendar</strong>" para reservar un turno
+                    💡 Elegí un servicio debajo y tocá "<strong>Agendar nuevo turno</strong>" para reservar
                 </p>
             </div>
         `;
@@ -1911,7 +1911,10 @@ function imprimirComprobante(cn,tel,srv,prof,fecha,hora,regPor) {
 }
 
 function prepararAgendado(id) {
-    showSection('agendar');
+    showSection('mis-turnos-cliente');
+    const form = document.getElementById('form-turno');
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!id) return;
     const select = document.getElementById('servicio-select');
     if (select) {
         Array.from(select.options).forEach(o => { o.selected = String(o.value) === String(id); });

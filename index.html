@@ -6,7 +6,7 @@
     <link rel="icon" href="img/logo original.webp" type="image/webp">
     <title>CHAMAS - Sistema de Turnos</title>
     
-    <link rel="stylesheet" href="css/styles.css?v=20260905">
+    <link rel="stylesheet" href="css/styles.css?v=20260906">
     <link rel="stylesheet" href="css/13-galeria.css">
     <link rel="stylesheet" href="css/fix-backgrounds.css">
     <script>
@@ -97,8 +97,7 @@
                 <div class="nav-links">
                     <button onclick="showSection('servicios')">📦 Servicios</button>
                     <button class="caja-only" onclick="showSection('caja')">💵 Caja y Turnos</button>
-                    <button onclick="showSection('agendar')" class="cliente-puede">📝 Agendar</button>
-                    <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">📅 Mis Turnos</button>
+                    <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">📅 Reservas</button>
                     <button class="prof-only" onclick="showSection('mis-turnos-profesional')">👥 Citas clientes</button>
                     <button class="prof-only" onclick="showSection('gestionar-horarios')">⏰ Mis Horarios</button>
                     <button class="admin-only" onclick="showSection('editar-precios')">💰 Editar Precios</button>
@@ -163,28 +162,19 @@
             </section>
 
             <section id="mis-turnos-cliente" class="section">
-                <h1>📅 Mis Turnos</h1>
-                <p style="color: #666; margin-bottom: 20px;">Agenda un nuevo turno o consulta tus reservas.</p>
-                <div id="turnos-cliente-lista"></div>
-            </section>
+                <h1>📅 Reservas</h1>
+                <p style="color: #666; margin-bottom: 20px;">Agendá un nuevo turno o consultá tus reservas.</p>
 
-            <section id="mis-turnos-profesional" class="section">
-                <h1>👥 Citas de Clientes</h1>
-                <p style="color: #666; margin-bottom: 20px;">Aquí puedes ver todos los turnos que tus clientes han agendado contigo.</p>
-                <div id="turnos-profesional-lista"></div>
-            </section>
-
-            <section id="gestionar-horarios" class="section">
-                <h1>⏰ Gestionar Mis Horarios</h1>
-                <div id="horarios-lista"></div>
-            </section>
-
-            <section id="agendar" class="section">
-                <h1>📝 Agendar Nuevo Turno</h1>
-                <div style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;">
-                    <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini" style="padding:13px 18px;width:auto;">📲 Asistente de reserva por chat</button>
+                <div style="margin-bottom:25px;">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px;">
+                        <button onclick="prepararAgendado()" class="btn-whatsapp-mini" style="padding:12px 18px;width:auto;">➕ Agendar nuevo turno</button>
+                        <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini" style="padding:12px 18px;width:auto;background:#C06C84;">📲 Asistente de reserva por chat</button>
+                    </div>
+                    <div id="turnos-cliente-lista"></div>
                 </div>
-                <form id="form-turno" class="form-card">
+
+                <form id="form-turno" class="form-card" style="margin-top:25px;border-top:3px solid #C06C84;">
+                    <h3 style="color:#C06C84;margin-top:0;">➕ Agendar Nuevo Turno</h3>
                     <div class="form-group">
                         <label>👤 Nombre Completo</label>
                         <input type="text" id="cliente-nombre" required placeholder="Ej: Maria Gonzalez">
@@ -228,6 +218,17 @@
                     </div>
                     <button type="submit" class="btn btn-primary">✅ Confirmar Turno</button>
                 </form>
+            </section>
+
+            <section id="mis-turnos-profesional" class="section">
+                <h1>👥 Citas de Clientes</h1>
+                <p style="color: #666; margin-bottom: 20px;">Aquí puedes ver todos los turnos que tus clientes han agendado contigo.</p>
+                <div id="turnos-profesional-lista"></div>
+            </section>
+
+            <section id="gestionar-horarios" class="section">
+                <h1>⏰ Gestionar Mis Horarios</h1>
+                <div id="horarios-lista"></div>
             </section>
 
             <section id="editar-precios" class="section">
@@ -354,7 +355,7 @@
 <script src="js/apiAuth.js?v=20260304"></script>
 <script src="js/api.js?v=20260217"></script>
 <script src="js/auth.js?v=20260217"></script>
-<script src="js/app.js?v=20260905"></script>
+<script src="js/app.js?v=20260906"></script>
 <script src="js/roles-funciones.js?v=20260217"></script>
 </body>
 </html>
