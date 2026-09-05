@@ -429,6 +429,28 @@ app.get('/api/profesionales/servicio/:id', async (req, res) => {
     }
 });
 
+// Profesionales que cubren TODOS los servicios seleccionados (multi-servicio)
+app.post('/api/profesionales/servicios', async (req, res) => {
+    const ids = Array.isArray(req.body.servicios) ? req.body.servicios.map(Number) : [];
+    if (!ids.length) return res.status(400).json({ error: 'Indicá al menos un servicio' });
+    try {
+        const placeholders = ids.map(() => '?').join(', ');
+        const [rows] = await pool.query(
+            `SELECT u.id, u.nombre
+             FROM usuarios u
+             JOIN profesional_servicios ps ON u.id = ps.profesional_id
+             WHERE u.rol = 'profesional' AND ps.servicio_id IN (${placeholders})
+             GROUP BY u.id, u.nombre
+             HAVING COUNT(DISTINCT ps.servicio_id) = ?`,
+            [...ids, ids.length]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error('❌ Error profesionales multi-servicio:', error.message);
+        res.status(500).json({ error: 'Error al obtener profesionales' });
+    }
+});
+
 app.get('/api/usuarios/profesionales', autenticar, async (req, res) => {
     try {
         const [rows] = await pool.query(
@@ -906,9 +928,13 @@ app.get('/api/turnos/cliente/:id', autenticar, async (req, res) => {
     }
 });
 
-// Crear turno
+// Crear turno (soporta uno o varios servicios: servicios = array de ids)
 app.post('/api/turnos', autenticar, async (req, res) => {
     const { cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio } = req.body;
+    const servicios = Array.isArray(req.body.servicios) ? req.body.servicios : (servicio_id ? [servicio_id] : []);
+    if (!servicios.length) {
+        return res.status(400).json({ success: false, message: 'Seleccioná al menos un servicio' });
+    }
     try {
         const [existente] = await pool.query(
             'SELECT id FROM turnos WHERE profesional_id = ? AND fecha = ? AND hora_inicio = ?',
@@ -923,11 +949,30 @@ app.post('/api/turnos', autenticar, async (req, res) => {
             if (u.length) nombreFinal = u[0].nombre;
         }
         const telFinal = (cliente_telefono || '').trim() || null;
-        await pool.query(
-            'INSERT INTO turnos (cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [cliente_id, nombreFinal || null, telFinal, profesional_id, servicio_id, fecha, hora_inicio]
+
+        // Precios de los servicios seleccionados
+        const [serviciosInfo] = await pool.query(
+            `SELECT id, nombre, precio FROM servicios WHERE id IN (?)`, [servicios]
         );
-        res.json({ success: true, message: 'Turno agendado correctamente' });
+        if (!serviciosInfo.length) {
+            return res.status(400).json({ success: false, message: 'Servicios inválidos' });
+        }
+        const precioTotal = serviciosInfo.reduce((s, sv) => s + parseFloat(sv.precio || 0), 0);
+        const primerId = serviciosInfo[0].id;
+
+        const [r] = await pool.query(
+            'INSERT INTO turnos (cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio, precio, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [cliente_id, nombreFinal || null, telFinal, profesional_id, primerId, fecha, hora_inicio, precioTotal, 'confirmado']
+        );
+        const turnoId = r.insertId;
+
+        // Registrar items
+        const items = serviciosInfo.map(sv => [turnoId, sv.id, sv.nombre, parseFloat(sv.precio || 0)]);
+        await pool.query(
+            'INSERT INTO turno_items (turno_id, servicio_id, nombre, precio) VALUES ?', [items]
+        );
+
+        res.json({ success: true, id: turnoId, message: 'Turno agendado correctamente' });
     } catch (error) {
         console.error('❌ Error al crear turno:', error.message);
         res.status(500).json({ success: false, error: 'Error al crear el turno' });
@@ -966,6 +1011,72 @@ app.put('/api/turnos/:id', autenticar, autorizar(['admin','profesional']), async
     } catch (error) {
         console.error('❌ Error al editar turno:', error.message);
         res.status(500).json({ success: false, error: 'Error al actualizar el turno' });
+    }
+});
+
+// Obtener los servicios (items) de un turno
+app.get('/api/turnos/:id/items', autenticar, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [rows] = await pool.query(
+            'SELECT id, servicio_id, nombre, precio FROM turno_items WHERE turno_id = ? ORDER BY id',
+            [id]
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('❌ Error items turno:', e.message);
+        res.status(500).json({ error: 'Error al obtener los servicios del turno' });
+    }
+});
+
+// Agregar un servicio extra a un turno existente
+app.post('/api/turnos/:id/servicios', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+    const { id } = req.params;
+    const { servicio_id } = req.body;
+    try {
+        const [sv] = await pool.query('SELECT id, nombre, precio FROM servicios WHERE id = ? AND activo = TRUE', [servicio_id]);
+        if (!sv.length) return res.status(400).json({ success: false, message: 'Servicio inválido' });
+
+        const [existe] = await pool.query(
+            'SELECT id FROM turno_items WHERE turno_id = ? AND servicio_id = ?', [id, servicio_id]
+        );
+        if (existe.length) return res.status(400).json({ success: false, message: 'Ese servicio ya está en el turno' });
+
+        await pool.query(
+            'INSERT INTO turno_items (turno_id, servicio_id, nombre, precio) VALUES (?, ?, ?, ?)',
+            [id, sv[0].id, sv[0].nombre, parseFloat(sv[0].precio || 0)]
+        );
+
+        // Actualizar precio total del turno
+        const [items] = await pool.query('SELECT IFNULL(SUM(precio),0) as total FROM turno_items WHERE turno_id = ?', [id]);
+        await pool.query('UPDATE turnos SET precio = ? WHERE id = ?', [items[0].total, id]);
+
+        res.json({ success: true, message: 'Servicio agregado al turno' });
+    } catch (e) {
+        console.error('❌ Error agregar servicio a turno:', e.message);
+        res.status(500).json({ success: false, error: 'Error al agregar el servicio' });
+    }
+});
+
+// Quitar un servicio de un turno existente
+app.delete('/api/turnos/:id/servicios/:itemId', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+    const { id, itemId } = req.params;
+    try {
+        const [r] = await pool.query('DELETE FROM turno_items WHERE id = ? AND turno_id = ?', [itemId, id]);
+        if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Item no encontrado' });
+
+        // Recalcular precio: si quedan items, usar el primero como servicio principal
+        const [items] = await pool.query('SELECT * FROM turno_items WHERE turno_id = ? ORDER BY id', [id]);
+        if (items.length) {
+            const total = items.reduce((s, it) => s + parseFloat(it.precio || 0), 0);
+            await pool.query('UPDATE turnos SET precio = ?, servicio_id = ? WHERE id = ?', [total, items[0].servicio_id, id]);
+        } else {
+            await pool.query('UPDATE turnos SET precio = 0 WHERE id = ?', [id]);
+        }
+        res.json({ success: true, message: 'Servicio quitado del turno' });
+    } catch (e) {
+        console.error('❌ Error quitar servicio de turno:', e.message);
+        res.status(500).json({ success: false, error: 'Error al quitar el servicio' });
     }
 });
 
@@ -1058,7 +1169,8 @@ app.get('/api/caja/dia', autenticar, autorizar(['admin','caja']), async (req, re
                     t.cliente_email,
                     s.nombre as servicio,
                     COALESCE(NULLIF(t.precio,0), s.precio) as precio,
-                    p.nombre as profesional
+                    p.nombre as profesional,
+                    (SELECT COUNT(*) FROM turno_items ti WHERE ti.turno_id = t.id) as cant_items
              FROM turnos t
              JOIN servicios s ON t.servicio_id = s.id
              LEFT JOIN usuarios p ON t.profesional_id = p.id
@@ -1073,7 +1185,105 @@ app.get('/api/caja/dia', autenticar, autorizar(['admin','caja']), async (req, re
     }
 });
 
+// Estado de la caja del día (abierta/cerrada + totales)
+app.get('/api/caja/estado', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    try {
+        const [caja] = await pool.query(
+            "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
+        );
+        if (!caja.length) {
+            return res.json({ abierta: false });
+        }
+        res.json({ abierta: true, caja: caja[0] });
+    } catch (e) {
+        console.error('❌ Error estado caja:', e.message);
+        res.status(500).json({ error: 'Error al obtener estado de la caja' });
+    }
+});
+
+// Abrir caja del día (con monto inicial)
+app.post('/api/caja/abrir', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    const { monto_inicial } = req.body;
+    try {
+        const [abierta] = await pool.query(
+            "SELECT id FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE()"
+        );
+        if (abierta.length) {
+            return res.status(400).json({ success: false, message: 'Ya hay una caja abierta hoy' });
+        }
+        const inicial = Math.max(0, parseFloat(monto_inicial) || 0);
+        const [r] = await pool.query(
+            'INSERT INTO cajas (fecha, estado, monto_inicial, cajero_id, cajero_nombre) VALUES (CURDATE(), "abierta", ?, ?, ?)',
+            [inicial, req.usuario.id, req.usuario.nombre || null]
+        );
+        res.json({ success: true, id: r.insertId, message: 'Caja abierta correctamente' });
+    } catch (e) {
+        console.error('❌ Error abrir caja:', e.message);
+        res.status(500).json({ success: false, message: 'Error al abrir la caja' });
+    }
+});
+
+// Cerrar caja del día (monto final contado en caja)
+app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    const { monto_real } = req.body;
+    try {
+        const [caja] = await pool.query(
+            "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
+        );
+        if (!caja.length) {
+            return res.status(400).json({ success: false, message: 'No hay caja abierta para cerrar' });
+        }
+        const c = caja[0];
+        const total = parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) +
+                      parseFloat(c.total_debito || 0) + parseFloat(c.total_credito || 0);
+        const real = parseFloat(monto_real) || 0;
+        const esperado = parseFloat(c.monto_inicial || 0) + total;
+        const diferencia = Math.round((real - esperado) * 100) / 100;
+
+        await pool.query(
+            `UPDATE cajas SET estado = 'cerrada', monto_final = ?, cerrada_at = NOW() WHERE id = ?`,
+            [real, c.id]
+        );
+
+        res.json({
+            success: true,
+            message: 'Caja cerrada correctamente',
+            resumen: {
+                monto_inicial: parseFloat(c.monto_inicial || 0),
+                total_efectivo: parseFloat(c.total_efectivo || 0),
+                total_transferencia: parseFloat(c.total_transferencia || 0),
+                total_debito: parseFloat(c.total_debito || 0),
+                total_credito: parseFloat(c.total_credito || 0),
+                total_ventas: total,
+                dinero_en_caja_esperado: esperado,
+                dinero_contado: real,
+                diferencia
+            }
+        });
+    } catch (e) {
+        console.error('❌ Error cerrar caja:', e.message);
+        res.status(500).json({ success: false, message: 'Error al cerrar la caja' });
+    }
+});
+
+// Historial de cierres (últimos días)
+app.get('/api/caja/historial', autenticar, autorizar(['admin']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT id, fecha, estado, monto_inicial, monto_final,
+                    total_efectivo, total_transferencia, total_debito, total_credito,
+                    cajero_nombre, abierta_at, cerrada_at
+             FROM cajas ORDER BY id DESC LIMIT 15`
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('❌ Error historial caja:', e.message);
+        res.status(500).json({ error: 'Error al obtener historial de cajas' });
+    }
+});
+
 // Cobrar un turno + generar ticket (comprobante no fiscal)
+// Registra el pago en la caja del día si hay una caja abierta.
 app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']), async (req, res) => {
     const { id } = req.params;
     const { monto, metodo_pago } = req.body;
@@ -1090,6 +1300,17 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']),
         }
         const metodo = metodo_pago || 'efectivo';
 
+        // Items del turno (multi-servicio). Si no hay, usa el servicio principal.
+        const [itemsDb] = await pool.query(
+            'SELECT id, nombre, precio FROM turno_items WHERE turno_id = ? ORDER BY id', [id]
+        );
+        let itemsTicket;
+        if (itemsDb.length) {
+            itemsTicket = itemsDb.map(it => ({ servicio: it.nombre, importe: parseFloat(it.precio || 0) }));
+        } else {
+            itemsTicket = [{ servicio: 'Servicio', importe: montoFinal }];
+        }
+
         // Marcar turno como cobrado
         await pool.query('UPDATE turnos SET estado = ?, precio = ? WHERE id = ?', ['cobrado', montoFinal, id]);
 
@@ -1098,31 +1319,48 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']),
             `SELECT COALESCE(t.cliente_nombre, c.nombre) as cliente_nombre,
                     COALESCE(t.cliente_telefono, c.telefono) as cliente_telefono,
                     t.cliente_email,
-                    s.nombre as servicio,
                     p.nombre as profesional
              FROM turnos t
-             JOIN servicios s ON t.servicio_id = s.id
              LEFT JOIN usuarios p ON t.profesional_id = p.id
              LEFT JOIN usuarios c ON t.cliente_id = c.id
              WHERE t.id = ?`, [id]
         );
         const dato = d[0] || {};
 
+        // Caja abierta del día (si existe)
+        const [cajaAbierta] = await pool.query(
+            "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
+        );
+        let cajaId = null;
+        if (cajaAbierta.length) {
+            cajaId = cajaAbierta[0].id;
+            const colMetodo = {
+                efectivo: 'total_efectivo',
+                transferencia: 'total_transferencia',
+                debito: 'total_debito',
+                credito: 'total_credito'
+            }[metodo] || 'total_efectivo';
+            await pool.query(
+                `UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ?`,
+                [montoFinal, cajaId]
+            );
+        }
+
         // Número correlativo de ticket
         const [ult] = await pool.query('SELECT COALESCE(MAX(numero), 0) as max FROM tickets');
         const numero = ult[0].max + 1;
 
-        const items = JSON.stringify([{ servicio: dato.servicio || 'Servicio', importe: montoFinal }]);
+        const items = JSON.stringify(itemsTicket);
 
         // Guardar ticket con campos de respaldo para futura integracion ARCA
         const [tick] = await pool.query(
             `INSERT INTO tickets (numero, turno_id, cliente_nombre, cliente_telefono, cliente_email,
                                   profesional_nombre, items, subtotal, descuento, total, metodo_pago,
-                                  cajero_id, cajero_nombre, tipo_comprobante)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ticket')`,
+                                  cajero_id, cajero_nombre, tipo_comprobante, caja_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ticket', ?)`,
             [numero, id, dato.cliente_nombre || null, dato.cliente_telefono || null, dato.cliente_email || null,
              dato.profesional || null, items, montoFinal, 0, montoFinal, metodo,
-             req.usuario.id, req.usuario.nombre || null]
+             req.usuario.id, req.usuario.nombre || null, cajaId]
         );
 
         // Datos del local para el encabezado del ticket
@@ -1146,7 +1384,7 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']),
                 cliente_telefono: dato.cliente_telefono,
                 cliente_email: dato.cliente_email,
                 profesional: dato.profesional,
-                items: [{ servicio: dato.servicio, importe: montoFinal }],
+                items: itemsTicket,
                 subtotal: montoFinal,
                 descuento: 0,
                 total: montoFinal,
@@ -1195,11 +1433,20 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('   🚫 GET    /api/horarios-ocupados/:profesionalId/:fecha');
     console.log('   📋 GET    /api/turnos/todos (ADMIN)');
     console.log('   📋 GET    /api/turnos/:id (obtener uno)');
+    console.log('   📋 GET    /api/turnos/:id/items (servicios del turno)');
+    console.log('   ➕ POST   /api/turnos/:id/servicios (agregar servicio)');
+    console.log('   ➖ DELETE /api/turnos/:id/servicios/:itemId (quitar servicio)');
+    console.log('   👥 POST   /api/profesionales/servicios (multi-servicio)');
     console.log('   📅 GET    /api/turnos/profesional/:id');
     console.log('   📅 GET    /api/turnos/cliente/:id');
     console.log('   📝 POST   /api/turnos (crear)');
     console.log('   ✏️  PUT    /api/turnos/:id (editar)');
     console.log('   🗑️  DELETE /api/turnos/:id (eliminar)');
+    console.log('   💵 GET    /api/caja/estado (abierta/cerrada + totales)');
+    console.log('   💵 POST   /api/caja/abrir (abrir caja del día)');
+    console.log('   💵 POST   /api/caja/cerrar (cerrar y resumen)');
+    console.log('   💵 GET    /api/caja/historial (cierres previos)');
+    console.log('   🧾 POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
     console.log('   📊 GET    /api/estadisticas');
     console.log('   🏥 GET    /api/health');
     console.log('\n' + '='.repeat(70));

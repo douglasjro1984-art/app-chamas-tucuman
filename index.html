@@ -126,7 +126,8 @@
 
             <section id="caja" class="section">
                 <h2>💵 Caja - Turnos del Día</h2>
-                <p style="color: #666; margin-bottom: 20px;">Acá podés ver los turnos del día, cobrar y emitir el ticket.</p>
+                <p style="color: #666; margin-bottom: 20px;">Acá podés abrir/cerrar la caja, ver los turnos del día, cobrar y emitir el ticket.</p>
+                <div id="caja-estado"></div>
                 <div id="caja-turnos-dia"></div>
             </section>
 
@@ -193,10 +194,13 @@
                         <input type="tel" id="cliente-telefono" required placeholder="+54 9 11 1234-5678">
                     </div>
                     <div class="form-group">
-                        <label>💆 Servicio</label>
-                        <select id="servicio-select" required>
-                            <option value="">Seleccionar servicio...</option>
+                        <label>💆 Servicios (podés elegir varios)</label>
+                        <select id="servicio-select" multiple style="min-height: 130px;" required>
+                            <option value="">Seleccionar servicio(s)...</option>
                         </select>
+                        <small style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">
+                            Mantené Ctrl (Windows) o Cmd (Mac) parar elegir más de un servicio
+                        </small>
                     </div>
                     <div class="form-group">
                         <label>👨‍💼 Profesional</label>

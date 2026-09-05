@@ -77,7 +77,7 @@ async function cargarDatosDesdeAPI() {
 function llenarSelectServicios(select) {
     if (!select) return;
     
-    select.innerHTML = '<option value="">Seleccionar servicio...</option>';
+    select.innerHTML = '<option value="">Seleccionar servicio(s)...</option>';
     servicios.forEach(s => {
         
         if (s.activo !== false) { 
@@ -1691,25 +1691,42 @@ function llenarSelectServiciosRegistro() {
 function llenarSelectServicios() {
     const select = document.getElementById('servicio-select');
     if (!select) return;
-    select.innerHTML = '<option value="">Seleccionar servicio...</option>' + 
-        servicios.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
-    select.onchange = (e) => cargarProfesionalesPorServicio(e.target.value);
+    select.innerHTML = '<option value="">Seleccionar servicio(s)...</option>' + 
+        servicios.map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
+    select.onchange = () => {
+        const ids = Array.from(select.selectedOptions).map(o => o.value).filter(v => v);
+        cargarProfesionalesPorServicios(ids.length ? ids : null);
+    };
 }
 
-async function cargarProfesionalesPorServicio(servicioId) {
+async function cargarProfesionalesPorServicios(servicioIds) {
     const selectPro  = document.getElementById('profesional-select');
     const inputFecha = document.getElementById('turno-fecha');
     const selectHora = document.getElementById('turno-hora');
-    if (!servicioId || !selectPro) return;
+    if (!selectPro) return;
 
     // Reset
     inputFecha.disabled = true;
     inputFecha.value    = '';
     selectHora.innerHTML = '<option value="">Primero seleccioná profesional...</option>';
+    selectPro.disabled = true;
+    selectPro.innerHTML = '<option value="">Primero seleccioná un servicio...</option>';
+
+    if (!servicioIds || !servicioIds.length) return;
 
     try {
-        const res = await fetch(`${API_BASE}/profesionales/servicio/${servicioId}`);
-        const profesionales = await res.json();
+        let profesionales;
+        if (servicioIds.length === 1) {
+            const res = await fetch(`${API_BASE}/profesionales/servicio/${servicioIds[0]}`);
+            profesionales = await res.json();
+        } else {
+            const res = await fetch(`${API_BASE}/profesionales/servicios`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ servicios: servicioIds })
+            });
+            profesionales = await res.json();
+        }
         selectPro.disabled = false;
         selectPro.innerHTML = '<option value="">Seleccionar profesional...</option>' +
             profesionales.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
@@ -1816,23 +1833,24 @@ document.getElementById('form-turno')?.addEventListener('submit', async (e) => {
     const clienteNombre   = (document.getElementById('cliente-nombre')?.value   || '').trim();
     const clienteEmail    = (document.getElementById('cliente-email')?.value    || '').trim();
     const clienteTelefono = (document.getElementById('cliente-telefono')?.value || '').trim();
-    const servicioId    = document.getElementById('servicio-select').value;
+    const selectServ   = document.getElementById('servicio-select');
+    const servicioIdsArr = Array.from(selectServ.selectedOptions).map(o => o.value).filter(v => v).map(Number);
     const profesionalId = document.getElementById('profesional-select').value;
     const fecha = document.getElementById('turno-fecha').value;
     const hora  = document.getElementById('turno-hora').value;
     if (!clienteNombre) { mostrarNotificacion('⚠️ Ingresá el Nombre Completo','error'); document.getElementById('cliente-nombre')?.focus(); return; }
-    if (!servicioId || !profesionalId || !fecha || !hora) { mostrarNotificacion('⚠️ Completa todos los campos','error'); return; }
+    if (!servicioIdsArr.length || !profesionalId || !fecha || !hora) { mostrarNotificacion('⚠️ Completa todos los campos','error'); return; }
     try {
         const res = await fetch(`${API_BASE}/turnos`, {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ cliente_id: parseInt(usuario.id), cliente_nombre: clienteNombre,
                 cliente_email: clienteEmail, cliente_telefono: clienteTelefono,
-                profesional_id: parseInt(profesionalId), servicio_id: parseInt(servicioId),
+                profesional_id: parseInt(profesionalId), servicios: servicioIdsArr,
                 fecha, hora_inicio: hora+':00' })
         });
         const data = await res.json();
         if (data.success) {
-            const sNom = document.getElementById('servicio-select').options[document.getElementById('servicio-select').selectedIndex]?.text||'';
+            const sNom = Array.from(selectServ.selectedOptions).map(o => o.text).join(', ');
             const pNom = document.getElementById('profesional-select').options[document.getElementById('profesional-select').selectedIndex]?.text||'';
             const fFmt = new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
             mostrarConfirmacionTurno(clienteNombre, clienteTelefono, sNom, pNom, fFmt, hora, usuario.nombre);
@@ -1895,8 +1913,8 @@ function prepararAgendado(id) {
     showSection('agendar');
     const select = document.getElementById('servicio-select');
     if (select) {
-        select.value = id;
-        cargarProfesionalesPorServicio(id);
+        Array.from(select.options).forEach(o => { o.selected = String(o.value) === String(id); });
+        cargarProfesionalesPorServicios([id]);
     }
 }
 
@@ -1994,6 +2012,7 @@ function showSection(sectionId) {
     }
 
     if (sectionId === 'caja') {
+        cargarEstadoCaja();
         cargarTurnosCaja();
     }
 }
@@ -2509,6 +2528,223 @@ document.addEventListener('change', (e) => {
 // =====================================================
 
 // Carga los turnos del día para el panel de caja
+// Estado de la caja del día (abierta/cerrada con totales)
+async function cargarEstadoCaja() {
+    const cont = document.getElementById('caja-estado');
+    if (!cont) return;
+    cont.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">⏳ Cargando estado de caja...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/caja/estado`);
+        if (!res.ok) throw new Error('Error');
+        const data = await res.json();
+        if (!data.abierta) {
+            cont.innerHTML = `
+                <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #C06C84;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+                    <div>
+                        <h3 style="margin:0;color:#C06C84;">🔴 Caja Cerrada</h3>
+                        <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">Abrí la caja para registrar los cobros del día y poder cerrarla al final.</p>
+                    </div>
+                    <button onclick="abrirCajaModal()" style="background:#C06C84;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔓 Abrir Caja</button>
+                </div>`;
+        } else {
+            const c = data.caja;
+            const totEf = parseFloat(c.total_efectivo || 0);
+            const totTr = parseFloat(c.total_transferencia || 0);
+            const totDb = parseFloat(c.total_debito || 0);
+            const totCr = parseFloat(c.total_credito || 0);
+            const total = totEf + totTr + totDb + totCr;
+            cont.innerHTML = `
+                <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #28a745;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+                        <div>
+                            <h3 style="margin:0;color:#28a745;">🟢 Caja Abierta</h3>
+                            <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">
+                                Fondo inicial: <strong>$${c.monto_inicial ? parseFloat(c.monto_inicial).toFixed(2) : '0.00'}</strong>
+                                · Cobrado hoy: <strong style="color:#28a745;">$${total.toFixed(2)}</strong>
+                                ${c.cajero_nombre ? ' · 👤 ' + c.cajero_nombre : ''}
+                            </p>
+                        </div>
+                        <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔒 Cerrar Caja</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:14px;">
+                        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💵 Efectivo</small><br><strong>$${totEf.toFixed(2)}</strong></div>
+                        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">🏦 Transferencia</small><br><strong>$${totTr.toFixed(2)}</strong></div>
+                        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💳 Débito</small><br><strong>$${totDb.toFixed(2)}</strong></div>
+                        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💳 Crédito</small><br><strong>$${totCr.toFixed(2)}</strong></div>
+                    </div>
+                </div>`;
+        }
+    } catch (e) {
+        console.error('❌ Error estado caja:', e);
+        cont.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar el estado de la caja</p>';
+    }
+}
+
+// Modal para abrir la caja del día
+function abrirCajaModal() {
+    const modal = document.createElement('div');
+    modal.id = 'modal-abrir-caja';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">🔓 Abrir Caja del Día</h3>
+            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">Registrá el dinero con el que se abre la caja (fondo de cambio).</p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Fondo inicial ($)</label>
+                    <input type="number" id="abrir-caja-monto" value="0" step="0.01" min="0"
+                           style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button onclick="confirmarAbrirCaja()" style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Abrir Caja</button>
+                <button onclick="document.getElementById('modal-abrir-caja').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    setTimeout(() => document.getElementById('abrir-caja-monto')?.focus(), 80);
+}
+
+async function confirmarAbrirCaja() {
+    const monto = parseFloat(document.getElementById('abrir-caja-monto')?.value || 0);
+    try {
+        const res = await fetch(`${API_BASE}/caja/abrir`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto_inicial: isNaN(monto) ? 0 : monto })
+        });
+        const data = await res.json();
+        document.getElementById('modal-abrir-caja')?.remove();
+        if (data.success) {
+            mostrarNotificacion('✅ Caja abierta correctamente');
+            cargarEstadoCaja();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            cargarEstadoCaja();
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error al abrir la caja', 'error');
+    }
+}
+
+// Modal para cerrar la caja del día (conteo real de efectivo)
+function cerrarCajaModal() {
+    const modal = document.createElement('div');
+    modal.id = 'modal-cerrar-caja';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">🔒 Cerrar Caja del Día</h3>
+            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">Ingresá el dinero real que hay en la caja (incluido el fondo inicial). Se calcula la diferencia contra lo esperado.</p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💵 Dinero contado en caja ($)</label>
+                    <input type="number" id="cerrar-caja-monto" value="0" step="0.01" min="0"
+                           style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button onclick="confirmarCerrarCaja()" style="flex:1;background:#e74c3c;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Cerrar Caja</button>
+                <button onclick="document.getElementById('modal-cerrar-caja').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    setTimeout(() => document.getElementById('cerrar-caja-monto')?.focus(), 80);
+}
+
+async function confirmarCerrarCaja() {
+    const monto = parseFloat(document.getElementById('cerrar-caja-monto')?.value || 0);
+    try {
+        const res = await fetch(`${API_BASE}/caja/cerrar`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto_real: isNaN(monto) ? 0 : monto })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('modal-cerrar-caja')?.remove();
+            const r = data.resumen;
+            mostrarResumenCierre(r);
+            cargarEstadoCaja();
+        } else {
+            document.getElementById('modal-cerrar-caja')?.remove();
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error al cerrar la caja', 'error');
+    }
+}
+
+// Muestra el resumen del cierre (y permite imprimirlo)
+function mostrarResumenCierre(r) {
+    const modal = document.createElement('div');
+    modal.id = 'modal-resumen-cierre';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#C06C84;margin:0 0 16px 0;text-align:center;">🧾 Cierre de Caja</h3>
+            <div style="background:#f9f9f9;border-radius:12px;padding:16px;font-size:0.92rem;">
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Fondo inicial</span><strong>$${r.monto_inicial.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💵 Efectivo</span><strong>$${r.total_efectivo.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">🏦 Transferencia</span><strong>$${r.total_transferencia.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💳 Débito</span><strong>$${r.total_debito.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💳 Crédito</span><strong>$${r.total_credito.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed #ccc;margin-top:4px;"><span style="color:#555;font-weight:700;">Total ventas</span><strong style="color:#28a745;">$${r.total_ventas.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Debería haber</span><strong>$${r.dinero_en_caja_esperado.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Dinero contado</span><strong>$${r.dinero_contado.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:2px solid #C06C84;margin-top:4px;">
+                    <span style="font-weight:800;color:#C06C84;">Diferencia</span>
+                    <strong style="color:${r.diferencia === 0 ? '#28a745' : (r.diferencia < 0 ? '#dc3545' : '#f39c12')};">
+                        ${r.diferencia > 0 ? '+' : ''}$${r.diferencia.toFixed(2)}
+                    </strong>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button onclick="abrirModalPlanillaCierre('${JSON.stringify(r).replace(/'/g, "\\'")}')" style="flex:1;background:#C06C84;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🖨️ Imprimir Planilla</button>
+                <button onclick="document.getElementById('modal-resumen-cierre').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cerrar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+}
+
+// Imprime una planilla de cierre (formato térmico 80mm)
+function abrirModalPlanillaCierre(json) {
+    let r;
+    try { r = JSON.parse(json); } catch(e) { return; }
+    const win = window.open('', '_blank', 'width=360,height=640');
+    win.document.write(`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Planilla de Cierre</title>
+<style>
+  body{font-family:'Courier New',Courier,monospace;width:80mm;margin:0 auto;color:#000;font-size:12px;}
+  .center{text-align:center;}.bold{font-weight:700;}
+  hr{border:none;border-top:1px dashed #000;margin:6px 0;}
+  .row{display:flex;justify-content:space-between;padding:2px 0;}
+  @media print{ body{width:80mm;} }
+</style></head><body>
+  <div class="center">
+    <h2 style="margin:4px 0;">PLANILLA DE CIERRE</h2>
+    <p style="margin:2px 0;">${new Date().toLocaleString('es-AR')}</p>
+  </div>
+  <hr>
+  <div class="row"><span>Fondo inicial</span><span>$${r.monto_inicial.toFixed(2)}</span></div>
+  <div class="row"><span>Efectivo</span><span>$${r.total_efectivo.toFixed(2)}</span></div>
+  <div class="row"><span>Transferencia</span><span>$${r.total_transferencia.toFixed(2)}</span></div>
+  <div class="row"><span>Débito</span><span>$${r.total_debito.toFixed(2)}</span></div>
+  <div class="row"><span>Crédito</span><span>$${r.total_credito.toFixed(2)}</span></div>
+  <div class="row"><span class="bold">TOTAL VENTAS</span><span class="bold">$${r.total_ventas.toFixed(2)}</span></div>
+  <hr>
+  <div class="row"><span>Debería haber</span><span>$${r.dinero_en_caja_esperado.toFixed(2)}</span></div>
+  <div class="row"><span>Dinero contado</span><span>$${r.dinero_contado.toFixed(2)}</span></div>
+  <div class="row bold"><span>DIFERENCIA</span><span>$${r.diferencia.toFixed(2)}</span></div>
+  <hr>
+  <div class="center"><p>Firma cajero: ______________</p></div>
+  <script>window.onload=()=>{window.print();}<\/script>
+</body></html>`);
+    win.document.close();
+    win.focus();
+}
+
 async function cargarTurnosCaja() {
     const container = document.getElementById('caja-turnos-dia');
     if (!container) return;
@@ -2534,7 +2770,7 @@ async function cargarTurnosCaja() {
                     </div>
                     <div>
                         <strong style="color:#333;">${t.cliente_nombre || 'Cliente'}</strong>
-                        <small style="color:#888;display:block;">💆 ${t.servicio} · 👩‍💼 ${t.profesional || 'Sin profesional'}${t.cliente_telefono ? ' · 📞 ' + t.cliente_telefono : ''}</small>
+                        <small style="color:#888;display:block;">💆 ${t.servicio}${parseInt(t.cant_items||1) > 1 ? ` <span style="background:#fdf0f4;color:#C06C84;border-radius:6px;padding:1px 6px;font-weight:700;">+${parseInt(t.cant_items)-1}</span>` : ''} · 👩‍💼 ${t.profesional || 'Sin profesional'}${t.cliente_telefono ? ' · 📞 ' + t.cliente_telefono : ''}</small>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;">
@@ -2560,18 +2796,33 @@ async function cargarTurnosCaja() {
     }
 }
 
-// Modal de cobro
-function abrirModalCobro(turnoId, cliente, servicio, precio) {
+// Estado interno del modal de cobro: items del turno disponibles para agregar/quitar
+let _turnoItemsActivos = [];
+
+// Modal de cobro: lista items multi-servicio y permite agregar/quitar servicios
+async function abrirModalCobro(turnoId, cliente, servicio, precio) {
     document.getElementById('modal-cobro')?.remove();
     const precioBase = (parseFloat(precio) || 0).toFixed(2);
     const modal = document.createElement('div');
     modal.id = 'modal-cobro';
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
     modal.innerHTML = `
-        <div style="background:white;border-radius:20px;padding:32px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="background:white;border-radius:20px;padding:28px;max-width:440px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">
             <h3 style="color:#C06C84;margin:0 0 6px 0;">💵 Cobrar Turno #${turnoId}</h3>
-            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">👤 ${cliente} | 💆 ${servicio}</p>
-            <div style="display:flex;flex-direction:column;gap:12px;">
+            <p style="color:#888;margin:0 0 14px 0;font-size:0.88rem;">👤 ${cliente}</p>
+            <div style="margin-bottom:10px;">
+                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">🗂️ Servicios del turno</label>
+                <div id="cobro-items" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+                    <p style="color:#888;font-size:0.85rem;">Cargando servicios...</p>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <select id="cobro-servicio-extra" style="flex:1;padding:8px 10px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;box-sizing:border-box;">
+                        <option value="">➕ Agregar servicio...</option>
+                    </select>
+                    <button onclick="agregarServicioAlTurno(${turnoId})" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Agregar</button>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
                 <div>
                     <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto a cobrar ($)</label>
                     <input type="number" id="cobro-monto" value="${precioBase}" step="0.01" min="0"
@@ -2603,7 +2854,93 @@ function abrirModalCobro(turnoId, cliente, servicio, precio) {
         </div>`;
     document.body.appendChild(modal);
     modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+
+    // Cargar items y servicios disponibles
+    await cargarItemsModalCobro(turnoId);
+    llenarServiciosExtraModal();
     setTimeout(() => document.getElementById('cobro-monto')?.focus(), 80);
+}
+
+// Carga los items (servicios) del turno dentro del modal
+async function cargarItemsModalCobro(turnoId) {
+    const cont = document.getElementById('cobro-items');
+    if (!cont) return;
+    try {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}/items`);
+        const items = await res.json();
+        _turnoItemsActivos = Array.isArray(items) ? items : [];
+        if (!_turnoItemsActivos.length) {
+            cont.innerHTML = '<p style="color:#888;font-size:0.85rem;">Sin servicios registrados</p>';
+            return;
+        }
+        const total = _turnoItemsActivos.reduce((s, it) => s + parseFloat(it.precio || 0), 0);
+        const montoInput = document.getElementById('cobro-monto');
+        if (montoInput) montoInput.value = total.toFixed(2);
+        cont.innerHTML = _turnoItemsActivos.map(it => `
+            <div style="display:flex;justify-content:space-between;align-items:center;background:#f9f9f9;border-radius:8px;padding:8px 10px;">
+                <span style="font-size:0.9rem;">${it.nombre}</span>
+                <span style="display:flex;align-items:center;gap:8px;">
+                    <strong style="color:#28a745;font-size:0.9rem;">$${parseFloat(it.precio || 0).toFixed(2)}</strong>
+                    <button onclick="quitarServicioDelTurno(${turnoId}, ${it.id})" title="Quitar servicio"
+                        style="background:#fff0f0;border:none;color:#dc3545;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">✖</button>
+                </span>
+            </div>`).join('');
+    } catch (e) {
+        cont.innerHTML = '<p style="color:#dc3545;font-size:0.85rem;">Error al cargar servicios</p>';
+    }
+}
+
+// Select de servicios extras disponibles (los que no están en el turno)
+function llenarServiciosExtraModal() {
+    const select = document.getElementById('cobro-servicio-extra');
+    if (!select) return;
+    const idsTurno = new Set(_turnoItemsActivos.map(it => String(it.servicio_id)));
+    select.innerHTML = '<option value="">➕ Agregar servicio...</option>' +
+        servicios.filter(s => s.activo !== false && !idsTurno.has(String(s.id)))
+            .map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
+    select.disabled = false;
+}
+
+async function agregarServicioAlTurno(turnoId) {
+    const select = document.getElementById('cobro-servicio-extra');
+    const svId = select?.value;
+    if (!svId) { mostrarNotificacion('⚠️ Elegí un servicio para agregar', 'error'); return; }
+    try {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}/servicios`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ servicio_id: parseInt(svId) })
+        });
+        const data = await res.json();
+        if (data.success) {
+            // El select queda con el placeholder por defecto
+            if (select) { select.value = ''; }
+            await cargarItemsModalCobro(turnoId);
+            llenarServiciosExtraModal();
+            mostrarNotificacion('✅ Servicio agregado al turno');
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error al agregar servicio', 'error');
+    }
+}
+
+async function quitarServicioDelTurno(turnoId, itemId) {
+    if (!confirm('¿Quitar este servicio del turno?')) return;
+    try {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}/servicios/${itemId}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+            await cargarItemsModalCobro(turnoId);
+            llenarServiciosExtraModal();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error al quitar servicio', 'error');
+    }
 }
 
 // Confirma el cobro: marca el turno cobrado + genera el ticket
@@ -2627,6 +2964,7 @@ async function confirmarCobro(turnoId) {
             mostrarNotificacion('✅ Turno cobrado correctamente');
             if (imprimir && data.ticket) imprimirTicket(data.ticket);
             cargarTurnosCaja();
+            cargarEstadoCaja();
         } else {
             mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
         }
