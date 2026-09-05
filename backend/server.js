@@ -1225,6 +1225,18 @@ app.put('/api/caja/config', autenticar, autorizar(['admin']), async (req, res) =
     }
 });
 
+// Teléfono del local (público, para botones de WhatsApp)
+app.get('/api/caja/config/public', async (req, res) => {
+    try {
+        const [rows] = await pool.query("SELECT valor FROM configuracion WHERE clave = 'local_telefono'");
+        const telefono = rows[0]?.valor || '';
+        res.json({ local_telefono: telefono });
+    } catch (e) {
+        console.error('❌ Error config publica:', e.message);
+        res.status(500).json({ error: 'Error al obtener configuración' });
+    }
+});
+
 // Turnos del día para el panel de caja
 app.get('/api/caja/dia', autenticar, autorizar(['admin','caja']), async (req, res) => {
     try {

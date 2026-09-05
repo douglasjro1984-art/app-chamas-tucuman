@@ -6,7 +6,7 @@
     <link rel="icon" href="img/logo original.webp" type="image/webp">
     <title>CHAMAS - Sistema de Turnos</title>
     
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=20260905">
     <link rel="stylesheet" href="css/13-galeria.css">
     <link rel="stylesheet" href="css/fix-backgrounds.css">
     <script>
@@ -120,6 +120,9 @@
             
             <section id="servicios" class="section active">
                 <h2>📦 Nuestros Servicios</h2>
+                <div style="margin-bottom:18px;">
+                    <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini" style="padding:13px 18px;width:auto;">📲 Reservar por WhatsApp</button>
+                </div>
                 <div id="servicios-grid" class="grid"></div>
             </section>
 
@@ -178,6 +181,9 @@
 
             <section id="agendar" class="section">
                 <h1>📝 Agendar Nuevo Turno</h1>
+                <div style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;">
+                    <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini" style="padding:13px 18px;width:auto;">📲 Asistente de reserva por chat</button>
+                </div>
                 <form id="form-turno" class="form-card">
                     <div class="form-group">
                         <label>👤 Nombre Completo</label>
@@ -348,7 +354,7 @@
 <script src="js/apiAuth.js?v=20260304"></script>
 <script src="js/api.js?v=20260217"></script>
 <script src="js/auth.js?v=20260217"></script>
-<script src="js/app.js?v=20260217"></script>
+<script src="js/app.js?v=20260905"></script>
 <script src="js/roles-funciones.js?v=20260217"></script>
 </body>
 </html>

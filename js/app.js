@@ -159,6 +159,7 @@ function renderizarServicios() {
                     <p class="servicio-precio">$${s.precio.toLocaleString()}</p>
                 </div>
                 ${puedeAgendar ? `<div class="servicio-accion"><button class="btn-agendar-mini" onclick="prepararAgendado(${s.id})">AGENDAR</button></div>` : ''}
+                <div class="servicio-whatsapp"><button class="btn-whatsapp-mini" onclick="reservarPorWhatsApp(${s.id})">📲 WhatsApp</button></div>
             </div>
         </div>
     `).join('');
@@ -1915,6 +1916,227 @@ function prepararAgendado(id) {
     if (select) {
         Array.from(select.options).forEach(o => { o.selected = String(o.value) === String(id); });
         cargarProfesionalesPorServicios([id]);
+    }
+}
+
+// ==========================================
+// WHATSAPP — RESERVA DIRECTA Y ASISTENTE
+// ==========================================
+
+let _whatsappLocal = null; // número internacional del local, cacheado
+
+// Obtiene el número de WhatsApp del local desde la config pública (formato internacional para wa.me)
+async function obtenerWhatsappLocal() {
+    if (_whatsappLocal) return _whatsappLocal;
+    try {
+        const res = await fetch(`${API_BASE}/caja/config/public`);
+        if (!res.ok) return null;
+        const cfg = await res.json();
+        const tel = (cfg.local_telefono || '').replace(/[^\d]/g, '');
+        if (!tel) return null;
+        // Normalizar a formato internacional:
+        //  - "011..." o "0..." → quitar el 0 y usar 54 + 9 (celular Argentina)
+        //  - ya empieza con 54 → dejar igual
+        let num = tel;
+        if (num.startsWith('549')) { _whatsappLocal = num; return num; }
+        if (num.startsWith('54')) { _whatsappLocal = num; return num; }
+        if (num.startsWith('0')) num = num.slice(1);
+        num = '549' + num;
+        _whatsappLocal = num;
+        return num;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Abre WhatsApp con un mensaje preformado para preguntar por un servicio
+async function reservarPorWhatsApp(servicioId) {
+    const num = await obtenerWhatsappLocal();
+    if (!num) { mostrarNotificacion('⚠️ Configurá el teléfono del local en Caja → config', 'error'); return; }
+    const s = servicios.find(x => String(x.id) === String(servicioId));
+    const msj = encodeURIComponent(`Hola! Me gustaría hacer una reserva en *CHAMAS SPA*.\n💆 Servicio: ${s ? s.nombre : ''}\n📅 ¿Tenés turnos disponibles?`);
+    window.open(`https://wa.me/${num}?text=${msj}`, '_blank');
+}
+
+// Asistente conversacional de reserva (paso a paso, estilo chat)
+let _asistenteEstado = null; // estado de la conversación
+
+function abrirAsistenteWhatsApp() {
+    if (!obtenerUsuarioActual()) { mostrarNotificacion('🔒 Iniciá sesión para usar el asistente de reserva', 'error'); return; }
+    document.getElementById('modal-asistente')?.remove();
+    const serviciosActivos = servicios.filter(s => s.activo !== false);
+    if (!serviciosActivos.length) { mostrarNotificacion('No hay servicios disponibles', 'error'); return; }
+
+    _asistenteEstado = { paso: 'servicio' };
+    const modal = document.createElement('div');
+    modal.id = 'modal-asistente';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;display:flex;flex-direction:column;height:560px;">
+            <div style="background:linear-gradient(135deg,#25D366,#1ebea5);color:white;padding:14px 18px;display:flex;align-items:center;gap:10px;">
+                <span style="font-size:1.4rem;">📲</span>
+                <div>
+                    <strong style="display:block;">¿Cómo querés reservar?</strong>
+                    <small style="opacity:0.9;">Asistente de reserva · CHAMAS SPA</small>
+                </div>
+                <button onclick="document.getElementById('modal-asistente').remove();" style="margin-left:auto;background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;">✖</button>
+            </div>
+            <div id="asistente-burbujas" style="flex:1;overflow-y:auto;padding:16px;background:#efe7dd;display:flex;flex-direction:column;gap:8px;"></div>
+            <div id="asistente-input" style="padding:12px;background:white;border-top:1px solid #eee;"></div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    _asistenteBurbuja('bot', '🙋‍♀️ ¡Hola! Soy el asistente de CHAMAS. Voy a ayudarte a reservar tu turno en pocos pasos. ¿Qué servicio querés?');
+    // Mostrar servicios como opciones
+    _asistenteBurbuja('opciones', serviciosActivos.map(s =>
+        `<button onclick="asistenteElegirServicio(${s.id})" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">💆 ${s.nombre} · <strong>$${s.precio.toLocaleString()}</strong></button>`).join(''));
+}
+
+function asistenteBurbujaDom(tipo, contenidoHtml) {
+    const cont = document.getElementById('asistente-burbujas');
+    if (!cont) return;
+    const d = document.createElement('div');
+    if (tipo === 'bot' || tipo === 'opciones') {
+        d.style.cssText = 'align-self:flex-start;background:#fff;border-radius:14px 14px 14px 4px;padding:10px 14px;max-width:85%;font-size:0.9rem;color:#333;box-shadow:0 1px 2px rgba(0,0,0,0.08);';
+    } else {
+        d.style.cssText = 'align-self:flex-end;background:#dcf8c6;border-radius:14px 14px 4px 14px;padding:10px 14px;max-width:85%;font-size:0.9rem;color:#333;';
+    }
+    d.innerHTML = contenidoHtml;
+    cont.appendChild(d);
+    cont.scrollTop = cont.scrollHeight;
+}
+
+function _asistenteBurbuja(tipo, html) { asistenteBurbujaDom(tipo, html); }
+
+async function asistenteElegirServicio(id) {
+    const s = servicios.find(x => String(x.id) === String(id));
+    if (!s) return;
+    _asistenteEstado.servicio = s;
+    _asistenteBurbuja('user', `💆 ${s.nombre} ($${s.precio.toLocaleString()})`);
+    _asistenteBurbuja('bot', '¿Con qué profesional querés el turno?');
+    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando profesionales...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/profesionales/servicio/${id}`);
+        const profs = await res.json();
+        document.getElementById('asistente-input').innerHTML = '';
+        if (!profs.length) { _asistenteBurbuja('bot', '😕 No hay profesionales para ese servicio por ahora.'); return; }
+        _asistenteBurbuja('opciones', profs.map(p =>
+            `<button onclick="asistenteElegirProfesional(${p.id})" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">👩‍💼 ${p.nombre}</button>`).join(''));
+    } catch (e) {
+        document.getElementById('asistente-input').innerHTML = '';
+        _asistenteBurbuja('bot', '😕 Error al cargar profesionales.');
+    }
+}
+
+async function asistenteElegirProfesional(id) {
+    const res = await fetch(`${API_BASE}/usuarios/profesionales`);
+    const all = await res.json();
+    const p = all.find(x => String(x.id) === String(id));
+    if (!p) return;
+    _asistenteEstado.profesional = p;
+    _asistenteBurbuja('user', `👩‍💼 ${p.nombre}`);
+    _asistenteBurbuja('bot', '¿Para qué día? Elegí una fecha disponible:');
+    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando fechas...</p>';
+    try {
+        const rango = await fetch(`${API_BASE}/disponibilidad/rango/${id}`);
+        const fechas = await rango.json(); // array YYYY-MM-DD
+        document.getElementById('asistente-input').innerHTML = '';
+        if (!fechas.length) { _asistenteBurbuja('bot', '😕 No hay fechas disponibles para esta profesional. Probá con otra.'); return; }
+        _asistenteBurbuja('opciones', fechas.slice(0, 10).map(f => {
+            const d = new Date(f + 'T00:00:00');
+            const label = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+            return `<button onclick="asistenteElegirFecha('${f}')" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">📅 ${label}</button>`;
+        }).join('') + (fechas.length > 10 ? `<p style="color:#888;font-size:0.8rem;text-align:center;margin-top:6px;">y ${fechas.length - 10} más días disponibles</p>` : ''));
+    } catch (e) {
+        document.getElementById('asistente-input').innerHTML = '';
+        _asistenteBurbuja('bot', '😕 Error al cargar fechas.');
+    }
+}
+
+async function asistenteElegirFecha(fecha) {
+    _asistenteEstado.fecha = fecha;
+    const d = new Date(fecha + 'T00:00:00');
+    _asistenteBurbuja('user', `📅 ${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`);
+    _asistenteBurbuja('bot', '¿A qué hora?');
+    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando horarios...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/disponibilidad/${_asistenteEstado.profesional.id}/${fecha}`);
+        const horas = await res.json(); // array de horas "HH:MM" o {hora}
+        document.getElementById('asistente-input').innerHTML = '';
+        const lista = (Array.isArray(horas) ? horas : []).map(h => {
+            const raw = typeof h === 'string' ? h : (h.hora || h.hora_inicio || '');
+            return raw.length > 5 ? raw.substring(0, 5) : raw;
+        });
+        if (!lista.length) { _asistenteBurbuja('bot', '😕 No hay horarios libres ese día. Elegí otra fecha.'); return; }
+        _asistenteBurbuja('opciones', lista.map(h =>
+            `<button onclick="asistenteElegirHora('${h}')" style="display:inline-block;padding:10px 14px;margin:4px;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:700;">🕐 ${h}</button>`).join(''));
+    } catch (e) {
+        document.getElementById('asistente-input').innerHTML = '';
+        _asistenteBurbuja('bot', '😕 Error al cargar horarios.');
+    }
+}
+
+async function asistenteElegirHora(hora) {
+    _asistenteEstado.hora = hora;
+    _asistenteBurbuja('user', `🕐 ${hora}`);
+    _asistenteBurbuja('bot', '¡Perfecto! ¿Cuál es tu nombre?');
+    document.getElementById('asistente-input').innerHTML =
+        `<input type="text" id="asistente-nombre" placeholder="Ej: María González" style="width:100%;padding:12px;border:2px solid #25D366;border-radius:10px;box-sizing:border-box;font-size:1rem;">
+         <button onclick="asistentePasoNombre()" style="width:100%;margin-top:8px;background:#25D366;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Siguiente →</button>`;
+    setTimeout(() => document.getElementById('asistente-nombre')?.focus(), 80);
+}
+
+function asistentePasoNombre() {
+    const nombre = document.getElementById('asistente-nombre')?.value.trim();
+    if (!nombre) { mostrarNotificacion('⚠️ Ingresá tu nombre', 'error'); return; }
+    _asistenteEstado.clienteNombre = nombre;
+    _asistenteBurbuja('user', `👤 ${nombre}`);
+    _asistenteBurbuja('bot', 'Y tu teléfono (para confirmarte por WhatsApp):');
+    document.getElementById('asistente-input').innerHTML =
+        `<input type="tel" id="asistente-telefono" placeholder="Ej: 3865437108" style="width:100%;padding:12px;border:2px solid #25D366;border-radius:10px;box-sizing:border-box;font-size:1rem;">
+         <button onclick="asistentePasoTelefono()" style="width:100%;margin-top:8px;background:#25D366;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Finalizar →</button>`;
+    setTimeout(() => document.getElementById('asistente-telefono')?.focus(), 80);
+}
+
+async function asistentePasoTelefono() {
+    const telefono = document.getElementById('asistente-telefono')?.value.trim();
+    if (!telefono) { mostrarNotificacion('⚠️ Ingresá tu teléfono', 'error'); return; }
+    _asistenteEstado.clienteTelefono = telefono;
+    _asistenteBurbuja('user', `📞 ${telefono}`);
+    const e = _asistenteEstado;
+    const usuario = obtenerUsuarioActual();
+    _asistenteBurbuja('bot', `⏳ Confirmando tu turno...`);
+
+    try {
+        const res = await fetch(`${API_BASE}/turnos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cliente_id: usuario ? parseInt(usuario.id) : null,
+                cliente_nombre: e.clienteNombre,
+                cliente_telefono: e.clienteTelefono,
+                profesional_id: parseInt(e.profesional.id),
+                servicios: [parseInt(e.servicio.id)],
+                fecha: e.fecha,
+                hora_inicio: e.hora + ':00'
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            _asistenteBurbuja('user', `✅ Turno confirmado para ${e.profesional.nombre} el ${e.fecha} a las ${e.hora}. ¡Gracias ${e.clienteNombre}!`);
+            const num = await obtenerWhatsappLocal();
+            document.getElementById('asistente-input').innerHTML = num
+                ? `<p style="color:#555;font-size:0.85rem;text-align:center;margin-bottom:8px;">📲 Podés enviarnos la confirmación por WhatsApp:</p>
+                   <a href="https://wa.me/${num}?text=${encodeURIComponent(`Hola! Ya reservé: ${e.servicio.nombre} para el ${e.fecha} a las ${e.hora}. Soy ${e.clienteNombre}`)}" target="_blank" style="display:block;background:#25D366;color:white;text-align:center;padding:13px;border-radius:10px;text-decoration:none;font-weight:700;">📲 Enviar por WhatsApp</a>`
+                : '<p style="color:#555;font-size:0.85rem;text-align:center;">✅ ¡Turno confirmado!</p>';
+            if (usuario) { setTimeout(() => { cargarTurnosCaja(); if (document.getElementById('caja').style.display !== 'none') cargarEstadoCaja(); }, 400); }
+        } else {
+            _asistenteBurbuja('bot', '😕 ' + (data.message || 'No se pudo reservar. Probá con otro horario.'));
+            document.getElementById('asistente-input').innerHTML = '';
+        }
+    } catch (e) {
+        _asistenteBurbuja('bot', '😕 Error de conexión al reservar.');
+        document.getElementById('asistente-input').innerHTML = '';
     }
 }
 
