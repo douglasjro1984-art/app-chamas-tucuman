@@ -2243,10 +2243,19 @@ function showSection(sectionId) {
         cargarEstadoCaja();
         cargarTurnosCaja();
         cargarRecordatorios();
+        if (!window._intervaloRecordatorios) {
+            window._intervaloRecordatorios = setInterval(() => {
+                if (document.getElementById('caja') && document.getElementById('caja').style.display !== 'none') {
+                    cargarRecordatorios();
+                }
+            }, 60000);
+        }
         if (usuario.rol === 'admin') {
             cargarTodosLosTurnos();
             cargarProfesionalesFiltro();
         }
+    } else {
+        if (window._intervaloRecordatorios) { clearInterval(window._intervaloRecordatorios); window._intervaloRecordatorios = null; }
     }
 
     if (sectionId === 'mis-turnos-cliente') {
@@ -2876,16 +2885,31 @@ async function cargarRecordatorios() {
             return;
         }
         const hoyISO = new Date().toISOString().slice(0, 10);
-        cont.innerHTML = turnos.map(t => {
-            const fechaRaw = String(t.fecha || '').split('T')[0]; // normalizar YYYY-MM-DD
+        const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
+
+        // Turnos de HOY con cita dentro de la próxima hora → recordar YA
+        const porRecordar = turnos.filter(t => {
+            const fRaw = String(t.fecha || '').split('T')[0];
+            if (fRaw !== hoyISO) return false;
+            if (t.recordatorio_enviado) return false;
+            const [hh, mm] = String(t.hora_inicio || '00:00').split(':').map(Number);
+            const turnoMin = (hh || 0) * 60 + (mm || 0);
+            return turnoMin > ahoraMin && turnoMin <= ahoraMin + 60;
+        });
+
+        const htmlTurno = (t, modo) => {
+            const fechaRaw = String(t.fecha || '').split('T')[0];
             let f = null;
-            try { f = new Date(fechaRaw.length > 10 ? fechaRaw.slice(0, 10) + 'T00:00:00' : fechaRaw + 'T00:00:00'); } catch (e) { f = null; }
+            try { f = new Date(fechaRaw + 'T00:00:00'); } catch (e) { f = null; }
             const esHoy = fechaRaw === hoyISO;
             const fechaLabel = (esHoy ? 'HOY ' : 'MAÑANA ') + (f ? f.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }) : fechaRaw);
             const tel = (t.cliente_telefono || '').replace(/[^\d]/g, '');
             let waNum = tel;
             if (waNum.startsWith('549')) {} else if (waNum.startsWith('54')) {} else if (waNum.startsWith('0')) waNum = '549' + waNum.slice(1); else waNum = '549' + waNum;
             const msj = encodeURIComponent(`Hola ${t.cliente_nombre || ''}! 👋 Te recordamos tu turno en *CHAMAS SPA*:\n📅 ${fechaLabel}\n🕐 ${t.hora_inicio}\n👩‍💼 ${t.profesional}\n\n¡Te esperamos! 💆‍♀️`);
+            const btnPrincipal = modo === 'ya'
+                ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" style="background:#25D366;color:white;padding:10px 16px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Recordar ahora</a>`
+                : `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Enviar</a>`;
             return `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #eef2e6;flex-wrap:wrap;">
                     <div style="flex:1;min-width:220px;">
@@ -2894,11 +2918,30 @@ async function cargarRecordatorios() {
                         <small style="display:block;color:#666;">📞 ${t.cliente_telefono || 'Sin teléfono'}</small>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        ${waNum ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Enviar</a>` : ''}
+                        ${waNum ? btnPrincipal : ''}
                         ${t.recordatorio_enviado ? '<span style="color:#28a745;font-size:0.85rem;font-weight:700;">✅ Enviado</span>' : `<button onclick="marcarRecordatorioEnviado(${t.id})" style="background:#f8f9fa;color:#C06C84;border:1px solid #C06C84;padding:8px 12px;border-radius:9px;cursor:pointer;font-weight:600;font-size:0.8rem;">✓ Marcar enviado</button>`}
                     </div>
                 </div>`;
-        }).join('');
+        };
+
+        let html = '';
+        if (porRecordar.length) {
+            html += `<div style="background:#e8f5e9;border:2px solid #25D366;border-radius:12px;padding:14px;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span style="font-size:1.3rem;">⏰</span>
+                    <strong style="color:#1aa851;">CITAS EN LA PRÓXIMA HORA — recordar ahora:</strong>
+                </div>
+                ${porRecordar.map(t => htmlTurno(t, 'ya')).join('')}
+            </div>`;
+        }
+        html += `<div style="background:#fff;border:2px solid #ddd;border-radius:12px;padding:14px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:1.3rem;">📋</span>
+                <strong style="color:#444;">TODOS los turnos de hoy y mañana:</strong>
+            </div>
+            ${turnos.map(t => htmlTurno(t, 'no')).join('')}
+        </div>`;
+        cont.innerHTML = html;
     } catch (e) {
         cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar recordatorios.</p>';
     }
