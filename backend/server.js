@@ -1357,7 +1357,7 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req
         }
         const c = caja[0];
         const total = parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) +
-                      parseFloat(c.total_debito || 0) + parseFloat(c.total_credito || 0);
+                      parseFloat(c.total_debito || 0);
         const real = parseFloat(monto_real) || 0;
         const esperado = parseFloat(c.monto_inicial || 0) + total;
         const diferencia = Math.round((real - esperado) * 100) / 100;
@@ -1375,7 +1375,6 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req
                 total_efectivo: parseFloat(c.total_efectivo || 0),
                 total_transferencia: parseFloat(c.total_transferencia || 0),
                 total_debito: parseFloat(c.total_debito || 0),
-                total_credito: parseFloat(c.total_credito || 0),
                 total_ventas: total,
                 dinero_en_caja_esperado: esperado,
                 dinero_contado: real,
@@ -1393,7 +1392,7 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin']), async (req, res
     try {
         const [rows] = await pool.query(
             `SELECT id, fecha, estado, monto_inicial, monto_final,
-                    total_efectivo, total_transferencia, total_debito, total_credito,
+                    total_efectivo, total_transferencia, total_debito,
                     cajero_nombre, abierta_at, cerrada_at
              FROM cajas ORDER BY id DESC LIMIT 15`
         );
@@ -1421,6 +1420,9 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']),
             return res.status(400).json({ success: false, message: 'Monto inválido' });
         }
         const metodo = metodo_pago || 'efectivo';
+        if (metodo === 'credito') {
+            return res.status(400).json({ success: false, message: 'Este negocio no acepta tarjetas de crédito' });
+        }
 
         // Items del turno (multi-servicio). Si no hay, usa el servicio principal.
         const [itemsDb] = await pool.query(
@@ -1459,8 +1461,7 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']),
             const colMetodo = {
                 efectivo: 'total_efectivo',
                 transferencia: 'total_transferencia',
-                debito: 'total_debito',
-                credito: 'total_credito'
+                debito: 'total_debito'
             }[metodo] || 'total_efectivo';
             await pool.query(
                 `UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ?`,

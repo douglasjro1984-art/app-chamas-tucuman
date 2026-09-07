@@ -2565,7 +2565,6 @@ function abrirModalPago(turnoId, clienteNombre, servicio, hora, fecha) {
                         <option value="efectivo">💵 Efectivo</option>
                         <option value="transferencia">🏦 Transferencia</option>
                         <option value="debito">💳 Débito</option>
-                        <option value="credito">💳 Crédito</option>
                     </select>
                 </div>
                 <div>
@@ -2986,8 +2985,7 @@ async function cargarEstadoCaja() {
             const totEf = parseFloat(c.total_efectivo || 0);
             const totTr = parseFloat(c.total_transferencia || 0);
             const totDb = parseFloat(c.total_debito || 0);
-            const totCr = parseFloat(c.total_credito || 0);
-            const total = totEf + totTr + totDb + totCr;
+            const total = totEf + totTr + totDb;
             cont.innerHTML = `
                 <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #28a745;">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
@@ -3005,7 +3003,6 @@ async function cargarEstadoCaja() {
                         <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💵 Efectivo</small><br><strong>$${totEf.toFixed(2)}</strong></div>
                         <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">🏦 Transferencia</small><br><strong>$${totTr.toFixed(2)}</strong></div>
                         <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💳 Débito</small><br><strong>$${totDb.toFixed(2)}</strong></div>
-                        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💳 Crédito</small><br><strong>$${totCr.toFixed(2)}</strong></div>
                     </div>
                 </div>`;
         }
@@ -3123,7 +3120,6 @@ function mostrarResumenCierre(r) {
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💵 Efectivo</span><strong>$${r.total_efectivo.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">🏦 Transferencia</span><strong>$${r.total_transferencia.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💳 Débito</span><strong>$${r.total_debito.toFixed(2)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💳 Crédito</span><strong>$${r.total_credito.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed #ccc;margin-top:4px;"><span style="color:#555;font-weight:700;">Total ventas</span><strong style="color:#28a745;">$${r.total_ventas.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Debería haber</span><strong>$${r.dinero_en_caja_esperado.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Dinero contado</span><strong>$${r.dinero_contado.toFixed(2)}</strong></div>
@@ -3166,7 +3162,6 @@ function abrirModalPlanillaCierre(json) {
   <div class="row"><span>Efectivo</span><span>$${r.total_efectivo.toFixed(2)}</span></div>
   <div class="row"><span>Transferencia</span><span>$${r.total_transferencia.toFixed(2)}</span></div>
   <div class="row"><span>Débito</span><span>$${r.total_debito.toFixed(2)}</span></div>
-  <div class="row"><span>Crédito</span><span>$${r.total_credito.toFixed(2)}</span></div>
   <div class="row"><span class="bold">TOTAL VENTAS</span><span class="bold">$${r.total_ventas.toFixed(2)}</span></div>
   <hr>
   <div class="row"><span>Debería haber</span><span>$${r.dinero_en_caja_esperado.toFixed(2)}</span></div>
@@ -3269,7 +3264,6 @@ async function abrirModalCobro(turnoId, cliente, servicio, precio) {
                         <option value="efectivo">💵 Efectivo</option>
                         <option value="transferencia">🏦 Transferencia</option>
                         <option value="debito">💳 Débito</option>
-                        <option value="credito">💳 Crédito</option>
                     </select>
                 </div>
                 <label style="display:flex;align-items:center;gap:8px;color:#555;font-size:0.88rem;cursor:pointer;">
