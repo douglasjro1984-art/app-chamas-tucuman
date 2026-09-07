@@ -905,6 +905,50 @@ app.get('/api/turnos/todos', autenticar, autorizar(['admin']), async (req, res) 
     }
 });
 
+// ============================================
+// 📲 RECORDATORIOS (ADMIN / CAJA)
+// ============================================
+// Turnos de hoy y mañana con teléfono del cliente para enviar recordatorios
+app.get('/api/recordatorios', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    try {
+        const hoy = new Date();
+        const fechas = [hoy];
+        const maniana = new Date(hoy); maniana.setDate(hoy.getDate() + 1);
+        fechas.push(maniana);
+        const fmt = f => f.toISOString().slice(0, 10);
+        const fechasStr = fechas.map(fmt);
+
+        const [rows] = await pool.query(
+            `SELECT t.id, t.fecha, DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio, t.estado,
+                    COALESCE(t.cliente_nombre, c.nombre) as cliente_nombre,
+                    COALESCE(t.cliente_telefono, c.telefono) as cliente_telefono,
+                    p.nombre as profesional,
+                    t.recordatorio_enviado
+             FROM turnos t
+             LEFT JOIN usuarios c ON t.cliente_id = c.id
+             JOIN usuarios p ON t.profesional_id = p.id
+             WHERE t.fecha IN (?, ?)
+             ORDER BY t.fecha, t.hora_inicio`,
+            fechasStr
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('❌ Error recordatorios:', e.message);
+        res.status(500).json({ error: 'Error al obtener recordatorios' });
+    }
+});
+
+// Marcar recordatorio como enviado
+app.post('/api/recordatorios/:id/enviado', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    try {
+        await pool.query('UPDATE turnos SET recordatorio_enviado = 1 WHERE id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('❌ Error marcar recordatorio:', e.message);
+        res.status(500).json({ success: false });
+    }
+});
+
 // Obtener un turno específico
 app.get('/api/turnos/:id', autenticar, async (req, res) => {
     const { id } = req.params;

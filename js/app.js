@@ -1911,6 +1911,7 @@ function imprimirComprobante(cn,tel,srv,prof,fecha,hora,regPor) {
 }
 
 function prepararAgendado(id) {
+    if (!obtenerUsuarioActual()) { mostrarLoginVisitante(); return; }
     showSection('mis-turnos-cliente');
     const form = document.getElementById('form-turno');
     if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1965,7 +1966,7 @@ async function reservarPorWhatsApp(servicioId) {
 let _asistenteEstado = null; // estado de la conversación
 
 function abrirAsistenteWhatsApp() {
-    if (!obtenerUsuarioActual()) { mostrarNotificacion('🔒 Iniciá sesión para usar el asistente de reserva', 'error'); return; }
+    if (!obtenerUsuarioActual()) { mostrarLoginVisitante(); return; }
     document.getElementById('modal-asistente')?.remove();
     const serviciosActivos = servicios.filter(s => s.activo !== false);
     if (!serviciosActivos.length) { mostrarNotificacion('No hay servicios disponibles', 'error'); return; }
@@ -2192,6 +2193,16 @@ async function cargarEstadisticas() {
 // =====================================================
 // showSection — función única definitiva
 // =====================================================
+function mostrarEditorPrecios() {
+    document.getElementById('editar-precios-panel').style.display = 'block';
+    cargarEditorPrecios();
+    document.getElementById('editar-precios-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function ocultarEditorPrecios() {
+    document.getElementById('editar-precios-panel').style.display = 'none';
+}
+
 function showSection(sectionId) {
     const login = document.getElementById('login-screen');
     if (login) {
@@ -2215,17 +2226,23 @@ function showSection(sectionId) {
     target.style.display = 'block';
     target.classList.add('active');
 
+    const ediPreciosPanel = document.getElementById('editar-precios-panel');
+    if (ediPreciosPanel) ediPreciosPanel.style.display = 'none';
+
     const usuario = obtenerUsuarioActual();
     if (!usuario) return;
 
-    if (sectionId === 'registrar-profesionales') { llenarSelectServiciosRegistro(); cargarListaProfesionalesAdmin(); }
-    if (sectionId === 'editar-precios')          cargarEditorPrecios();
+    if (sectionId === 'admin') {
+        llenarSelectServiciosRegistro();
+        cargarListaProfesionalesAdmin();
+        cargarEstadisticas();
+    }
     if (sectionId === 'gestionar-horarios')      cargarGestionHorarios();
-    if (sectionId === 'admin')                   cargarEstadisticas();
 
     if (sectionId === 'caja') {
         cargarEstadoCaja();
         cargarTurnosCaja();
+        cargarRecordatorios();
         if (usuario.rol === 'admin') {
             cargarTodosLosTurnos();
             cargarProfesionalesFiltro();
@@ -2843,6 +2860,64 @@ document.addEventListener('change', (e) => {
 // =====================================================
 // 💵 MÓDULO DE CAJA — turnos del día, cobro y ticket
 // =====================================================
+
+// =============================================
+// 📲 RECORDATORIOS WHATSAPP (ADMIN / CAJA)
+// =============================================
+async function cargarRecordatorios() {
+    const cont = document.getElementById('recordatorios-lista');
+    if (!cont) return;
+    cont.innerHTML = '<p style="color:#888;">⏳ Cargando recordatorios...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/recordatorios`);
+        const turnos = await res.json();
+        if (!Array.isArray(turnos) || !turnos.length) {
+            cont.innerHTML = '<p style="color:#888;">✅ No hay turnos para hoy ni mañana.</p>';
+            return;
+        }
+        const hoyISO = new Date().toISOString().slice(0, 10);
+        cont.innerHTML = turnos.map(t => {
+            const fechaRaw = String(t.fecha || '').split('T')[0]; // normalizar YYYY-MM-DD
+            let f = null;
+            try { f = new Date(fechaRaw.length > 10 ? fechaRaw.slice(0, 10) + 'T00:00:00' : fechaRaw + 'T00:00:00'); } catch (e) { f = null; }
+            const esHoy = fechaRaw === hoyISO;
+            const fechaLabel = (esHoy ? 'HOY ' : 'MAÑANA ') + (f ? f.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }) : fechaRaw);
+            const tel = (t.cliente_telefono || '').replace(/[^\d]/g, '');
+            let waNum = tel;
+            if (waNum.startsWith('549')) {} else if (waNum.startsWith('54')) {} else if (waNum.startsWith('0')) waNum = '549' + waNum.slice(1); else waNum = '549' + waNum;
+            const msj = encodeURIComponent(`Hola ${t.cliente_nombre || ''}! 👋 Te recordamos tu turno en *CHAMAS SPA*:\n📅 ${fechaLabel}\n🕐 ${t.hora_inicio}\n👩‍💼 ${t.profesional}\n\n¡Te esperamos! 💆‍♀️`);
+            return `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #eef2e6;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:220px;">
+                        <strong>${t.cliente_nombre || 'Sin nombre'}</strong>
+                        <small style="display:block;color:#888;">${fechaLabel} · ${t.hora_inicio} · ${t.profesional}</small>
+                        <small style="display:block;color:#666;">📞 ${t.cliente_telefono || 'Sin teléfono'}</small>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        ${waNum ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Enviar</a>` : ''}
+                        ${t.recordatorio_enviado ? '<span style="color:#28a745;font-size:0.85rem;font-weight:700;">✅ Enviado</span>' : `<button onclick="marcarRecordatorioEnviado(${t.id})" style="background:#f8f9fa;color:#C06C84;border:1px solid #C06C84;padding:8px 12px;border-radius:9px;cursor:pointer;font-weight:600;font-size:0.8rem;">✓ Marcar enviado</button>`}
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar recordatorios.</p>';
+    }
+}
+
+async function marcarRecordatorioEnviado(turnoId) {
+    try {
+        const res = await fetch(`${API_BASE}/recordatorios/${turnoId}/enviado`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('✅ Recordatorio marcado como enviado');
+            cargarRecordatorios();
+        } else {
+            mostrarNotificacion('❌ No se pudo marcar', 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
+}
 
 // Carga los turnos del día para el panel de caja
 // Estado de la caja del día (abierta/cerrada con totales)

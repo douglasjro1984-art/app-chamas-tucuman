@@ -29,8 +29,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     console.log('⚠️ No hay sesión activa');
-    mostrarLogin();
-    ocultarApp();
+    mostrarApp();
+    ocultarLogin();
+    showSection('servicios');
+    // Ocultar todo contenido restringido por rol
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'none');
+    // Mostrar solo el botón de servicios en el nav
+    document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
+    const navServicios = document.querySelector('[onclick*="servicios"]');
+    if (navServicios) navServicios.style.display = 'inline-block';
+    const navLogin = document.getElementById('nav-login-btn');
+    if (navLogin) navLogin.style.display = 'inline-block';
+    const userStatus = document.querySelector('.user-status-card');
+    if (userStatus) userStatus.style.display = 'none';
+    if (typeof cargarDatosDesdeAPI === 'function') { cargarDatosDesdeAPI(); }
 });
 
 // ==========================================
@@ -225,12 +240,33 @@ function mostrarLogin() {
 
 function ocultarLogin() {
     const login = document.getElementById('login-screen');
+    const closeBtn = document.getElementById('login-close-btn');
     if (login) {
         login.style.display    = 'none';
         login.style.visibility = 'hidden';
         login.style.pointerEvents = 'none';
         login.style.zIndex    = '-1';
     }
+    if (closeBtn) closeBtn.style.display = 'none';
+}
+
+function mostrarLoginVisitante() {
+    const login = document.getElementById('login-screen');
+    const closeBtn = document.getElementById('login-close-btn');
+    if (login) {
+        login.style.cssText = 'display:flex;position:fixed;top:0;left:0;width:100%;height:100%;z-index:15000;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);visibility:visible;pointer-events:auto;';
+    }
+    if (closeBtn) closeBtn.style.display = 'block';
+}
+
+function mostrarAppVisitante() {
+    mostrarApp();
+    document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
+    const navServ = document.querySelector('[onclick*="servicios"]');
+    if (navServ) navServ.style.display = 'inline-block';
+    const navLogin = document.getElementById('nav-login-btn');
+    if (navLogin) navLogin.style.display = 'inline-block';
+    showSection('servicios');
 }
 
 function mostrarApp() {
@@ -240,6 +276,12 @@ function mostrarApp() {
         mainApp.style.visibility = 'visible';
         mainApp.style.pointerEvents = 'auto';
     }
+    // Restaurar nav completo para usuario logueado
+    document.querySelectorAll('.nav-links button').forEach(b => b.style.display = '');
+    const navLogin = document.getElementById('nav-login-btn');
+    if (navLogin) navLogin.style.display = 'none';
+    const userStatus = document.querySelector('.user-status-card');
+    if (userStatus) userStatus.style.display = '';
 }
 
 function ocultarApp() {

@@ -6,7 +6,7 @@
     <link rel="icon" href="img/logo original.webp" type="image/webp">
     <title>CHAMAS - Sistema de Turnos</title>
     
-    <link rel="stylesheet" href="css/styles.css?v=20260906">
+    <link rel="stylesheet" href="css/styles.css?v=20260907">
     <link rel="stylesheet" href="css/13-galeria.css">
     <link rel="stylesheet" href="css/fix-backgrounds.css">
     <script>
@@ -20,6 +20,7 @@
    
     <!-- PANTALLA DE LOGIN / REGISTRO -->
     <div id="login-screen" class="login-container">
+        <button id="login-close-btn" onclick="ocultarLogin()" style="display:none;position:fixed;top:18px;right:22px;z-index:20001;background:rgba(0,0,0,0.15);color:#333;border:none;border-radius:50%;width:40px;height:40px;font-size:1.5rem;cursor:pointer;">✖</button>
         <div class="login-card">
             <img src="img/logo.png" alt="Chamas Logo" class="login-logo">
 
@@ -100,9 +101,8 @@
                     <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">📅 Reservas</button>
                     <button class="prof-only" onclick="showSection('mis-turnos-profesional')">👥 Citas clientes</button>
                     <button class="prof-only" onclick="showSection('gestionar-horarios')">⏰ Mis Horarios</button>
-                    <button class="admin-only" onclick="showSection('editar-precios')">💰 Editar Precios</button>
-                    <button class="admin-only" onclick="showSection('admin')">📊 Estadísticas</button>
-                    <button class="admin-only" onclick="showSection('registrar-profesionales')">👤 Registrar Profesionales</button>
+                    <button class="admin-only" onclick="showSection('admin')">📊 Administración</button>
+                    <button id="nav-login-btn" onclick="mostrarLoginVisitante()" style="display:none;">🔑 Iniciar sesión</button>
                 </div>
 
                 <div class="user-status-card">
@@ -121,8 +121,17 @@
                 <h2>📦 Nuestros Servicios</h2>
                 <div style="margin-bottom:18px;">
                     <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini" style="padding:13px 18px;width:auto;">📲 Reservar por WhatsApp</button>
+                    <button onclick="mostrarEditorPrecios()" class="btn-whatsapp-mini admin-only" style="padding:13px 18px;width:auto;background:#C06C84;">💰 Editar precios</button>
                 </div>
                 <div id="servicios-grid" class="grid"></div>
+
+                <div class="admin-only" id="editar-precios-panel" style="margin-top:30px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px;">
+                        <h2 style="margin:0;">💰 Gestión de Precios (Admin)</h2>
+                        <button onclick="ocultarEditorPrecios()" class="btn-reset">🔼 Ocultar editor</button>
+                    </div>
+                    <div id="lista-precios-editar"></div>
+                </div>
             </section>
 
             <section id="caja" class="section">
@@ -130,6 +139,16 @@
                 <p style="color: #666; margin-bottom: 20px;">Acá podés abrir/cerrar la caja, ver los turnos del día, cobrar y emitir el ticket.</p>
                 <div id="caja-estado"></div>
                 <div id="caja-turnos-dia"></div>
+
+                <div class="caja-only" style="margin-top: 30px;">
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #25D366;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                            <h3 style="margin:0;color:#1aa851;">📲 Recordatorios WhatsApp (Hoy y Mañana)</h3>
+                            <button onclick="cargarRecordatorios()" class="btn-whatsapp-mini" style="padding:10px 16px;width:auto;">🔄 Recargar</button>
+                        </div>
+                        <div id="recordatorios-lista"></div>
+                    </div>
+                </div>
 
                 <div class="admin-only" style="margin-top: 30px;">
                     <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
@@ -231,11 +250,6 @@
                 <div id="horarios-lista"></div>
             </section>
 
-            <section id="editar-precios" class="section">
-                <h2>💰 Gestión de Precios</h2>
-                <div id="lista-precios-editar"></div>
-            </section>
-
             <section id="admin" class="section">
                 <h2>📊 Panel de Administración</h2>
                 <div class="stats-grid">
@@ -252,14 +266,12 @@
                         <p class="stat-number" id="stat-clientes">0</p>
                     </div>
                 </div>
-            </section>
 
-            <section id="registrar-profesionales" class="section">
-                <h2>👤 Registro de Profesionales (Admin)</h2>
-                <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
-                    <p><strong>⚙️ Panel de Administración:</strong> Aquí puedes registrar nuevos profesionales. Asegúrate de asignar servicios válidos.</p>
-                </div>
-                <form id="form-registro-profesional" class="form-card">
+                <div style="margin-top:35px;">
+                    <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
+                        <p><strong>👤 Registro de Profesionales:</strong> Asegúrate de asignar servicios válidos. Podés editar o eliminar profesionales desde la lista de abajo.</p>
+                    </div>
+                    <form id="form-registro-profesional" class="form-card">
                     <div class="form-group">
                         <label>👤 Nombre Completo</label>
                         <input type="text" id="prof-nombre" required placeholder="Ej: Laura García">
@@ -297,6 +309,7 @@
 
                 <!-- Lista de profesionales registradas -->
                 <div id="lista-profesionales-admin" style="margin-top:28px;"></div>
+            </div>
             </section>
 
         </main>
@@ -354,8 +367,8 @@
 
 <script src="js/apiAuth.js?v=20260304"></script>
 <script src="js/api.js?v=20260217"></script>
-<script src="js/auth.js?v=20260217"></script>
-<script src="js/app.js?v=20260906"></script>
+<script src="js/auth.js?v=20260907"></script>
+<script src="js/app.js?v=20260907"></script>
 <script src="js/roles-funciones.js?v=20260217"></script>
 </body>
 </html>
