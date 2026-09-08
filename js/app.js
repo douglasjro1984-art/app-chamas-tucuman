@@ -153,7 +153,7 @@ function renderizarServicios() {
     const grid = document.getElementById('servicios-grid');
     if (!grid) return;
     const usuario = obtenerUsuarioActual();
-    const puedeAgendar = usuario && ['admin', 'cliente', 'profesional'].includes(usuario.rol);
+    const puedeAgendar = usuario && ['admin', 'cliente', 'profesional', 'recepcionista'].includes(usuario.rol);
     grid.innerHTML = servicios.map(s => `
         <div class="servicio-card">
             <div class="servicio-imagen" style="background-image: url('${encodeURI(s.imagen)}')"></div>
