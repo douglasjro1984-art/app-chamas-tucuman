@@ -492,6 +492,7 @@ function configurarInterfazPorRol(rol) {
     } else if (rol === 'recepcionista') {
         document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.horarios-gestion').forEach(el => el.style.display = 'block');
     }
     
     console.log('✅ Interfaz de', rol.toUpperCase(), 'activada');

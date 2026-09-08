@@ -489,7 +489,7 @@ async function cargarGestionHorarios() {
     const usuario = obtenerUsuarioActual();
     if (!container || !usuario) return;
 
-    if (usuario.rol === 'admin') {
+    if (usuario.rol === 'admin' || usuario.rol === 'recepcionista') {
         await _renderSelectorProfesionalCalendario(container);
     } else {
         container.innerHTML = `
@@ -505,7 +505,7 @@ async function cargarGestionHorarios() {
 async function _renderSelectorProfesionalCalendario(container) {
     container.innerHTML = `
         <div class="info-card" style="background:#fff3cd;border-left:4px solid #ffc107;margin-bottom:20px;">
-            <p><strong>⚙️ Admin:</strong> Elegí un profesional para ver y editar sus horarios.</p>
+            <p><strong>⚙️ Gestión:</strong> Elegí un profesional para ver y editar sus horarios.</p>
         </div>
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
             <label style="font-weight:600;color:#555;display:block;margin-bottom:8px;">👨‍💼 Seleccionar Profesional:</label>
@@ -944,7 +944,7 @@ async function eliminarDiaCompleto(fecha, profesionalId) {
 async function _renderSelectorProfesional(container) {
     container.innerHTML = `
         <div class="info-card" style="background:#fff3cd;border-left:4px solid #ffc107;margin-bottom:20px;">
-            <p><strong>⚙️ Admin:</strong> Elegí un profesional para ver y editar sus horarios.</p>
+            <p><strong>⚙️ Gestión:</strong> Elegí un profesional para ver y editar sus horarios.</p>
         </div>
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;
                     box-shadow:0 2px 10px rgba(0,0,0,0.08);">

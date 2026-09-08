@@ -780,7 +780,7 @@ app.get('/api/disponibilidad/:profesionalId/:fecha', async (req, res) => {
 
 // Guardar disponibilidad: recibe rango + plantilla de días/horas
 // y genera los slots concretos en disponibilidad_fechas
-app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, desde, hasta, horarios } = req.body;
     // horarios: [{ dia: "Lunes", inicio: "09:00" }, ...]
     // desde / hasta: "YYYY-MM-DD"
@@ -845,7 +845,7 @@ app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional']), 
 // ============================================
 
 // POST: Guardar horarios directamente (fechas específicas)
-app.post('/api/disponibilidad/guardar-directas', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+app.post('/api/disponibilidad/guardar-directas', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, horarios } = req.body;
 
     if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
@@ -887,7 +887,7 @@ app.post('/api/disponibilidad/guardar-directas', autenticar, autorizar(['admin',
 });
 
 // POST: Eliminar todos los horarios de una fecha específica
-app.post('/api/disponibilidad/eliminar-fecha', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+app.post('/api/disponibilidad/eliminar-fecha', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, fecha } = req.body;
 
     if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
@@ -912,7 +912,7 @@ app.post('/api/disponibilidad/eliminar-fecha', autenticar, autorizar(['admin','p
 });
 
 // POST: Eliminar una hora específica de TODOS los días
-app.post('/api/disponibilidad/eliminar-horas', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+app.post('/api/disponibilidad/eliminar-horas', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, horas } = req.body;
 
     if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
@@ -944,7 +944,7 @@ app.post('/api/disponibilidad/eliminar-horas', autenticar, autorizar(['admin','p
 });
 
 // POST: Eliminar UNA hora específica de UNA fecha específica
-app.post('/api/disponibilidad/eliminar-hora-especifica', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+app.post('/api/disponibilidad/eliminar-hora-especifica', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, fecha, hora_inicio } = req.body;
 
     if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
@@ -1285,7 +1285,7 @@ app.get('/api/turnos/:id/items', autenticar, async (req, res) => {
 });
 
 // Agregar un servicio extra a un turno existente
-app.post('/api/turnos/:id/servicios', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+app.post('/api/turnos/:id/servicios', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { id } = req.params;
     const { servicio_id } = req.body;
     try {
@@ -1314,7 +1314,7 @@ app.post('/api/turnos/:id/servicios', autenticar, autorizar(['admin','profesiona
 });
 
 // Quitar un servicio de un turno existente
-app.delete('/api/turnos/:id/servicios/:itemId', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+app.delete('/api/turnos/:id/servicios/:itemId', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { id, itemId } = req.params;
     try {
         const [r] = await pool.query('DELETE FROM turno_items WHERE id = ? AND turno_id = ?', [itemId, id]);
