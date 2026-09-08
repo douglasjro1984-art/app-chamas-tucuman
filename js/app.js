@@ -122,7 +122,7 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
         
         const data = await response.json();
         if (data.success) {
-            alert(`✅ ${rol === 'caja' ? 'Usuario de caja' : 'Profesional'} registrado con éxito`);
+            alert(`✅ ${rol === 'recepcionista' ? 'Usuario de caja' : 'Profesional'} registrado con éxito`);
             e.target.reset();
             if (typeof llenarSelectServiciosRegistro === 'function') llenarSelectServiciosRegistro();
             else cargarListaProfesionalesAdmin();
@@ -142,8 +142,8 @@ function toggleRolUsuario() {
     const rol = document.getElementById('prof-rol')?.value;
     const grupo = document.getElementById('prof-servicios-grupo');
     const pctGrupo = document.getElementById('prof-porcentaje-grupo');
-    if (grupo) grupo.style.display = (rol === 'caja') ? 'none' : 'block';
-    if (pctGrupo) pctGrupo.style.display = (rol === 'caja') ? 'none' : 'block';
+    if (grupo) grupo.style.display = (rol === 'recepcionista') ? 'none' : 'block';
+    if (pctGrupo) pctGrupo.style.display = (rol === 'recepcionista') ? 'none' : 'block';
 }
 
 // Nota: Las funciones de calendario y edición de precios siguen igual, 
@@ -2483,6 +2483,8 @@ function impRptProf(nombre, desde, hasta, bruto) {
 async function cargarTodosLosTurnos() {
     const container = document.getElementById('todos-turnos-lista');
     if (!container) return;
+    const usuario = obtenerUsuarioActual();
+    const esAdmin = !!(usuario && usuario.rol === 'admin');
     try {
         const profesionalId = document.getElementById('filtro-profesional')?.value || '';
         const fechaDesde = document.getElementById('filtro-fecha-desde')?.value || '';
@@ -2499,6 +2501,7 @@ async function cargarTodosLosTurnos() {
             container.innerHTML = '<div class="mensaje-vacio"><h3>No hay turnos</h3></div>';
             return;
         }
+        const accionesHeader = esAdmin ? '<th style="padding:10px 8px;text-align:center;">Acciones</th>' : '';
         container.innerHTML = `
             <div class="contador-turnos"><h3>📊 Total de Turnos</h3><div class="numero">${turnos.length}</div></div>
             <div style="overflow-x:auto;margin-top:16px;">
@@ -2511,7 +2514,7 @@ async function cargarTodosLosTurnos() {
                     <th style="padding:10px 8px;">Servicio</th>
                     <th style="padding:10px 8px;white-space:nowrap;">Fecha</th>
                     <th style="padding:10px 8px;white-space:nowrap;">Hora</th>
-                    <th style="padding:10px 8px;text-align:center;">Acciones</th>
+                    ${accionesHeader}
                 </tr></thead>
                 <tbody>
                 ${turnos.map((t,i) => `
@@ -2529,7 +2532,7 @@ async function cargarTodosLosTurnos() {
                         <td style="padding:10px 8px;">${t.servicio||'N/A'}</td>
                         <td style="padding:10px 8px;white-space:nowrap;">${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
                         <td style="padding:10px 8px;font-weight:700;">${(t.hora_inicio||t.hora||'').substring(0,5)}</td>
-                        <td style="padding:8px;white-space:nowrap;">
+                        ${esAdmin ? `<td style="padding:8px;white-space:nowrap;">
                             <div style="display:flex;gap:4px;justify-content:center;">
                                 <button title="Editar" onclick="abrirModalEditar(${t.id})"
                                     style="background:#4CAF50;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">✏️</button>
@@ -2538,7 +2541,7 @@ async function cargarTodosLosTurnos() {
                                 <button title="Eliminar" onclick="eliminarTurno(${t.id})"
                                     style="background:#dc3545;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">🗑️</button>
                             </div>
-                        </td>
+                        </td>` : ''}
                     </tr>`).join('')}
                 </tbody>
             </table></div>`;
@@ -2996,11 +2999,11 @@ async function cargarRetiros() {
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fdf5f8;border-left:3px solid #C06C84;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
                             <strong>${r.profesional_nombre}</strong>
-                            <small style="display:block;color:#888;">Bruto del día: $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: $${parseFloat(r.monto_estetica).toFixed(2)}</small>
+                            <small style="display:block;color:#888;">${r.metodo_retiro === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'} · Bruto del día: $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: $${parseFloat(r.monto_estetica).toFixed(2)}</small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</strong>
-                            <button onclick="eliminarRetiro(${r.id})" title="Eliminar retiro" style="background:#fff0f0;border:none;color:#dc3545;border-radius:6px;width:26px;height:26px;cursor:pointer;font-weight:700;">✖</button>
+                            <span style="background:#C06C84;color:white;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:700;">NO ANULABLE</span>
                         </div>
                     </div>`).join('')}
                 </div>
@@ -3015,13 +3018,20 @@ async function cargarRetiros() {
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                 ${pendientes.map(s => {
                     const montoMax = (parseFloat(s.cobrado_hoy) * (parseFloat(s.porcentaje_retiro)||70) / 100).toFixed(2);
+                    const safeNom = (s.profesional_nombre||'').replace(/'/g,"\\'");
                     return `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff8e1;border-left:3px solid #ffc107;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
                             <strong>${s.profesional_nombre}</strong>
                             <small style="display:block;color:#888;">Cobrado hoy: $${parseFloat(s.cobrado_hoy).toFixed(2)} · ${s.turnos_cobrados} turno(s) · Retira ${parseFloat(s.porcentaje_retiro)}% = $${montoMax}</small>
                         </div>
-                        <button onclick="registrarRetiro(${s.profesional_id},'${(s.profesional_nombre||'').replace(/'/g,"\\'")}')" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">💸 Registrar retiro</button>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <select id="metodo-retiro-${s.profesional_id}" style="padding:8px 10px;border:2px solid #e0e0e0;border-radius:8px;font-size:0.85rem;background:white;">
+                                <option value="efectivo">💵 Efectivo</option>
+                                <option value="transferencia">🏦 Transferencia</option>
+                            </select>
+                            <button onclick="registrarRetiro(${s.profesional_id},'${safeNom}',document.getElementById('metodo-retiro-${s.profesional_id}').value)" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">💸 Registrar retiro</button>
+                        </div>
                     </div>`;
                 }).join('')}
                 </div>`;
@@ -3037,20 +3047,21 @@ async function cargarRetiros() {
     }
 }
 
-async function registrarRetiro(profesionalId, nombre) {
-    if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nSe calcula con su porcentaje configurado.`)) return;
+async function registrarRetiro(profesionalId, nombre, metodo) {
+    if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${metodo === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'}.\nSe descontará de la caja de hoy y NO podrá anularse.`)) return;
     const btn = event?.target;
     const btnText = btn?.textContent;
     if (btn) { btn.disabled = true; btn.textContent = 'Registrando...'; }
     try {
         const res = await fetch(`${API_BASE}/caja/retiros`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ profesional_id: profesionalId })
+            body: JSON.stringify({ profesional_id: profesionalId, metodo })
         });
         const data = await res.json();
         if (data.success) {
             mostrarNotificacion(data.mensaje || '✅ Retiro registrado');
             cargarRetiros();
+            cargarEstadoCaja();
         } else {
             mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
         }
@@ -3058,22 +3069,6 @@ async function registrarRetiro(profesionalId, nombre) {
         mostrarNotificacion('❌ Error de conexión', 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = btnText; }
-    }
-}
-
-async function eliminarRetiro(retiroId) {
-    if (!confirm('¿Eliminar este retiro? Se podrá registrar de nuevo si es necesario.')) return;
-    try {
-        const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) {
-            mostrarNotificacion('🗑️ Retiro eliminado');
-            cargarRetiros();
-        } else {
-            mostrarNotificacion('❌ No se pudo eliminar', 'error');
-        }
-    } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
     }
 }
 

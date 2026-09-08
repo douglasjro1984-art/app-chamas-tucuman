@@ -24,12 +24,6 @@
         <div class="login-card">
             <img src="img/logo.png" alt="Chamas Logo" class="login-logo">
 
-            <!-- TABS: LOGIN / REGISTRO -->
-            <div class="auth-tabs">
-                <button id="tab-btn-login" class="auth-tab active" onclick="mostrarTab('login')">Iniciar Sesión</button>
-                <button id="tab-btn-registro" class="auth-tab" onclick="mostrarTab('registro')">Crear Cuenta</button>
-            </div>
-
             <!-- ===== FORMULARIO LOGIN ===== -->
             <div id="tab-login">
                 <form id="form-login">
@@ -46,39 +40,7 @@
                     <button type="submit" class="btn-login">Ingresar</button>
                 </form>
                 <p class="auth-switch">
-                    ¿No tenés cuenta? 
-                    <a href="#" onclick="mostrarTab('registro'); return false;">Registrate gratis</a>
-                </p>
-            </div>
-
-            <!-- ===== FORMULARIO REGISTRO CLIENTE ===== -->
-            <div id="tab-registro" style="display:none;">
-                <form id="form-registro-cliente">
-                    <div class="form-group">
-                        <label>👤 Nombre Completo</label>
-                        <input type="text" id="reg-nombre" required placeholder="Ej: María González">
-                    </div>
-                    <div class="form-group">
-                        <label>📧 Email</label>
-                        <input type="email" id="reg-email" required placeholder="tu@email.com">
-                    </div>
-                    <div class="form-group">
-                        <label>📞 Teléfono</label>
-                        <input type="tel" id="reg-telefono" required placeholder="Ej: 3865123456">
-                    </div>
-                    <div class="form-group">
-                        <label>🔒 Contraseña</label>
-                        <input type="password" id="reg-password" required placeholder="Mínimo 6 caracteres" minlength="6">
-                    </div>
-                    <div class="form-group">
-                        <label>🔒 Confirmar Contraseña</label>
-                        <input type="password" id="reg-password-confirmar" required placeholder="Repetir contraseña">
-                    </div>
-                    <button type="submit" class="btn-login">✅ Crear Cuenta</button>
-                </form>
-                <p class="auth-switch">
-                    ¿Ya tenés cuenta? 
-                    <a href="#" onclick="mostrarTab('login'); return false;">Iniciá sesión</a>
+                    <a href="#" onclick="abrirModalRecuperar(); return false;">¿Olvidaste tu contraseña?</a>
                 </p>
             </div>
 
@@ -110,6 +72,7 @@
                         <span class="user-icon">👤</span>
                         <span id="user-name">Usuario</span>
                     </div>
+                    <button onclick="abrirModalCambiarContrasena()" class="btn-logout" style="background:#f8f9fa;color:#555;">🔑 Cambiar</button>
                     <button onclick="cerrarSesion()" class="btn-logout">Salir</button>
                 </div>
             </div>
@@ -302,7 +265,7 @@
                         <label>🎭 Tipo de Usuario</label>
                         <select id="prof-rol" onchange="toggleRolUsuario()">
                             <option value="profesional">👩‍💼 Profesional</option>
-                            <option value="caja">💵 Caja</option>
+                            <option value="recepcionista">💵 Recepcionista</option>
                         </select>
                     </div>
                     <div class="form-group" id="prof-servicios-grupo">
@@ -382,10 +345,58 @@
         </div>
     </div>
 
+    <!-- MODAL RECUPERAR CONTRASEÑA -->
+    <div id="modal-recuperar" style="display:flex;position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);visibility:hidden;">
+        <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);position:relative;">
+            <button onclick="cerrarModalRecuperar()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">✖</button>
+
+            <!-- PASO 1: email/teléfono -->
+            <div id="recuperar-paso1">
+                <h3 style="color:#C06C84;margin:0 0 10px;">🔐 Recuperar contraseña</h3>
+                <p style="color:#888;font-size:0.88rem;margin:0 0 16px;">Ingresá tu email o teléfono. Te enviaremos un código por WhatsApp.</p>
+                <input type="text" id="recuperar-identificador" placeholder="tu@email.com o 3865123456"
+                       style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                <p id="recuperar-msg1" style="color:#dc3545;font-size:0.85rem;margin:8px 0 0;display:none;"></p>
+                <button onclick="solicitarCodigo()" id="recuperar-btn-enviar" style="width:100%;margin-top:14px;padding:12px;background:#C06C84;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">📲 Enviar código</button>
+            </div>
+
+            <!-- PASO 2: código + nueva contraseña -->
+            <div id="recuperar-paso2" style="display:none;">
+                <h3 style="color:#C06C84;margin:0 0 10px;">📥 Ingresá el código</h3>
+                <p id="recuperar-paso2-info" style="color:#888;font-size:0.88rem;margin:0 0 16px;">Código enviado por WhatsApp.</p>
+                <input type="text" id="recuperar-codigo" placeholder="Código de 6 dígitos" maxlength="6" inputmode="numeric"
+                       style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;text-align:center;letter-spacing:4px;font-weight:700;">
+                <input type="password" id="recuperar-nueva-password" placeholder="Nueva contraseña (mín. 6 caracteres)" minlength="6"
+                       style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-top:10px;">
+                <input type="password" id="recuperar-nueva-password2" placeholder="Repetir nueva contraseña" minlength="6"
+                       style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-top:8px;">
+                <p id="recuperar-msg2" style="color:#dc3545;font-size:0.85rem;margin:8px 0 0;display:none;"></p>
+                <button onclick="confirmarCodigo()" id="recuperar-btn-confirmar" style="width:100%;margin-top:14px;padding:12px;background:#28a745;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Cambiar contraseña</button>
+                <p style="text-align:center;margin-top:12px;font-size:0.83rem;"><a href="#" onclick="volverAPaso1Recuperar(); return false;" style="color:#C06C84;font-weight:600;">← Enviar código otra vez</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CAMBIAR CONTRASEÑA (dentro de la app) -->
+    <div id="modal-cambiar-contrasena" style="display:flex;position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);visibility:hidden;">
+        <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);position:relative;">
+            <button onclick="cerrarModalCambiarContrasena()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">✖</button>
+            <h3 style="color:#C06C84;margin:0 0 16px;">🔑 Cambiar mi contraseña</h3>
+            <input type="password" id="cc-password-actual" placeholder="Contraseña actual"
+                   style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-bottom:10px;">
+            <input type="password" id="cc-password-nueva" placeholder="Nueva contraseña (mín. 6)" minlength="6"
+                   style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-bottom:10px;">
+            <input type="password" id="cc-password-nueva2" placeholder="Repetir nueva contraseña" minlength="6"
+                   style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-bottom:6px;">
+            <p id="cc-msg" style="color:#dc3545;font-size:0.85rem;margin:0 0 10px;display:none;"></p>
+            <button onclick="confirmarCambioContrasena()" style="width:100%;padding:12px;background:#28a745;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Guardar nueva contraseña</button>
+        </div>
+    </div>
+
 <script src="js/apiAuth.js?v=20260304"></script>
 <script src="js/api.js?v=20260217"></script>
-<script src="js/auth.js?v=20260907"></script>
-<script src="js/app.js?v=20260908a"></script>
+<script src="js/auth.js?v=20260908"></script>
+<script src="js/app.js?v=20260908c"></script>
 <script src="js/roles-funciones.js?v=20260217"></script>
 </body>
 </html>

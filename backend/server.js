@@ -3,6 +3,8 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const https = require('https');
 const rateLimit = require('express-rate-limit');
 const pool = require('./database'); 
 
@@ -163,6 +165,13 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         const passwordMatch = await bcrypt.compare(password, usuario.password);
         const usuarioSinPassword = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, telefono: usuario.telefono };
 
+        // Solo permiten ingresar los roles operativos: admin y recepcionista.
+        // clientes/profesionales/caja antiguos ya no pueden entrar.
+        const rolesPermitidos = ['admin', 'recepcionista'];
+        if (passwordMatch && !rolesPermitidos.includes(usuario.rol)) {
+            return res.json({ success: false, message: 'Esta cuenta no tiene acceso al sistema. Contactá al administrador.' });
+        }
+
         if (passwordMatch) {
             const token = generarToken(usuarioSinPassword);
             res.json({ success: true, token, usuario: usuarioSinPassword });
@@ -180,60 +189,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 //  REGISTRO DE CLIENTE (desde el login público)
 // ============================================
 app.post('/api/auth/registro', authLimiter, async (req, res) => {
-    const { nombre, email, telefono, password, rol = 'cliente' } = req.body;
-
-    if (!nombre || !email || !telefono || !password) {
-        return res.status(400).json({ success: false, message: 'Completá todos los campos' });
-    }
-    if (rol !== 'cliente') {
-        return res.status(400).json({ success: false, message: 'Solo se pueden crear cuentas de cliente' });
-    }
-    if (password.length < 6) {
-        return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
-    }
-
-    try {
-        // Verificar email duplicado
-        const [porEmail] = await pool.query(
-            'SELECT id FROM usuarios WHERE email = ?', [email]
-        );
-        if (porEmail.length > 0) {
-            return res.status(400).json({ success: false, message: 'Ese email ya está registrado' });
-        }
-
-        // Verificar teléfono duplicado (compatible con TiDB Cloud)
-        const [porTelefono] = await pool.query(
-            'SELECT id FROM usuarios WHERE telefono = ?', [telefono]
-        );
-        if (porTelefono.length > 0) {
-            return res.status(400).json({ success: false, message: 'Ese teléfono ya está registrado' });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Intentar insertar con telefono; si falla por columna inexistente, insertar sin él
-        try {
-            const [result] = await pool.query(
-                'INSERT INTO usuarios (nombre, email, password, rol, telefono) VALUES (?, ?, ?, ?, ?)',
-                [nombre, email, hashedPassword, 'cliente', telefono]
-            );
-        } catch (insertError) {
-            // Si falla por columna telefono inexistente, intentar sin telefono
-            if (insertError.code === 'ER_BAD_FIELD_ERROR' && insertError.message.includes('telefono')) {
-                await pool.query(
-                    'INSERT INTO usuarios (nombre, email, password, rol) VALUES (?, ?, ?, ?)',
-                    [nombre, email, hashedPassword, 'cliente']
-                );
-            } else {
-                throw insertError;
-            }
-        }
-
-        res.json({ success: true, message: '¡Cuenta creada exitosamente!' });
-    } catch (error) {
-        console.error('❌ Error en registro:', error.message);
-        res.status(500).json({ success: false, message: 'Error en el servidor' });
-    }
+    // El registro público quedó deshabilitado: el sistema ahora se maneja
+    // con cuentas creadas internamente (admin y recepcionista).
+    return res.status(403).json({ success: false, message: 'El registro público está deshabilitado' });
 });
 
 // ============================================
@@ -256,6 +214,191 @@ app.get('/api/auth/me', autenticar, async (req, res) => {
 });
 
 // ============================================
+//  RECUPERACIÓN DE CONTRASEÑA
+// ============================================
+
+// Genera código numérico de 6 dígitos
+function generarCodigo6() {
+    return String(crypto.randomInt(100000, 999999));
+}
+
+// Normaliza teléfono argentino a formato internacional sin '+' (ej: 5493865437108)
+function normalizarTelefonoArgentina(tel) {
+    let num = (tel || '').replace(/[^\d]/g, '');
+    if (!num) return null;
+    if (num.startsWith('549')) return num;
+    if (num.startsWith('54')) return num;
+    if (num.startsWith('0')) num = num.slice(1);
+    return '549' + num;
+}
+
+// Enviar mensaje por WhatsApp Meta Cloud API
+async function enviarWhatsAppMeta(destinoInternacional, mensaje) {
+    const token = process.env.META_WHATSAPP_TOKEN;
+    const phoneId = process.env.META_WHATSAPP_PHONE_ID;
+    if (!token || !phoneId) {
+        console.log('⚠️ Meta WhatsApp no configurado (META_WHATSAPP_TOKEN / META_WHATSAPP_PHONE_ID)');
+        return { ok: false, reason: 'no_configurado' };
+    }
+    const body = JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: destinoInternacional,
+        type: 'text',
+        text: { body: mensaje }
+    });
+    return new Promise((resolve) => {
+        const req = https.request({
+            hostname: 'graph.facebook.com',
+            port: 443,
+            path: `/v21.0/${phoneId}/messages`,
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body)
+            }
+        }, (res) => {
+            let data = '';
+            res.on('data', (c) => data += c);
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve({ ok: true });
+                } else {
+                    console.error('❌ Meta API error:', res.statusCode, data);
+                    resolve({ ok: false, reason: 'api_error', status: res.statusCode });
+                }
+            });
+        });
+        req.on('error', (e) => { console.error('❌ Meta API red:', e.message); resolve({ ok: false, reason: 'network_error' }); });
+        req.write(body);
+        req.end();
+    });
+}
+
+// Solicitar código de recuperación (envía por WhatsApp)
+app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
+    const identifier = (req.body.emailOrPhone || req.body.email || '').trim();
+    if (!identifier) {
+        return res.status(400).json({ success: false, message: 'Ingresá tu email o teléfono' });
+    }
+    try {
+        const [rows] = await pool.query(
+            `SELECT id, nombre, email, rol, telefono
+             FROM usuarios
+             WHERE (email = ? OR telefono = ?) AND rol IN ('admin','recepcionista') AND activo != 0
+             LIMIT 1`,
+            [identifier, identifier]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'No se encontró una cuenta activa con ese dato' });
+        }
+        const usuario = rows[0];
+        const codigo = generarCodigo6();
+        const expiraAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+        await pool.query(
+            'INSERT INTO recuperaciones (usuario_id, codigo, expira_at) VALUES (?, ?, ?)',
+            [usuario.id, codigo, expiraAt]
+        );
+
+        // Intentar enviar por WhatsApp
+        const telInt = normalizarTelefonoArgentina(usuario.telefono);
+        let whatsappEnviado = false;
+        let codigoEnPantalla = null;
+        if (telInt) {
+            const msgResult = await enviarWhatsAppMeta(telInt,
+                `🔐 *CHAMAS SPA*\nTu código de recuperación es: *${codigo}*\nVálido por 10 minutos.`
+            );
+            if (msgResult.ok) whatsappEnviado = true;
+        }
+
+        // En desarrollo (o si falló WhatsApp), devolver código en respuesta para que funcione
+        const esDesarrollo = process.env.NODE_ENV !== 'production';
+        if (!whatsappEnviado && esDesarrollo) {
+            codigoEnPantalla = codigo;
+        }
+
+        res.json({
+            success: true,
+            mensaje: whatsappEnviado
+                ? '✅ Se envió un código por WhatsApp al número registrado'
+                : (telInt ? '⚠️ No se pudo enviar por WhatsApp. Contactá al administrador.' : '⚠️ No hay teléfono registrado. Contactá al administrador.'),
+            usuario_nombre: usuario.nombre,
+            whatsapp_configurado: whatsappEnviado,
+            ...(codigoEnPantalla ? { _debug_codigo: codigo } : {})
+        });
+    } catch (e) {
+        console.error('❌ Error recuperar:', e.message);
+        res.status(500).json({ success: false, message: 'Error al procesar la solicitud' });
+    }
+});
+
+// Confirmar código y establecer nueva contraseña
+app.post('/api/auth/recuperar/confirmar', authLimiter, async (req, res) => {
+    const identifier = (req.body.emailOrPhone || req.body.email || '').trim();
+    const codigo = (req.body.codigo || '').trim();
+    const nuevaPassword = req.body.nuevaPassword || '';
+    if (!identifier || !codigo || !nuevaPassword) {
+        return res.status(400).json({ success: false, message: 'Completá todos los campos' });
+    }
+    if (nuevaPassword.length < 6) {
+        return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+    try {
+        const [rows] = await pool.query(
+            `SELECT r.id, r.usuario_id, r.codigo, r.expira_at
+             FROM recuperaciones r
+             JOIN usuarios u ON u.id = r.usuario_id
+             WHERE (u.email = ? OR u.telefono = ?)
+               AND r.usado = 0
+             ORDER BY r.id DESC
+             LIMIT 1`,
+            [identifier, identifier]
+        );
+        if (rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'No se encontró una solicitud de recuperación' });
+        }
+        const reg = rows[0];
+        const now = new Date();
+        if (now > new Date(reg.expira_at)) {
+            return res.status(400).json({ success: false, message: 'El código expiró. Solicitá uno nuevo.' });
+        }
+        if (reg.codigo !== codigo) {
+            return res.status(400).json({ success: false, message: 'El código es incorrecto' });
+        }
+        const hashed = await bcrypt.hash(nuevaPassword, 10);
+        await pool.query('UPDATE usuarios SET password = ? WHERE id = ?', [hashed, reg.usuario_id]);
+        await pool.query('UPDATE recuperaciones SET usado = 1 WHERE id = ?', [reg.id]);
+        res.json({ success: true, mensaje: '✅ Contraseña actualizada correctamente. Ya podés iniciar sesión.' });
+    } catch (e) {
+        console.error('❌ Error recuperar/confirmar:', e.message);
+        res.status(500).json({ success: false, message: 'Error al actualizar la contraseña' });
+    }
+});
+
+// Cambiar contraseña (requiere sesión activa)
+app.patch('/api/auth/cambiar-contrasena', autenticar, async (req, res) => {
+    const { passwordActual, nuevaPassword } = req.body;
+    if (!passwordActual || !nuevaPassword) {
+        return res.status(400).json({ success: false, message: 'Completá ambos campos' });
+    }
+    if (nuevaPassword.length < 6) {
+        return res.status(400).json({ success: false, message: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    }
+    try {
+        const [rows] = await pool.query('SELECT id, password FROM usuarios WHERE id = ?', [req.usuario.id]);
+        if (rows.length === 0) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        const ok = await bcrypt.compare(passwordActual, rows[0].password);
+        if (!ok) return res.status(400).json({ success: false, message: 'La contraseña actual es incorrecta' });
+        const hashed = await bcrypt.hash(nuevaPassword, 10);
+        await pool.query('UPDATE usuarios SET password = ? WHERE id = ?', [hashed, req.usuario.id]);
+        res.json({ success: true, mensaje: '✅ Contraseña actualizada' });
+    } catch (e) {
+        console.error('❌ Error cambiar-contrasena:', e.message);
+        res.status(500).json({ success: false, message: 'Error al cambiar la contraseña' });
+    }
+});
+
+// ============================================
 //  CREAR USUARIO / REGISTRAR PROFESIONAL
 // ============================================
 app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => {
@@ -266,8 +409,8 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
     }
     
-    if (rol !== 'profesional' && rol !== 'cliente' && rol !== 'caja') {
-        return res.status(400).json({ success: false, message: 'Solo se pueden crear profesionales, caja o clientes' });
+    if (rol !== 'profesional' && rol !== 'cliente' && rol !== 'recepcionista') {
+        return res.status(400).json({ success: false, message: 'Solo se pueden crear profesionales, recepcionistas o clientes' });
     }
 
     if (password.length < 6) {
@@ -911,7 +1054,7 @@ app.get('/api/turnos/todos', autenticar, autorizar(['admin']), async (req, res) 
 // 📲 RECORDATORIOS (ADMIN / CAJA)
 // ============================================
 // Turnos de hoy y mañana con teléfono del cliente para enviar recordatorios
-app.get('/api/recordatorios', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.get('/api/recordatorios', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const hoy = new Date();
         const fechas = [hoy];
@@ -941,7 +1084,7 @@ app.get('/api/recordatorios', autenticar, autorizar(['admin','caja']), async (re
 });
 
 // Marcar recordatorio como enviado
-app.post('/api/recordatorios/:id/enviado', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.post('/api/recordatorios/:id/enviado', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         await pool.query('UPDATE turnos SET recordatorio_enviado = 1 WHERE id = ?', [req.params.id]);
         res.json({ success: true });
@@ -1092,7 +1235,7 @@ app.post('/api/turnos', autenticar, async (req, res) => {
 });
 
 // EDITAR turno
-app.put('/api/turnos/:id', autenticar, autorizar(['admin','profesional']), async (req, res) => {
+app.put('/api/turnos/:id', autenticar, autorizar(['admin']), async (req, res) => {
     const { id } = req.params;
     const { servicio_id, profesional_id, fecha, hora_inicio, estado } = req.body;
     try {
@@ -1242,7 +1385,7 @@ app.get('/api/estadisticas', autenticar, autorizar(['admin']), async (req, res) 
 // ============================================
 
 // Configuración del local (para el ticket)
-app.get('/api/caja/config', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.get('/api/caja/config', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT clave, valor FROM configuracion');
         const config = {};
@@ -1284,7 +1427,7 @@ app.get('/api/caja/config/public', async (req, res) => {
 });
 
 // Turnos del día para el panel de caja
-app.get('/api/caja/dia', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.get('/api/caja/dia', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT t.id, t.fecha, DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio, t.estado,
@@ -1310,7 +1453,7 @@ app.get('/api/caja/dia', autenticar, autorizar(['admin','caja']), async (req, re
 });
 
 // Estado de la caja del día (abierta/cerrada + totales)
-app.get('/api/caja/estado', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [caja] = await pool.query(
             "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
@@ -1326,7 +1469,7 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','caja']), async (req,
 });
 
 // Abrir caja del día (con monto inicial)
-app.post('/api/caja/abrir', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { monto_inicial } = req.body;
     try {
         const [abierta] = await pool.query(
@@ -1348,7 +1491,7 @@ app.post('/api/caja/abrir', autenticar, autorizar(['admin','caja']), async (req,
 });
 
 // Cerrar caja del día (monto final contado en caja)
-app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { monto_real } = req.body;
     try {
         const [caja] = await pool.query(
@@ -1361,11 +1504,13 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req
         const total = parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) +
                       parseFloat(c.total_debito || 0);
         const [retiros] = await pool.query(
-            'SELECT id, profesional_nombre, monto_retirado FROM retiros WHERE caja_id = ?', [c.id]
+            'SELECT id, profesional_nombre, monto_retirado, metodo_retiro FROM retiros WHERE caja_id = ?', [c.id]
         );
         const totalRetiros = retiros.reduce((s, r) => s + parseFloat(r.monto_retirado || 0), 0);
         const real = parseFloat(monto_real) || 0;
-        const esperado = parseFloat(c.monto_inicial || 0) + total - totalRetiros;
+        // Los retiros ya descontaron dinero de la caja al registrarse, por eso el esperado
+        // NO vuelve a restar los retiros.
+        const esperado = parseFloat(c.monto_inicial || 0) + total;
         const diferencia = Math.round((real - esperado) * 100) / 100;
 
         await pool.query(
@@ -1381,7 +1526,7 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req
                 total_efectivo: parseFloat(c.total_efectivo || 0),
                 total_transferencia: parseFloat(c.total_transferencia || 0),
                 total_debito: parseFloat(c.total_debito || 0),
-                total_ventas: total,
+                total_ventas: total + totalRetiros,
                 retiros,
                 total_retiros: Math.round(totalRetiros * 100) / 100,
                 dinero_en_caja_esperado: Math.round(esperado * 100) / 100,
@@ -1415,7 +1560,7 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin']), async (req, res
 
 // Cobrar un turno + generar ticket (comprobante no fiscal)
 // Registra el pago en la caja del día si hay una caja abierta.
-app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { id } = req.params;
     const { monto, metodo_pago } = req.body;
     try {
@@ -1535,7 +1680,7 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']),
 // ============================================
 // Resumen de retiros del día + lo que le correspondería retirar a cada
 // profesional según sus turnos cobrados del día (monto × porcentaje_retiro).
-app.get('/api/caja/retiros', autenticar, autorizar(['admin','caja']), async (req, res) => {
+app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [sugerencias] = await pool.query(
             `SELECT u.id AS profesional_id, u.nombre AS profesional_nombre, u.porcentaje_retiro,
@@ -1550,7 +1695,7 @@ app.get('/api/caja/retiros', autenticar, autorizar(['admin','caja']), async (req
         );
         const [retiros] = await pool.query(
             `SELECT r.id, r.profesional_id, r.profesional_nombre, r.monto_bruto,
-                    r.porcentaje_retiro, r.monto_retirado, r.monto_estetica, r.creado_at
+                    r.porcentaje_retiro, r.monto_retirado, r.monto_estetica, r.metodo_retiro, r.creado_at
              FROM retiros r WHERE r.fecha = CURDATE() ORDER BY r.id`
         );
         res.json({ sugerencias, retiros });
@@ -1561,10 +1706,13 @@ app.get('/api/caja/retiros', autenticar, autorizar(['admin','caja']), async (req
 });
 
 // Registrar el retiro de una profesional (calcula lo que le corresponde
-// según sus turnos cobrados del día y su porcentaje).
-app.post('/api/caja/retiros', autenticar, autorizar(['admin','caja']), async (req, res) => {
-    const { profesional_id, monto_retirar } = req.body;
+// según sus turnos cobrados del día y su porcentaje). El retiro saca dinero
+// de la caja del día: descuenta del efectivo o de la transferencia según el
+// método indicado. NO se puede eliminar un retiro ya registrado.
+app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const { profesional_id, monto_retirar, metodo } = req.body;
     if (!profesional_id) return res.status(400).json({ success: false, message: 'Indicá la profesional' });
+    const metodoRetiro = (metodo === 'transferencia') ? 'transferencia' : 'efectivo';
     try {
         const [rows] = await pool.query(
             `SELECT u.id, u.nombre, u.porcentaje_retiro, COALESCE(SUM(t.precio), 0) AS cobrado_hoy
@@ -1577,47 +1725,58 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','caja']), async (re
         if (!p) return res.status(400).json({ success: false, message: 'Profesional no encontrado' });
         const pct = parseFloat(p.porcentaje_retiro) || 70;
         const bruto = parseFloat(p.cobrado_hoy) || 0;
-        const maximo = Math.round(bruto * pct / 100 * 100) / 100;
+        // Descontar lo que la profesional ya retiró hoy para no retirar dos veces
+        const [yaRetirado] = await pool.query(
+            'SELECT COALESCE(SUM(monto_retirado),0) AS total FROM retiros WHERE profesional_id = ? AND fecha = CURDATE()',
+            [profesional_id]
+        );
+        const yaRetiradoTotal = parseFloat(yaRetirado[0]?.total || 0);
+        const maximo = Math.max(0, Math.round((bruto * pct / 100 - yaRetiradoTotal) * 100) / 100);
         let retirado;
         if (monto_retirar !== undefined && monto_retirar !== null && monto_retirar !== '') {
             retirado = Math.min(maximo, Math.max(0, parseFloat(monto_retirar) || 0));
         } else {
             retirado = maximo; // por defecto, se retira TODO lo que le corresponde
         }
+        if (retirado <= 0) {
+            return res.status(400).json({ success: false, message: 'No hay saldo para retirar en el día de hoy' });
+        }
         const estetica = Math.round((bruto - retirado) * 100) / 100;
 
+        // Requiere caja abierta del día: el retiro saca dinero de esa caja
         const [caja] = await pool.query(
             "SELECT id FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
         );
-        const cajaId = caja.length ? caja[0].id : null;
+        if (!caja.length) {
+            return res.status(400).json({ success: false, message: 'Abrí la caja del día para poder registrar retiros' });
+        }
+        const cajaId = caja[0].id;
+
+        // Descontar del total correspondiente (efectivo o transferencia)
+        const colMetodo = (metodoRetiro === 'transferencia') ? 'total_transferencia' : 'total_efectivo';
+        await pool.query(
+            `UPDATE cajas SET ${colMetodo} = GREATEST(0, ${colMetodo} - ?) WHERE id = ?`,
+            [retirado, cajaId]
+        );
 
         const [r] = await pool.query(
             `INSERT INTO retiros (caja_id, profesional_id, profesional_nombre, fecha, monto_bruto,
-                                  porcentaje_retiro, monto_retirado, monto_estetica, creado_por)
-             VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?)`,
-            [cajaId, p.id, p.nombre, bruto, pct, retirado, estetica, req.usuario.id]
+                                  porcentaje_retiro, monto_retirado, monto_estetica, creado_por, metodo_retiro)
+             VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?)`,
+            [cajaId, p.id, p.nombre, bruto, pct, retirado, estetica, req.usuario.id, metodoRetiro]
         );
         res.json({
             success: true,
             retiro: {
                 id: r.insertId, profesional_nombre: p.nombre, monto_bruto: bruto,
-                porcentaje_retiro: pct, monto_retirado: retirado, monto_estetica: estetica
+                porcentaje_retiro: pct, monto_retirado: retirado, monto_estetica: estetica,
+                metodo_retiro: metodoRetiro
             },
-            mensaje: `Retiro de $${retirado.toFixed(2)} registrado para ${p.nombre}`
+            mensaje: `Retiro de $${retirado.toFixed(2)} (${metodoRetiro}) registrado para ${p.nombre}`
         });
     } catch (e) {
         console.error('❌ Error registrar retiro:', e.message);
         res.status(500).json({ success: false, message: 'Error al registrar el retiro' });
-    }
-});
-
-// Eliminar un retiro del día (corrección de error)
-app.delete('/api/caja/retiros/:id', autenticar, autorizar(['admin','caja']), async (req, res) => {
-    try {
-        await pool.query('DELETE FROM retiros WHERE id = ? AND fecha = CURDATE()', [req.params.id]);
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ success: false, message: 'Error al eliminar retiro' });
     }
 });
 
@@ -1673,8 +1832,10 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('   🧾 POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
     console.log('   💸 GET    /api/caja/retiros (sugerencias + registrados)');
     console.log('   💸 POST   /api/caja/retiros (registrar retiro de profesional)');
-    console.log('   🗑️  DELETE /api/caja/retiros/:id (eliminar retiro)');
     console.log('   📊 GET    /api/estadisticas');
+    console.log('   🔐 POST   /api/auth/recuperar (solicitar código)');
+    console.log('   🔐 POST   /api/auth/recuperar/confirmar (verificar código + nueva contraseña)');
+    console.log('   🔐 PATCH  /api/auth/cambiar-contrasena (con sesión)');
     console.log('   🏥 GET    /api/health');
     console.log('\n' + '='.repeat(70));
     console.log('✅  SERVIDOR LISTO - CALENDARIO INTERACTIVO ACTIVADO');

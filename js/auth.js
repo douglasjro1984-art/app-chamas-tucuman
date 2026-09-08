@@ -227,6 +227,154 @@ async function loginAPI(emailOTelefono, password) {
 }
 
 // ==========================================
+// 5b. RECUPERACIÓN DE CONTRASEÑA
+// ==========================================
+let _recuperarIdentifier = null;
+
+function abrirModalRecuperar() {
+    _recuperarIdentifier = null;
+    const modal = document.getElementById('modal-recuperar');
+    if (!modal) return;
+    modal.style.visibility = 'visible';
+    // Paso 1 visible
+    document.getElementById('recuperar-paso1').style.display = 'block';
+    document.getElementById('recuperar-paso2').style.display = 'none';
+    document.getElementById('recuperar-msg1').style.display = 'none';
+    document.getElementById('recuperar-msg2').style.display = 'none';
+    document.getElementById('recuperar-identificador').value = '';
+    document.getElementById('recuperar-codigo').value = '';
+    document.getElementById('recuperar-nueva-password').value = '';
+    document.getElementById('recuperar-nueva-password2').value = '';
+    setTimeout(() => document.getElementById('recuperar-identificador')?.focus(), 80);
+}
+
+function cerrarModalRecuperar() {
+    const modal = document.getElementById('modal-recuperar');
+    if (modal) modal.style.visibility = 'hidden';
+}
+
+function volverAPaso1Recuperar() {
+    document.getElementById('recuperar-paso1').style.display = 'block';
+    document.getElementById('recuperar-paso2').style.display = 'none';
+}
+
+async function solicitarCodigo() {
+    const identifier = document.getElementById('recuperar-identificador').value.trim();
+    const msg = document.getElementById('recuperar-msg1');
+    const btn = document.getElementById('recuperar-btn-enviar');
+    if (!identifier) { msg.style.display = 'block'; msg.textContent = 'Ingresá tu email o teléfono'; return; }
+    msg.style.display = 'none';
+    const texto = btn.textContent; btn.textContent = 'Enviando...'; btn.disabled = true;
+    try {
+        const res = await fetch(`${window.API_BASE}/auth/recuperar`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emailOrPhone: identifier })
+        });
+        const data = await res.json();
+        if (data.success) {
+            _recuperarIdentifier = identifier;
+            // Si no hay WhatsApp configurado y viene un código de desarrollo, mostrarlo
+            const info = document.getElementById('recuperar-paso2-info');
+            if (data._debug_codigo) {
+                info.textContent = `⚠️ WhatsApp no configurado en este entorno. Tu código es: ${data._debug_codigo}`;
+            } else {
+                info.textContent = data.mensaje || 'Código enviado por WhatsApp.';
+            }
+            document.getElementById('recuperar-paso1').style.display = 'none';
+            document.getElementById('recuperar-paso2').style.display = 'block';
+            document.getElementById('recuperar-msg2').style.display = 'none';
+            setTimeout(() => document.getElementById('recuperar-codigo')?.focus(), 80);
+        } else {
+            msg.style.display = 'block';
+            msg.textContent = data.message || 'No se pudo enviar el código';
+        }
+    } catch (e) {
+        msg.style.display = 'block'; msg.textContent = 'Error de conexión';
+    } finally {
+        btn.textContent = texto; btn.disabled = false;
+    }
+}
+
+async function confirmarCodigo() {
+    const codigo = document.getElementById('recuperar-codigo').value.trim();
+    const pass1 = document.getElementById('recuperar-nueva-password').value;
+    const pass2 = document.getElementById('recuperar-nueva-password2').value;
+    const msg = document.getElementById('recuperar-msg2');
+    const btn = document.getElementById('recuperar-btn-confirmar');
+    if (!codigo || codigo.length !== 6) { msg.style.display = 'block'; msg.textContent = 'El código tiene 6 dígitos'; return; }
+    if (pass1.length < 6) { msg.style.display = 'block'; msg.textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
+    if (pass1 !== pass2) { msg.style.display = 'block'; msg.textContent = 'Las contraseñas no coinciden'; return; }
+    msg.style.display = 'none';
+    const texto = btn.textContent; btn.textContent = 'Guardando...'; btn.disabled = true;
+    try {
+        const res = await fetch(`${window.API_BASE}/auth/recuperar/confirmar`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emailOrPhone: _recuperarIdentifier, codigo, nuevaPassword: pass1 })
+        });
+        const data = await res.json();
+        if (data.success) {
+            cerrarModalRecuperar();
+            mostrarNotificacion(data.mensaje || '✅ Contraseña actualizada');
+        } else {
+            msg.style.display = 'block'; msg.textContent = data.message || 'No se pudo cambiar la contraseña';
+        }
+    } catch (e) {
+        msg.style.display = 'block'; msg.textContent = 'Error de conexión';
+    } finally {
+        btn.textContent = texto; btn.disabled = false;
+    }
+}
+
+// ==========================================
+// 5c. CAMBIAR CONTRASEÑA (SESIÓN ACTIVA)
+// ==========================================
+function abrirModalCambiarContrasena() {
+    const modal = document.getElementById('modal-cambiar-contrasena');
+    if (!modal) return;
+    modal.style.visibility = 'visible';
+    document.getElementById('cc-password-actual').value = '';
+    document.getElementById('cc-password-nueva').value = '';
+    document.getElementById('cc-password-nueva2').value = '';
+    document.getElementById('cc-msg').style.display = 'none';
+    setTimeout(() => document.getElementById('cc-password-actual')?.focus(), 80);
+}
+
+function cerrarModalCambiarContrasena() {
+    const modal = document.getElementById('modal-cambiar-contrasena');
+    if (modal) modal.style.visibility = 'hidden';
+}
+
+async function confirmarCambioContrasena() {
+    const actual = document.getElementById('cc-password-actual').value;
+    const n1 = document.getElementById('cc-password-nueva').value;
+    const n2 = document.getElementById('cc-password-nueva2').value;
+    const msg = document.getElementById('cc-msg');
+    const btn = event.target;
+    if (!actual) { msg.style.display = 'block'; msg.textContent = 'Ingresá tu contraseña actual'; return; }
+    if (n1.length < 6) { msg.style.display = 'block'; msg.textContent = 'La nueva contraseña debe tener al menos 6 caracteres'; return; }
+    if (n1 !== n2) { msg.style.display = 'block'; msg.textContent = 'Las contraseñas no coinciden'; return; }
+    msg.style.display = 'none';
+    const texto = btn.textContent; btn.textContent = 'Guardando...'; btn.disabled = true;
+    try {
+        const res = await fetch(`${window.API_BASE}/auth/cambiar-contrasena`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ passwordActual: actual, nuevaPassword: n1 })
+        });
+        const data = await res.json();
+        if (data.success) {
+            cerrarModalCambiarContrasena();
+            mostrarNotificacion(data.mensaje || '✅ Contraseña actualizada');
+        } else {
+            msg.style.display = 'block'; msg.textContent = data.message || 'No se pudo cambiar';
+        }
+    } catch (e) {
+        msg.style.display = 'block'; msg.textContent = 'Error de conexión';
+    } finally {
+        btn.textContent = texto; btn.disabled = false;
+    }
+}
+
+// ==========================================
 // 6. FUNCIONES DE UI
 // ==========================================
 function mostrarLogin() {
@@ -341,7 +489,7 @@ function configurarInterfazPorRol(rol) {
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
     } else if (rol === 'cliente') {
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
-    } else if (rol === 'caja') {
+    } else if (rol === 'recepcionista') {
         document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
     }
     
@@ -359,8 +507,8 @@ function tienePermiso(accion) {
         'editar_servicios':    ['admin'],
         'ver_estadisticas':    ['admin'],
         'gestionar_horarios':  ['admin', 'profesional'],
-        'agendar_turno':       ['admin', 'profesional', 'cliente'],
-        'ver_catalogo':        ['admin', 'profesional', 'cliente', 'caja']
+        'agendar_turno':       ['admin', 'profesional', 'cliente', 'recepcionista'],
+        'ver_catalogo':        ['admin', 'profesional', 'cliente', 'recepcionista']
     };
     
     return permisos[accion]?.includes(usuario.rol) || false;
