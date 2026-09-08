@@ -104,7 +104,10 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
         rol: rol,
         servicios: rol === 'profesional'
             ? Array.from(document.getElementById('prof-servicios').selectedOptions).map(opt => parseInt(opt.value))
-            : []
+            : [],
+        porcentaje_retiro: rol === 'profesional'
+            ? parseFloat(document.getElementById('prof-porcentaje')?.value) || 70
+            : undefined
     };
 
     btn.disabled = true;
@@ -138,7 +141,9 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
 function toggleRolUsuario() {
     const rol = document.getElementById('prof-rol')?.value;
     const grupo = document.getElementById('prof-servicios-grupo');
+    const pctGrupo = document.getElementById('prof-porcentaje-grupo');
     if (grupo) grupo.style.display = (rol === 'caja') ? 'none' : 'block';
+    if (pctGrupo) pctGrupo.style.display = (rol === 'caja') ? 'none' : 'block';
 }
 
 // Nota: Las funciones de calendario y edición de precios siguen igual, 
@@ -2243,6 +2248,7 @@ function showSection(sectionId) {
         cargarEstadoCaja();
         cargarTurnosCaja();
         cargarRecordatorios();
+        cargarRetiros();
         if (!window._intervaloRecordatorios) {
             window._intervaloRecordatorios = setInterval(() => {
                 if (document.getElementById('caja') && document.getElementById('caja').style.display !== 'none') {
@@ -2689,6 +2695,11 @@ async function abrirModalEditarProfesional(id) {
                             ${servicios.map(s => `<option value="${s.id}" ${(p.servicios||[]).includes(s.id) ? 'selected' : ''}>${s.nombre}</option>`).join('')}
                         </select>
                     </div>
+                    <div>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💸 Porcentaje de retiro de la profesional (%)</label>
+                        <input type="number" id="ep-porcentaje" value="${p.porcentaje_retiro ?? 70}" min="0" max="100" step="1"
+                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                    </div>
                 </div>
                 <div style="display:flex;gap:10px;margin-top:22px;">
                     <button onclick="guardarProfesional(${id})"
@@ -2713,7 +2724,7 @@ async function guardarProfesional(id) {
 
     if (!nombre || !email) { mostrarNotificacion('⚠️ Nombre y email son obligatorios', 'error'); return; }
 
-    const body = { nombre, email, telefono, servicios: serviciosSel };
+    const body = { nombre, email, telefono, servicios: serviciosSel, porcentaje_retiro: parseFloat(document.getElementById('ep-porcentaje')?.value) || 0 };
     if (password) body.password = password;
 
     try {
@@ -2961,6 +2972,111 @@ async function marcarRecordatorioEnviado(turnoId) {
     }
 }
 
+// =============================================
+// 💸 RETIROS DE PROFESIONALES
+// =============================================
+async function cargarRetiros() {
+    const cont = document.getElementById('retiros-lista');
+    if (!cont) return;
+    cont.innerHTML = '<p style="color:#888;">⏳ Cargando retiros...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/caja/retiros`);
+        const data = await res.json();
+        const sugerencias = Array.isArray(data.sugerencias) ? data.sugerencias : [];
+        const retiros = Array.isArray(data.retiros) ? data.retiros : [];
+
+        let html = '';
+
+        // Retiros ya registrados
+        if (retiros.length) {
+            html += `<div style="margin-bottom:16px;">
+                <strong style="color:#555;">✅ Retiros registrados hoy:</strong>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                ${retiros.map(r => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fdf5f8;border-left:3px solid #C06C84;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
+                        <div>
+                            <strong>${r.profesional_nombre}</strong>
+                            <small style="display:block;color:#888;">Bruto del día: $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: $${parseFloat(r.monto_estetica).toFixed(2)}</small>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</strong>
+                            <button onclick="eliminarRetiro(${r.id})" title="Eliminar retiro" style="background:#fff0f0;border:none;color:#dc3545;border-radius:6px;width:26px;height:26px;cursor:pointer;font-weight:700;">✖</button>
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        // Sugerencias (profesionales con turnos cobrados hoy que aún no retiraron)
+        const retiradosIds = new Set(retiros.map(r => r.profesional_id));
+        const pendientes = sugerencias.filter(s => !retiradosIds.has(s.profesional_id));
+        if (pendientes.length) {
+            html += `<strong style="color:#555;">💡 Profesionales con cobros de hoy (sugerencia de retiro):</strong>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                ${pendientes.map(s => {
+                    const montoMax = (parseFloat(s.cobrado_hoy) * (parseFloat(s.porcentaje_retiro)||70) / 100).toFixed(2);
+                    return `
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff8e1;border-left:3px solid #ffc107;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
+                        <div>
+                            <strong>${s.profesional_nombre}</strong>
+                            <small style="display:block;color:#888;">Cobrado hoy: $${parseFloat(s.cobrado_hoy).toFixed(2)} · ${s.turnos_cobrados} turno(s) · Retira ${parseFloat(s.porcentaje_retiro)}% = $${montoMax}</small>
+                        </div>
+                        <button onclick="registrarRetiro(${s.profesional_id},'${(s.profesional_nombre||'').replace(/'/g,"\\'")}')" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">💸 Registrar retiro</button>
+                    </div>`;
+                }).join('')}
+                </div>`;
+        }
+
+        if (!html) {
+            html = '<p style="color:#888;">✅ No hay retiros pendientes. Los retiros aparecen acá cuando una profesional tenga turnos cobrados en el día.</p>';
+        }
+        cont.innerHTML = html;
+    } catch (e) {
+        console.error('❌ Error retiros:', e);
+        cont.innerHTML = '<p style="color:#dc3545;">❌ Error al cargar retiros</p>';
+    }
+}
+
+async function registrarRetiro(profesionalId, nombre) {
+    if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nSe calcula con su porcentaje configurado.`)) return;
+    const btn = event?.target;
+    const btnText = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Registrando...'; }
+    try {
+        const res = await fetch(`${API_BASE}/caja/retiros`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profesional_id: profesionalId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion(data.mensaje || '✅ Retiro registrado');
+            cargarRetiros();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = btnText; }
+    }
+}
+
+async function eliminarRetiro(retiroId) {
+    if (!confirm('¿Eliminar este retiro? Se podrá registrar de nuevo si es necesario.')) return;
+    try {
+        const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('🗑️ Retiro eliminado');
+            cargarRetiros();
+        } else {
+            mostrarNotificacion('❌ No se pudo eliminar', 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
+}
+
 // Carga los turnos del día para el panel de caja
 // Estado de la caja del día (abierta/cerrada con totales)
 async function cargarEstadoCaja() {
@@ -3121,6 +3237,7 @@ function mostrarResumenCierre(r) {
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">🏦 Transferencia</span><strong>$${r.total_transferencia.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💳 Débito</span><strong>$${r.total_debito.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed #ccc;margin-top:4px;"><span style="color:#555;font-weight:700;">Total ventas</span><strong style="color:#28a745;">$${r.total_ventas.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💸 Retiros de profesionales</span><strong style="color:#C06C84;">-$${(r.total_retiros||0).toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Debería haber</span><strong>$${r.dinero_en_caja_esperado.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Dinero contado</span><strong>$${r.dinero_contado.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:2px solid #C06C84;margin-top:4px;">
@@ -3162,7 +3279,8 @@ function abrirModalPlanillaCierre(json) {
   <div class="row"><span>Efectivo</span><span>$${r.total_efectivo.toFixed(2)}</span></div>
   <div class="row"><span>Transferencia</span><span>$${r.total_transferencia.toFixed(2)}</span></div>
   <div class="row"><span>Débito</span><span>$${r.total_debito.toFixed(2)}</span></div>
-  <div class="row"><span class="bold">TOTAL VENTAS</span><span class="bold">$${r.total_ventas.toFixed(2)}</span></div>
+  <div class="row"><span>Total ventas</span><span>$${r.total_ventas.toFixed(2)}</span></div>
+  <div class="row"><span>💸 Retiros</span><span>-$${(r.total_retiros||0).toFixed(2)}</span></div>
   <hr>
   <div class="row"><span>Debería haber</span><span>$${r.dinero_en_caja_esperado.toFixed(2)}</span></div>
   <div class="row"><span>Dinero contado</span><span>$${r.dinero_contado.toFixed(2)}</span></div>

@@ -150,6 +150,16 @@
                     </div>
                 </div>
 
+                <div class="caja-only" style="margin-top: 30px;">
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #C06C84;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                            <h3 style="margin:0;color:#C06C84;">💸 Retiros de Profesionales (Hoy)</h3>
+                            <button onclick="cargarRetiros()" class="btn-reset">🔄 Actualizar</button>
+                        </div>
+                        <div id="retiros-lista"></div>
+                    </div>
+                </div>
+
                 <div class="admin-only" style="margin-top: 30px;">
                     <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
                         <p><strong>⚙️ Gestión de Turnos:</strong> Aquí puedes ver, editar y eliminar TODOS los turnos del sistema.</p>
@@ -304,6 +314,13 @@
                             💡 Mantén Ctrl (Windows) o Cmd (Mac) para seleccionar varios servicios
                         </small>
                     </div>
+                    <div class="form-group" id="prof-porcentaje-grupo">
+                        <label>💸 Porcentaje de retiro de la profesional (%)</label>
+                        <input type="number" id="prof-porcentaje" value="70" min="0" max="100" step="1">
+                        <small style="color: #888; display: block; margin-top: 5px;">
+                            💡 Lo que retira la profesional de lo cobrado por sus servicios (ej: 70%). El resto queda en la estética.
+                        </small>
+                    </div>
                     <button type="submit" class="btn-guardar">✅ Registrar</button>
                 </form>
 
@@ -368,7 +385,7 @@
 <script src="js/apiAuth.js?v=20260304"></script>
 <script src="js/api.js?v=20260217"></script>
 <script src="js/auth.js?v=20260907"></script>
-<script src="js/app.js?v=20260907c"></script>
+<script src="js/app.js?v=20260908a"></script>
 <script src="js/roles-funciones.js?v=20260217"></script>
 </body>
 </html>

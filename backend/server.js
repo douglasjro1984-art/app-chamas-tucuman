@@ -259,7 +259,7 @@ app.get('/api/auth/me', autenticar, async (req, res) => {
 //  CREAR USUARIO / REGISTRAR PROFESIONAL
 // ============================================
 app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => {
-    const { nombre, email, password, telefono, rol = 'profesional', servicios } = req.body;
+    const { nombre, email, password, telefono, rol = 'profesional', servicios, porcentaje_retiro } = req.body;
     
     // Validaciones básicas
     if (!nombre || !email || !password || !telefono) {
@@ -285,9 +285,10 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         const hashedPassword = await bcrypt.hash(password, 10);
         
         // Insertar usuario
+        const pct = (rol === 'profesional') ? Math.min(100, Math.max(0, parseFloat(porcentaje_retiro) || 70)) : null;
         const [result] = await pool.query(
-            'INSERT INTO usuarios (nombre, email, password, rol, telefono) VALUES (?, ?, ?, ?, ?)',
-            [nombre, email, hashedPassword, rol, telefono]
+            'INSERT INTO usuarios (nombre, email, password, rol, telefono, porcentaje_retiro) VALUES (?, ?, ?, ?, ?, ?)',
+            [nombre, email, hashedPassword, rol, telefono, pct]
         );
 
         const nuevoId = result.insertId;
@@ -309,7 +310,7 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
 // Editar un profesional/usuario (nombre, email, telefono, rol, servicios, contraseña opcional)
 app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) => {
     const { id } = req.params;
-    const { nombre, email, telefono, password, rol, servicios } = req.body;
+    const { nombre, email, telefono, password, rol, servicios, porcentaje_retiro } = req.body;
     try {
         const [u] = await pool.query('SELECT id, rol FROM usuarios WHERE id = ?', [id]);
         if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
@@ -327,6 +328,7 @@ app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) 
         if (email !== undefined) { campos.push('email = ?'); valores.push(email); }
         if (telefono !== undefined) { campos.push('telefono = ?'); valores.push(telefono); }
         if (rol !== undefined) { campos.push('rol = ?'); valores.push(rol); }
+        if (porcentaje_retiro !== undefined) { campos.push('porcentaje_retiro = ?'); valores.push(Math.min(100, Math.max(0, parseFloat(porcentaje_retiro) || 0))); }
         if (password) {
             const hashed = await bcrypt.hash(password, 10);
             campos.push('password = ?'); valores.push(hashed);
@@ -501,7 +503,7 @@ app.post('/api/profesionales/servicios', async (req, res) => {
 app.get('/api/usuarios/profesionales', autenticar, async (req, res) => {
     try {
         const [rows] = await pool.query(
-            `SELECT id, nombre, email, telefono FROM usuarios WHERE rol = 'profesional' ORDER BY nombre`
+            `SELECT id, nombre, email, telefono, porcentaje_retiro FROM usuarios WHERE rol = 'profesional' ORDER BY nombre`
         );
         res.json(rows);
     } catch (error) {
@@ -515,7 +517,7 @@ app.get('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) 
     const { id } = req.params;
     try {
         const [u] = await pool.query(
-            'SELECT id, nombre, email, telefono, rol FROM usuarios WHERE id = ?', [id]
+            'SELECT id, nombre, email, telefono, rol, porcentaje_retiro FROM usuarios WHERE id = ?', [id]
         );
         if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         const usuario = u[0];
@@ -1358,8 +1360,12 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req
         const c = caja[0];
         const total = parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) +
                       parseFloat(c.total_debito || 0);
+        const [retiros] = await pool.query(
+            'SELECT id, profesional_nombre, monto_retirado FROM retiros WHERE caja_id = ?', [c.id]
+        );
+        const totalRetiros = retiros.reduce((s, r) => s + parseFloat(r.monto_retirado || 0), 0);
         const real = parseFloat(monto_real) || 0;
-        const esperado = parseFloat(c.monto_inicial || 0) + total;
+        const esperado = parseFloat(c.monto_inicial || 0) + total - totalRetiros;
         const diferencia = Math.round((real - esperado) * 100) / 100;
 
         await pool.query(
@@ -1376,7 +1382,9 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req
                 total_transferencia: parseFloat(c.total_transferencia || 0),
                 total_debito: parseFloat(c.total_debito || 0),
                 total_ventas: total,
-                dinero_en_caja_esperado: esperado,
+                retiros,
+                total_retiros: Math.round(totalRetiros * 100) / 100,
+                dinero_en_caja_esperado: Math.round(esperado * 100) / 100,
                 dinero_contado: real,
                 diferencia
             }
@@ -1391,10 +1399,12 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','caja']), async (req
 app.get('/api/caja/historial', autenticar, autorizar(['admin']), async (req, res) => {
     try {
         const [rows] = await pool.query(
-            `SELECT id, fecha, estado, monto_inicial, monto_final,
-                    total_efectivo, total_transferencia, total_debito,
-                    cajero_nombre, abierta_at, cerrada_at
-             FROM cajas ORDER BY id DESC LIMIT 15`
+            `SELECT c.id, c.fecha, c.estado, c.monto_inicial, c.monto_final,
+                    c.total_efectivo, c.total_transferencia, c.total_debito,
+                    c.cajero_nombre, c.abierta_at, c.cerrada_at,
+                    (SELECT COALESCE(SUM(r.monto_retirado),0) FROM retiros r WHERE r.caja_id = c.id) AS total_retiros,
+                    (SELECT COALESCE(SUM(r.monto_retirado),0) FROM retiros r WHERE r.caja_id = c.id) != 0 AS tiene_retiros
+             FROM cajas c ORDER BY c.id DESC LIMIT 15`
         );
         res.json(rows);
     } catch (e) {
@@ -1521,6 +1531,97 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','caja']),
 });
 
 // ============================================
+// 💸 RETIROS DE PROFESIONALES
+// ============================================
+// Resumen de retiros del día + lo que le correspondería retirar a cada
+// profesional según sus turnos cobrados del día (monto × porcentaje_retiro).
+app.get('/api/caja/retiros', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    try {
+        const [sugerencias] = await pool.query(
+            `SELECT u.id AS profesional_id, u.nombre AS profesional_nombre, u.porcentaje_retiro,
+                    COALESCE(SUM(t.precio), 0) AS cobrado_hoy, COUNT(t.id) AS turnos_cobrados
+             FROM usuarios u
+             LEFT JOIN turnos t ON t.profesional_id = u.id
+                  AND t.estado = 'cobrado' AND t.fecha = CURDATE()
+             WHERE u.rol = 'profesional'
+             GROUP BY u.id, u.nombre, u.porcentaje_retiro
+             HAVING cobrado_hoy > 0
+             ORDER BY u.nombre`
+        );
+        const [retiros] = await pool.query(
+            `SELECT r.id, r.profesional_id, r.profesional_nombre, r.monto_bruto,
+                    r.porcentaje_retiro, r.monto_retirado, r.monto_estetica, r.creado_at
+             FROM retiros r WHERE r.fecha = CURDATE() ORDER BY r.id`
+        );
+        res.json({ sugerencias, retiros });
+    } catch (e) {
+        console.error('❌ Error retiros:', e.message);
+        res.status(500).json({ error: 'Error al obtener retiros' });
+    }
+});
+
+// Registrar el retiro de una profesional (calcula lo que le corresponde
+// según sus turnos cobrados del día y su porcentaje).
+app.post('/api/caja/retiros', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    const { profesional_id, monto_retirar } = req.body;
+    if (!profesional_id) return res.status(400).json({ success: false, message: 'Indicá la profesional' });
+    try {
+        const [rows] = await pool.query(
+            `SELECT u.id, u.nombre, u.porcentaje_retiro, COALESCE(SUM(t.precio), 0) AS cobrado_hoy
+             FROM usuarios u
+             LEFT JOIN turnos t ON t.profesional_id = u.id
+                  AND t.estado = 'cobrado' AND t.fecha = CURDATE()
+             WHERE u.id = ? GROUP BY u.id, u.nombre, u.porcentaje_retiro`, [profesional_id]
+        );
+        const p = rows[0];
+        if (!p) return res.status(400).json({ success: false, message: 'Profesional no encontrado' });
+        const pct = parseFloat(p.porcentaje_retiro) || 70;
+        const bruto = parseFloat(p.cobrado_hoy) || 0;
+        const maximo = Math.round(bruto * pct / 100 * 100) / 100;
+        let retirado;
+        if (monto_retirar !== undefined && monto_retirar !== null && monto_retirar !== '') {
+            retirado = Math.min(maximo, Math.max(0, parseFloat(monto_retirar) || 0));
+        } else {
+            retirado = maximo; // por defecto, se retira TODO lo que le corresponde
+        }
+        const estetica = Math.round((bruto - retirado) * 100) / 100;
+
+        const [caja] = await pool.query(
+            "SELECT id FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
+        );
+        const cajaId = caja.length ? caja[0].id : null;
+
+        const [r] = await pool.query(
+            `INSERT INTO retiros (caja_id, profesional_id, profesional_nombre, fecha, monto_bruto,
+                                  porcentaje_retiro, monto_retirado, monto_estetica, creado_por)
+             VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?)`,
+            [cajaId, p.id, p.nombre, bruto, pct, retirado, estetica, req.usuario.id]
+        );
+        res.json({
+            success: true,
+            retiro: {
+                id: r.insertId, profesional_nombre: p.nombre, monto_bruto: bruto,
+                porcentaje_retiro: pct, monto_retirado: retirado, monto_estetica: estetica
+            },
+            mensaje: `Retiro de $${retirado.toFixed(2)} registrado para ${p.nombre}`
+        });
+    } catch (e) {
+        console.error('❌ Error registrar retiro:', e.message);
+        res.status(500).json({ success: false, message: 'Error al registrar el retiro' });
+    }
+});
+
+// Eliminar un retiro del día (corrección de error)
+app.delete('/api/caja/retiros/:id', autenticar, autorizar(['admin','caja']), async (req, res) => {
+    try {
+        await pool.query('DELETE FROM retiros WHERE id = ? AND fecha = CURDATE()', [req.params.id]);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Error al eliminar retiro' });
+    }
+});
+
+// ============================================
 // 🏥 HEALTH CHECK
 // ============================================
 app.get('/api/health', (req, res) => {
@@ -1570,6 +1671,9 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('   💵 POST   /api/caja/cerrar (cerrar y resumen)');
     console.log('   💵 GET    /api/caja/historial (cierres previos)');
     console.log('   🧾 POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
+    console.log('   💸 GET    /api/caja/retiros (sugerencias + registrados)');
+    console.log('   💸 POST   /api/caja/retiros (registrar retiro de profesional)');
+    console.log('   🗑️  DELETE /api/caja/retiros/:id (eliminar retiro)');
     console.log('   📊 GET    /api/estadisticas');
     console.log('   🏥 GET    /api/health');
     console.log('\n' + '='.repeat(70));
