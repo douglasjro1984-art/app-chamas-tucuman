@@ -405,7 +405,7 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
     const { nombre, email, password, telefono, rol = 'profesional', servicios, porcentaje_retiro } = req.body;
     
     // Validaciones básicas
-    if (!nombre || !email || !password || !telefono) {
+    if (!nombre || !email || !telefono) {
         return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
     }
     
@@ -413,8 +413,12 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         return res.status(400).json({ success: false, message: 'Solo se pueden crear profesionales, recepcionistas o clientes' });
     }
 
-    if (password.length < 6) {
-        return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+    // Profesionales no acceden al sistema (sin login): la contraseña es opcional.
+    // Recepcionistas sí acceden, así que deben definir una contraseña.
+    if (rol === 'recepcionista' || rol === 'cliente') {
+        if (!password || password.length < 6) {
+            return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+        }
     }
     
     try { 
@@ -424,8 +428,9 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
             return res.status(400).json({ success: false, message: 'El email ya está registrado' });
         }
         
-        // Hash de contraseña
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Hash de contraseña (placeholder aleatorio para profesionales que no acceden)
+        const passFinal = password || 'prof-no-accede';
+        const hashedPassword = await bcrypt.hash(passFinal, 10);
         
         // Insertar usuario
         const pct = (rol === 'profesional') ? Math.min(100, Math.max(0, parseFloat(porcentaje_retiro) || 70)) : null;

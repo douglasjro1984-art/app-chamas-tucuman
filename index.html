@@ -254,10 +254,6 @@
                         <input type="email" id="prof-email" required placeholder="ejemplo@chamas.com">
                     </div>
                     <div class="form-group">
-                        <label>🔒 Contraseña</label>
-                        <input type="password" id="prof-password" required placeholder="********" minlength="6">
-                    </div>
-                    <div class="form-group">
                         <label>📞 Teléfono</label>
                         <input type="tel" id="prof-telefono" required placeholder="+54 9 11 1234-5678">
                     </div>
@@ -267,6 +263,10 @@
                             <option value="profesional">👩‍💼 Profesional</option>
                             <option value="recepcionista">💵 Recepcionista</option>
                         </select>
+                    </div>
+                    <div class="form-group" id="prof-password-grupo" style="display:none;">
+                        <label>🔒 Contraseña de acceso</label>
+                        <input type="password" id="prof-password-recepcionista" placeholder="Mínimo 6 caracteres" minlength="6">
                     </div>
                     <div class="form-group" id="prof-servicios-grupo">
                         <label>💆 Servicios Asignados (opcional — Ctrl/Cmd para seleccionar varios)</label>

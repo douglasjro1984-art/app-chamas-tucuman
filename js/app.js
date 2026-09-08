@@ -99,7 +99,7 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
     const datos = {
         nombre: document.getElementById('prof-nombre').value.trim(),
         email: document.getElementById('prof-email').value.trim(),
-        password: document.getElementById('prof-password').value,
+        password: rol === 'recepcionista' ? document.getElementById('prof-password-recepcionista')?.value : undefined,
         telefono: document.getElementById('prof-telefono').value.trim(),
         rol: rol,
         servicios: rol === 'profesional'
@@ -142,8 +142,10 @@ function toggleRolUsuario() {
     const rol = document.getElementById('prof-rol')?.value;
     const grupo = document.getElementById('prof-servicios-grupo');
     const pctGrupo = document.getElementById('prof-porcentaje-grupo');
+    const passGrupo = document.getElementById('prof-password-grupo');
     if (grupo) grupo.style.display = (rol === 'recepcionista') ? 'none' : 'block';
     if (pctGrupo) pctGrupo.style.display = (rol === 'recepcionista') ? 'none' : 'block';
+    if (passGrupo) passGrupo.style.display = (rol === 'recepcionista') ? 'block' : 'none';
 }
 
 // Nota: Las funciones de calendario y edición de precios siguen igual, 
@@ -2688,11 +2690,6 @@ async function abrirModalEditarProfesional(id) {
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                     <div>
-                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">🔑 Nueva contraseña (opcional)</label>
-                        <input type="password" id="ep-password" placeholder="Dejalo vacío para no cambiarla"
-                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
-                    </div>
-                    <div>
                         <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💆 Servicios asignados (Ctrl/Cmd para varios)</label>
                         <select id="ep-servicios" multiple style="width:100%;min-height:120px;padding:8px;border:2px solid #e0e0e0;border-radius:9px;box-sizing:border-box;">
                             ${servicios.map(s => `<option value="${s.id}" ${(p.servicios||[]).includes(s.id) ? 'selected' : ''}>${s.nombre}</option>`).join('')}
@@ -2722,13 +2719,11 @@ async function guardarProfesional(id) {
     const nombre = document.getElementById('ep-nombre')?.value.trim();
     const email = document.getElementById('ep-email')?.value.trim();
     const telefono = document.getElementById('ep-telefono')?.value.trim();
-    const password = document.getElementById('ep-password')?.value;
     const serviciosSel = Array.from(document.getElementById('ep-servicios')?.selectedOptions || []).map(o => parseInt(o.value));
 
     if (!nombre || !email) { mostrarNotificacion('⚠️ Nombre y email son obligatorios', 'error'); return; }
 
     const body = { nombre, email, telefono, servicios: serviciosSel, porcentaje_retiro: parseFloat(document.getElementById('ep-porcentaje')?.value) || 0 };
-    if (password) body.password = password;
 
     try {
         const res = await fetch(`${API_BASE}/usuarios/${id}`, {
