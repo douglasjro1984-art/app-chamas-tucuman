@@ -1044,7 +1044,7 @@ app.get('/api/horarios-ocupados/:profesionalId/:fecha', autenticar, async (req, 
 // 📅 TURNOS
 // ============================================
 // Todos los turnos (Admin)
-app.get('/api/turnos/todos', autenticar, autorizar(['admin']), async (req, res) => {
+app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         // Extraer parámetros de filtro
         const { profesional_id, fecha_desde, fecha_hasta } = req.query;
