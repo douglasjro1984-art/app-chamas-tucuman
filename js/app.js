@@ -2258,16 +2258,16 @@ function showSection(sectionId) {
                 }
             }, 60000);
         }
-        if (usuario.rol === 'admin') {
-            cargarTodosLosTurnos();
-            cargarProfesionalesFiltro();
-        }
     } else {
         if (window._intervaloRecordatorios) { clearInterval(window._intervaloRecordatorios); window._intervaloRecordatorios = null; }
     }
 
     if (sectionId === 'mis-turnos-cliente') {
         cargarTurnosCliente();
+        if (usuario.rol === 'admin') {
+            cargarTodosLosTurnos();
+            cargarProfesionalesFiltro();
+        }
     }
 
     if (sectionId === 'mis-turnos-profesional') {

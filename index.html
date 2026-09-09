@@ -59,8 +59,8 @@
             <div class="container nav-wrapper">
                 <div class="nav-links">
                     <button onclick="showSection('servicios')">📦 Servicios</button>
-                    <button class="caja-only" onclick="showSection('caja')">💵 Caja y Turnos</button>
-                    <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">📅 Reservas</button>
+                    <button class="caja-only" onclick="showSection('caja')">💵 Caja</button>
+                    <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">📅 Turnos y Reservas</button>
                     <button class="prof-only" onclick="showSection('mis-turnos-profesional')">👥 Citas clientes</button>
                     <button class="prof-only horarios-gestion" onclick="showSection('gestionar-horarios')">⏰ Mis Horarios</button>
                     <button class="admin-only" onclick="showSection('admin')">📊 Administración</button>
@@ -98,8 +98,8 @@
             </section>
 
             <section id="caja" class="section">
-                <h2>💵 Caja y Turnos</h2>
-                <p style="color: #666; margin-bottom: 20px;">Acá podés abrir/cerrar la caja, ver los turnos del día, cobrar y emitir el ticket.</p>
+                <h2>💵 Caja</h2>
+                <p style="color: #666; margin-bottom: 20px;">Abrí/cerrá la caja, cobrá los turnos del día y emití el ticket.</p>
                 <div id="caja-estado"></div>
                 <div id="caja-turnos-dia"></div>
 
@@ -122,40 +122,11 @@
                         <div id="retiros-lista"></div>
                     </div>
                 </div>
-
-                <div class="admin-only" style="margin-top: 30px;">
-                    <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
-                        <p><strong>⚙️ Gestión de Turnos:</strong> Aquí puedes ver, editar y eliminar TODOS los turnos del sistema.</p>
-                    </div>
-                    <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                        <h3>🔍 Filtrar Turnos</h3>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
-                            <div>
-                                <label>Profesional:</label>
-                                <select id="filtro-profesional" onchange="cargarTodosLosTurnos()">
-                                    <option value="">Todos</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label>Fecha desde:</label>
-                                <input type="date" id="filtro-fecha-desde" onchange="cargarTodosLosTurnos()">
-                            </div>
-                            <div>
-                                <label>Fecha hasta:</label>
-                                <input type="date" id="filtro-fecha-hasta" onchange="cargarTodosLosTurnos()">
-                            </div>
-                            <div style="display: flex; align-items: flex-end;">
-                                <button onclick="limpiarFiltros()" class="btn-reset" style="width: 100%;">🔄 Limpiar</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="todos-turnos-lista"></div>
-                </div>
             </section>
 
             <section id="mis-turnos-cliente" class="section">
-                <h1>📅 Reservas</h1>
-                <p style="color: #666; margin-bottom: 20px;">Agendá un nuevo turno o consultá tus reservas.</p>
+                <h1>📅 Turnos y Reservas</h1>
+                <p style="color: #666; margin-bottom: 20px;">Agendá un nuevo turno o consultá los turnos.</p>
 
                 <div style="margin-bottom:25px;">
                     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px;">
@@ -210,6 +181,35 @@
                     </div>
                     <button type="submit" class="btn btn-primary">✅ Confirmar Turno</button>
                 </form>
+
+                <div class="admin-only" style="margin-top: 30px;">
+                    <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
+                        <p><strong>⚙️ Gestión de Turnos:</strong> Aquí puedes ver, editar y eliminar TODOS los turnos del sistema.</p>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <h3>🔍 Filtrar Turnos</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                            <div>
+                                <label>Profesional:</label>
+                                <select id="filtro-profesional" onchange="cargarTodosLosTurnos()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Fecha desde:</label>
+                                <input type="date" id="filtro-fecha-desde" onchange="cargarTodosLosTurnos()">
+                            </div>
+                            <div>
+                                <label>Fecha hasta:</label>
+                                <input type="date" id="filtro-fecha-hasta" onchange="cargarTodosLosTurnos()">
+                            </div>
+                            <div style="display: flex; align-items: flex-end;">
+                                <button onclick="limpiarFiltros()" class="btn-reset" style="width: 100%;">🔄 Limpiar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="todos-turnos-lista"></div>
+                </div>
             </section>
 
             <section id="mis-turnos-profesional" class="section">
@@ -396,7 +396,7 @@
 <script src="js/apiAuth.js?v=20260304"></script>
 <script src="js/api.js?v=20260217"></script>
 <script src="js/auth.js?v=20260908"></script>
-<script src="js/app.js?v=20260908c"></script>
+<script src="js/app.js?v=20260909a"></script>
 <script src="js/roles-funciones.js?v=20260217"></script>
 </body>
 </html>
