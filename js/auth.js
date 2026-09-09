@@ -273,12 +273,12 @@ async function solicitarCodigo() {
         const data = await res.json();
         if (data.success) {
             _recuperarIdentifier = identifier;
-            // Si no hay WhatsApp configurado y viene un código de desarrollo, mostrarlo
+            // Si el correo no está configurado y viene un código de desarrollo, mostrarlo
             const info = document.getElementById('recuperar-paso2-info');
             if (data._debug_codigo) {
-                info.textContent = `⚠️ WhatsApp no configurado en este entorno. Tu código es: ${data._debug_codigo}`;
+                info.textContent = `⚠️ Correo no configurado en este entorno. Tu código es: ${data._debug_codigo}`;
             } else {
-                info.textContent = data.mensaje || 'Código enviado por WhatsApp.';
+                info.textContent = data.mensaje || 'Código enviado por correo.';
             }
             document.getElementById('recuperar-paso1').style.display = 'none';
             document.getElementById('recuperar-paso2').style.display = 'block';

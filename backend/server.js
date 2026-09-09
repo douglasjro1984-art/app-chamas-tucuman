@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const https = require('https');
+const nodemailer = require('nodemailer');
 const rateLimit = require('express-rate-limit');
 const pool = require('./database'); 
 
@@ -232,6 +233,49 @@ function normalizarTelefonoArgentina(tel) {
     return '549' + num;
 }
 
+// Enviar correo con el código de recuperación usando SMTP (nodemailer)
+function crearTransportadorCorreo() {
+    const host = process.env.MAIL_HOST;
+    const user = process.env.MAIL_USER;
+    const pass = process.env.MAIL_PASSWORD;
+    if (!host || !user || !pass) return null;
+    return nodemailer.createTransport({
+        host,
+        port: parseInt(process.env.MAIL_PORT || '465', 10),
+        secure: (process.env.MAIL_SECURE || 'true') === 'true',
+        auth: { user, pass }
+    });
+}
+
+async function enviarCorreoRecuperacion(destino, codigo) {
+    if (!destino) return { ok: false, reason: 'sin_email' };
+    const transport = crearTransportadorCorreo();
+    if (!transport) return { ok: false, reason: 'correo_no_configurado' };
+    try {
+        await transport.sendMail({
+            from: process.env.MAIL_FROM || `Chamas Spa <${process.env.MAIL_USER}>`,
+            to: destino,
+            subject: '🔐 Chamas Spa — Código de recuperación',
+            html: `
+                <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;border:1px solid #eee;border-radius:12px;overflow:hidden;">
+                    <div style="background:#C06C84;color:white;padding:18px 24px;text-align:center;">
+                        <h2 style="margin:0;font-size:1.2rem;">💆 Chamas Spa</h2>
+                        <p style="margin:4px 0 0;font-size:0.85rem;opacity:.9;">Recuperación de contraseña</p>
+                    </div>
+                    <div style="padding:24px;">
+                        <p style="margin:0 0 8px;color:#333;">Tu código de recuperación es:</p>
+                        <div style="font-size:2rem;font-weight:700;letter-spacing:8px;color:#C06C84;text-align:center;padding:14px;background:#fdf4f6;border-radius:10px;margin:12px 0;">${codigo}</div>
+                        <p style="margin:0;color:#888;font-size:0.85rem;">Válido por 10 minutos. Si no solicitaste este código, ignorá este correo.</p>
+                    </div>
+                </div>`
+        });
+        return { ok: true };
+    } catch (e) {
+        console.error('❌ Error enviando correo:', e.message);
+        return { ok: false, reason: 'error_envio' };
+    }
+}
+
 // Enviar mensaje por WhatsApp Meta Cloud API
 async function enviarWhatsAppMeta(destinoInternacional, mensaje) {
     const token = process.env.META_WHATSAPP_TOKEN;
@@ -300,30 +344,23 @@ app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
             [usuario.id, codigo, expiraAt]
         );
 
-        // Intentar enviar por WhatsApp
-        const telInt = normalizarTelefonoArgentina(usuario.telefono);
-        let whatsappEnviado = false;
+        // Intentar enviar por correo
+        const correoEnviado = await enviarCorreoRecuperacion(usuario.email, codigo);
         let codigoEnPantalla = null;
-        if (telInt) {
-            const msgResult = await enviarWhatsAppMeta(telInt,
-                `🔐 *CHAMAS SPA*\nTu código de recuperación es: *${codigo}*\nVálido por 10 minutos.`
-            );
-            if (msgResult.ok) whatsappEnviado = true;
-        }
 
-        // En desarrollo (o si falló WhatsApp), devolver código en respuesta para que funcione
+        // En desarrollo (o si falló el correo), devolver código en respuesta para que funcione
         const esDesarrollo = process.env.NODE_ENV !== 'production';
-        if (!whatsappEnviado && esDesarrollo) {
+        if (!correoEnviado.ok && esDesarrollo) {
             codigoEnPantalla = codigo;
         }
 
         res.json({
             success: true,
-            mensaje: whatsappEnviado
-                ? '✅ Se envió un código por WhatsApp al número registrado'
-                : (telInt ? '⚠️ No se pudo enviar por WhatsApp. Contactá al administrador.' : '⚠️ No hay teléfono registrado. Contactá al administrador.'),
+            mensaje: correoEnviado.ok
+                ? '✅ Te enviamos un código por correo a ' + usuario.email
+                : (correoEnviado.reason === 'sin_email' ? '⚠️ La cuenta no tiene email registrado. Contactá al administrador.' : '⚠️ No se pudo enviar el correo. Contactá al administrador.'),
             usuario_nombre: usuario.nombre,
-            whatsapp_configurado: whatsappEnviado,
+            correo_enviado: correoEnviado.ok,
             ...(codigoEnPantalla ? { _debug_codigo: codigo } : {})
         });
     } catch (e) {
