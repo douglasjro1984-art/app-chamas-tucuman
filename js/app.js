@@ -11,6 +11,7 @@ const URL_BASE = window.API_BASE;
 let servicios = [];
 let _calendario_mes_actual = new Date();
 let _calendario_dias_seleccionados = {};
+let _calendario_paso_actual = 60;
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("🚀 Aplicación iniciada conectando a:", URL_BASE);
@@ -718,8 +719,18 @@ function _actualizarCalendario() {
 
 function _seleccionarDia(fecha) {
     const horasContainer = document.getElementById('selector-horas-container');
-    const horas = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
     const horasSeleccionadas = _calendario_dias_seleccionados[fecha] || [];
+
+    // Ajustar paso automáticamente si el día ya tiene horarios con minutos no-redondos
+    if (horasSeleccionadas.some(h => h.includes(':') && !h.endsWith(':00'))) {
+        if (horasSeleccionadas.every(h => h.includes(':') && Number(h.split(':')[1]) % 20 === 0)) {
+            _calendario_paso_actual = 20;
+        } else if (horasSeleccionadas.every(h => h.includes(':') && Number(h.split(':')[1]) % 30 === 0)) {
+            _calendario_paso_actual = 30;
+        }
+    }
+
+    const horas = _generarHorasPorPaso(_calendario_paso_actual);
 
     const fechaObj = new Date(fecha + 'T00:00:00');
     const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -729,6 +740,13 @@ function _seleccionarDia(fecha) {
 
     horasContainer.innerHTML = `
         <h4 style="color:#555;margin:0 0 15px 0;">📅 ${fechaFormato}</h4>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
+            <span style="color:#777;font-weight:600;">⏱️ Cada:</span>
+            <button onclick="_cambiarPasoHoras(60,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 60 ? '#C06C84' : '#ddd'};background:${_calendario_paso_actual === 60 ? '#C06C84' : 'white'};color:${_calendario_paso_actual === 60 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">1 hora</button>
+            <button onclick="_cambiarPasoHoras(30,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 30 ? '#C06C84' : '#ddd'};background:${_calendario_paso_actual === 30 ? '#C06C84' : 'white'};color:${_calendario_paso_actual === 30 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">30 min</button>
+            <button onclick="_cambiarPasoHoras(20,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 20 ? '#C06C84' : '#ddd'};background:${_calendario_paso_actual === 20 ? '#C06C84' : 'white'};color:${_calendario_paso_actual === 20 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">20 min</button>
+            <span style="color:#999;font-size:12px;">Los turnos se agendan en este intervalo en el día elegido.</span>
+        </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:15px;">
             ${horas.map(h => `
                 <button 
@@ -746,6 +764,21 @@ function _seleccionarDia(fecha) {
             <button onclick="_limpiarHoras('${fecha}')" class="btn-reset" style="flex:1;padding:8px;">❌ Limpiar</button>
         </div>
     `;
+}
+
+function _generarHorasPorPaso(paso) {
+    const horas = [];
+    for (let minutos = 8 * 60; minutos <= 20 * 60; minutos += paso) {
+        const hh = Math.floor(minutos / 60);
+        const mm = minutos % 60;
+        horas.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+    }
+    return horas;
+}
+
+function _cambiarPasoHoras(paso, fecha) {
+    _calendario_paso_actual = paso;
+    _seleccionarDia(fecha);
 }
 
 function toggleHora(btn) {
@@ -772,7 +805,7 @@ function toggleHora(btn) {
 }
 
 function _seleccionarTodasLasHoras(fecha) {
-    const horas = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+    const horas = _generarHorasPorPaso(_calendario_paso_actual);
     _calendario_dias_seleccionados[fecha] = [...horas];
     const btns = document.querySelectorAll(`[data-fecha="${fecha}"]`);
     btns.forEach(btn => {
