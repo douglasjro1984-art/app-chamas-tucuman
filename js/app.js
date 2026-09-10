@@ -2164,6 +2164,23 @@ async function asistentePasoTelefono() {
     if (!telefono) { mostrarNotificacion('⚠️ Ingresá tu teléfono', 'error'); return; }
     _asistenteEstado.clienteTelefono = telefono;
     _asistenteBurbuja('user', `📞 ${telefono}`);
+    _asistenteBurbuja('bot', '🎂 ¿Cuál es tu fecha de nacimiento? (opcional — para felicitarte en tu cumpleaños 🎁)');
+    document.getElementById('asistente-input').innerHTML =
+        `<input type="date" id="asistente-fecha-nacimiento" style="width:100%;padding:12px;border:2px solid #25D366;border-radius:10px;box-sizing:border-box;font-size:1rem;">
+         <button onclick="asistentePasoFechaNacimiento(false)" style="width:100%;margin-top:8px;background:#25D366;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Siguiente →</button>
+         <button onclick="asistentePasoFechaNacimiento(true)" style="width:100%;margin-top:6px;background:#f0f0f0;color:#666;padding:10px;border:1px solid #ddd;border-radius:10px;cursor:pointer;font-size:0.9rem;">⏭️ Omitir (no dar mi cumpleaños)</button>`;
+    setTimeout(() => document.getElementById('asistente-fecha-nacimiento')?.focus(), 80);
+}
+
+function asistentePasoFechaNacimiento(omitir) {
+    const fn = omitir ? '' : (document.getElementById('asistente-fecha-nacimiento')?.value || '').trim();
+    if (!omitir && !fn) { mostrarNotificacion('⚠️ Elegí una fecha o presioná "Omitir"', 'error'); return; }
+    _asistenteEstado.clienteFechaNacimiento = fn;
+    _asistenteBurbuja('user', fn ? `🎂 ${new Date(fn + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}` : '⏭️ Sin cumpleaños');
+    asistenteConfirmarTurno();
+}
+
+async function asistenteConfirmarTurno() {
     const e = _asistenteEstado;
     const usuario = obtenerUsuarioActual();
     _asistenteBurbuja('bot', `⏳ Confirmando tu turno...`);
@@ -2176,6 +2193,7 @@ async function asistentePasoTelefono() {
                 cliente_id: usuario ? parseInt(usuario.id) : null,
                 cliente_nombre: e.clienteNombre,
                 cliente_telefono: e.clienteTelefono,
+                cliente_fecha_nacimiento: e.clienteFechaNacimiento,
                 profesional_id: parseInt(e.profesional.id),
                 servicios: [parseInt(e.servicio.id)],
                 fecha: e.fecha,
