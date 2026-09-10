@@ -2337,6 +2337,9 @@ function showSection(sectionId) {
             cargarTodosLosTurnos();
             cargarProfesionalesFiltro();
         }
+        if (usuario.rol === 'admin' || usuario.rol === 'recepcionista') {
+            cargarSobreturnos();
+        }
     }
 
     if (sectionId === 'cumpleanos') {
@@ -3376,13 +3379,13 @@ async function cargarTurnosCaja() {
         const cobrados = turnos.filter(t => (t.estado || '') === 'cobrado');
 
         const tarjeta = (t, esCobrado) => `
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;padding:14px 18px;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${esCobrado ? '#28a745' : '#C06C84'};flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;padding:14px 18px;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${t.tipo === 'sobreturno' ? '#8E44AD' : (esCobrado ? '#28a745' : '#C06C84')};flex-wrap:wrap;">
                 <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-                    <div style="display:flex;flex-direction:column;align-items:center;background:${esCobrado ? '#eafaf1' : '#fdf0f4'};padding:6px 12px;border-radius:8px;min-width:60px;">
-                        <strong style="color:#C06C84;font-size:1.1rem;">${t.hora_inicio}</strong>
+                    <div style="display:flex;flex-direction:column;align-items:center;background:${t.tipo === 'sobreturno' ? '#f4ecf7' : (esCobrado ? '#eafaf1' : '#fdf0f4')};padding:6px 12px;border-radius:8px;min-width:60px;">
+                        <strong style="color:${t.tipo === 'sobreturno' ? '#6C3483' : '#C06C84'};font-size:1.1rem;">${t.hora_inicio}</strong>
                     </div>
                     <div>
-                        <strong style="color:#333;">${t.cliente_nombre || 'Cliente'}</strong>
+                        <strong style="color:#333;">${t.cliente_nombre || 'Cliente'}${t.tipo === 'sobreturno' ? ' <span style="background:#8E44AD;color:white;font-size:0.7rem;border-radius:6px;padding:2px 6px;font-weight:700;vertical-align:middle;">⏱️ SOBRETURNO</span>' : ''}</strong>
                         <small style="color:#888;display:block;">💆 ${t.servicio}${parseInt(t.cant_items||1) > 1 ? ` <span style="background:#fdf0f4;color:#C06C84;border-radius:6px;padding:1px 6px;font-weight:700;">+${parseInt(t.cant_items)-1}</span>` : ''} · 👩‍💼 ${t.profesional || 'Sin profesional'}${t.cliente_telefono ? ' · 📞 ' + t.cliente_telefono : ''}</small>
                     </div>
                 </div>
@@ -3577,6 +3580,7 @@ async function confirmarCobro(turnoId) {
             if (imprimir && data.ticket) imprimirTicket(data.ticket);
             cargarTurnosCaja();
             cargarEstadoCaja();
+            if (document.getElementById('mis-turnos-cliente') && document.getElementById('mis-turnos-cliente').style.display !== 'none') cargarSobreturnos();
         } else {
             mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
         }
@@ -3823,5 +3827,139 @@ async function llenarSelectCupones() {
         }
     } catch (e) {
         console.error('❌ Error al llenar selects de cupones:', e.message);
+    }
+}
+
+// =====================================================
+// ⏱️ SOBRETURNOS (huecos entre turnos del día)
+// =====================================================
+let _sobreturnoHuecoActivo = null;
+let _sobreturnoServiciosActivos = [];
+
+async function cargarSobreturnos() {
+    const cont = document.getElementById('sobreturnos-lista');
+    if (!cont) return;
+    cont.innerHTML = '<p style="color:#888;">⏳ Buscando huecos libres del día...</p>';
+    try {
+        const hoy = new Date().toISOString().slice(0, 10);
+        const res = await fetch(`${API_BASE}/sobreturnos/disponibles?fecha=${hoy}`);
+        const huecos = await res.json();
+        if (!Array.isArray(huecos) || !huecos.length) {
+            cont.innerHTML = '<p style="color:#888;">✅ No hay huecos disponibles ahora. Se generan cuando un turno se cobra terminando antes del horario del próximo.</p>';
+            return;
+        }
+        cont.innerHTML = huecos.map(h => {
+            const fechaReserva = new Date().toISOString().slice(0, 10);
+            return `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #f0e8f5;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:230px;">
+                        <strong style="color:#6C3483;">⏱️ ${h.profesional}</strong>
+                        <small style="display:block;color:#888;">Libre desde <strong>${h.desde}</strong> hasta <strong>${h.hasta}</strong> → <strong style="color:#6C3483;">${h.minutos} min</strong></small>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="abrirModalSobreturno(${h.profesional_id},'${h.profesional.replace(/'/g,"\\'")}','${h.desde}','${fechaReserva.replace(/'/g,"\\'")}',${h.minutos})" style="background:#8E44AD;color:white;padding:10px 16px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.85rem;">➕ Agregar cliente en hueco</button>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al buscar sobreturnos.</p>';
+    }
+}
+
+async function abrirModalSobreturno(profId, profNombre, desde, fecha, minutos) {
+    document.getElementById('modal-sobreturno')?.remove();
+    _sobreturnoHuecoActivo = { profId, profNombre, desde, fecha, minutos };
+    const modal = document.createElement('div');
+    modal.id = 'modal-sobreturno';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;padding:30px;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:92vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <h3 style="color:#6C3483;margin:0;">⏱️ Sobreturno — ${profNombre}</h3>
+                <button onclick="document.getElementById('modal-sobreturno').remove();" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">✖</button>
+            </div>
+            <p style="color:#888;margin:0 0 16px;font-size:0.9rem;">Hueco de <strong>${desde}</strong> a <strong>${_horaFinSobreturno(desde, minutos)}</strong> (${minutos} min). Elegí servicios que quepan en ese tiempo.</p>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">👤 Nombre del cliente</label>
+                <input type="text" id="sob-nombre" placeholder="Ej: María González" style="width:100%;padding:10px 12px;border:2px solid #8E44AD;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">📞 Teléfono</label>
+                <input type="tel" id="sob-telefono" placeholder="+54 9 11 1234-5678" style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">💆 Servicios (entran ${minutos} min)</label>
+                <select id="sob-servicios" multiple style="width:100%;min-height:110px;padding:8px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;box-sizing:border-box;">
+                    <option value="">Cargando servicios...</option>
+                </select>
+                <small style="color:#888;display:block;margin-top:5px;font-size:0.82rem;">Se muestran solo los que entran en el hueco. Ctrl/Cmd para varios.</small>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="document.getElementById('modal-sobreturno').remove();" class="btn-reset" style="flex:1;">❌ Cancelar</button>
+                <button onclick="crearSobreturno()" class="btn-guardar" style="flex:1;background:#8E44AD;">✅ Agendar sobreturno</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+    try {
+        const res = await fetch(`${API_BASE}/servicios`);
+        const servicios = await res.json();
+        const filtrados = (Array.isArray(servicios) ? servicios : []).filter(s => {
+            const dur = parseInt(s.duracion || 60, 10);
+            return dur <= minutos;
+        });
+        _sobreturnoServiciosActivos = filtrados;
+        const sel = document.getElementById('sob-servicios');
+        if (!sel) return;
+        sel.innerHTML = filtrados.length
+            ? filtrados.map(s => `<option value="${s.id}">${s.nombre} (${parseInt(s.duracion || 60, 10)} min) — $${parseFloat(s.precio || 0).toFixed(2)}</option>`).join('')
+            : '<option value="" disabled>Sin servicios que quepan en ${minutos} min</option>';
+        setTimeout(() => document.getElementById('sob-nombre')?.focus(), 80);
+    } catch (e) {
+        console.error('❌ Error al cargar servicios para sobreturno:', e.message);
+    }
+}
+
+function _horaFinSobreturno(desde, minutos) {
+    const [h, m] = desde.split(':').map(Number);
+    const total = h * 60 + m + minutos;
+    const hh = String(Math.floor(total / 60)).padStart(2, '0');
+    const mm = String(total % 60).padStart(2, '0');
+    return hh + ':' + mm;
+}
+
+async function crearSobreturno() {
+    const h = _sobreturnoHuecoActivo;
+    if (!h) { mostrarNotificacion('❌ Error interno', 'error'); return; }
+    const nombre = document.getElementById('sob-nombre')?.value.trim();
+    const telefono = document.getElementById('sob-telefono')?.value.trim();
+    const sel = document.getElementById('sob-servicios');
+    const ids = sel ? Array.from(sel.selectedOptions).map(o => o.value).filter(v => v).map(Number) : [];
+    if (!nombre) { mostrarNotificacion('⚠️ Ingresá el nombre del cliente', 'error'); return; }
+    if (!ids.length) { mostrarNotificacion('⚠️ Elegí al menos un servicio', 'error'); return; }
+    try {
+        const res = await fetch(`${API_BASE}/sobreturnos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                profesional_id: parseInt(h.profId),
+                fecha: h.fecha,
+                desde: h.desde,
+                cliente_nombre: nombre,
+                cliente_telefono: telefono,
+                servicios: ids
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('✅ ' + (data.message || 'Sobreturno agendado'), 'success');
+            document.getElementById('modal-sobreturno')?.remove();
+            cargarSobreturnos();
+            if (document.getElementById('turnos-cliente-lista')) cargarTurnosCliente();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'No se pudo agendar'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
     }
 }

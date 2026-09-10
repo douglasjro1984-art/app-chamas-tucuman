@@ -129,6 +129,17 @@
                 <h1>📅 Turnos y Reservas</h1>
                 <p style="color: #666; margin-bottom: 20px;">Agendá un nuevo turno o consultá los turnos.</p>
 
+                <div class="admrecep-only" style="margin-bottom:25px;">
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #8E44AD;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                            <h3 style="margin:0;color:#6C3483;">⏱️ Sobreturnos (huecos entre turnos)</h3>
+                            <button onclick="cargarSobreturnos()" class="btn-whatsapp-mini" style="padding:10px 16px;width:auto;">🔄 Recargar</button>
+                        </div>
+                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">💡 Cuando un turno termina antes de tiempo, aparece el hueco hasta el próximo turno del profesional para agregar un cliente con el tiempo restante.</p>
+                        <div id="sobreturnos-lista"></div>
+                    </div>
+                </div>
+
                 <div style="margin-bottom:25px;">
                     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px;">
                         <button onclick="prepararAgendado()" class="btn-whatsapp-mini" style="padding:12px 18px;width:auto;">➕ Agendar nuevo turno</button>
@@ -449,7 +460,7 @@
 <script src="js/apiAuth.js?v=20260304"></script>
 <script src="js/api.js?v=20260217"></script>
 <script src="js/auth.js?v=20260911"></script>
-<script src="js/app.js?v=20260911b"></script>
+<script src="js/app.js?v=20260912"></script>
 <script src="js/roles-funciones.js?v=20260217"></script>
 </body>
 </html>

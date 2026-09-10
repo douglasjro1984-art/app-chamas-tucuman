@@ -576,7 +576,7 @@ app.get('/api/servicios', async (req, res) => {
 
 app.put('/api/servicios/:id', autenticar, autorizar(['admin']), async (req, res) => {
     const { id } = req.params;
-    const { nombre, descripcion, precio, imagen, activo } = req.body;
+    const { nombre, descripcion, precio, imagen, activo, duracion } = req.body;
 
     try {
         let fields = [];
@@ -587,6 +587,7 @@ app.put('/api/servicios/:id', autenticar, autorizar(['admin']), async (req, res)
         if (nombre !== undefined) { fields.push('nombre = ?'); values.push(nombre); }
         if (descripcion !== undefined) { fields.push('descripcion = ?'); values.push(descripcion); }
         if (imagen !== undefined) { fields.push('imagen = ?'); values.push(imagen); }
+        if (duracion !== undefined) { fields.push('duracion = ?'); values.push(parseInt(duracion,10)); }
 
         if (fields.length === 0) {
             return res.status(400).json({ error: 'No hay campos para actualizar' });
@@ -616,12 +617,12 @@ app.get('/api/servicios/todos', autenticar, autorizar(['admin']), async (req, re
 
 // Crear nuevo servicio
 app.post('/api/servicios', autenticar, autorizar(['admin']), async (req, res) => {
-    const { nombre, descripcion, precio, imagen } = req.body;
+    const { nombre, descripcion, precio, imagen, duracion } = req.body;
     if (!nombre || !precio) return res.status(400).json({ success: false, message: 'Nombre y precio son obligatorios' });
     try {
         const [r] = await pool.query(
-            'INSERT INTO servicios (nombre, descripcion, precio, imagen, activo) VALUES (?, ?, ?, ?, TRUE)',
-            [nombre.trim(), descripcion||'', parseFloat(precio), imagen||'img/default.jpg']
+            'INSERT INTO servicios (nombre, descripcion, precio, imagen, duracion, activo) VALUES (?, ?, ?, ?, COALESCE(?, 60), TRUE)',
+            [nombre.trim(), descripcion||'', parseFloat(precio), imagen||'img/default.jpg', duracion ? parseInt(duracion,10) : null]
         );
         res.json({ success: true, id: r.insertId, message: 'Servicio creado correctamente' });
     } catch (e) { console.error('âŒ Error creando servicio:', e.message); res.status(500).json({ success: false, message: 'Error al crear el servicio' }); }
@@ -1580,6 +1581,169 @@ app.delete('/api/turnos/:id', autenticar, autorizar(['admin']), async (req, res)
 });
 
 // ============================================
+// ⏱️ SOBRETURNOS (huecos entre turnos del día)
+// ============================================
+
+function _horaAMin(ht) {
+    if (!ht) return null;
+    try {
+        const s = String(ht).split(':').map(Number);
+        return (s[0] || 0) * 60 + (s[1] || 0);
+    } catch (e) { return null; }
+}
+
+function _minAFecha(min) {
+    const h = String(Math.floor(min / 60)).padStart(2, '0');
+    const m = String(min % 60).padStart(2, '0');
+    return h + ':' + m;
+}
+
+// Huecos disponibles: turnos cobrados cuyo fin_real deja minutos libres hasta el próximo turno del profesional
+app.get('/api/sobreturnos/disponibles', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const { fecha } = req.query;
+    const dia = fecha || new Date().toISOString().slice(0, 10);
+    try {
+        const [rows] = await pool.query(
+            `SELECT t.id, t.fecha, DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio,
+                    DATE_FORMAT(t.fin_real, '%H:%i') as fin_real, t.estado, t.tipo,
+                    t.profesional_id, p.nombre as profesional
+             FROM turnos t
+             LEFT JOIN usuarios p ON t.profesional_id = p.id
+             WHERE t.fecha = ? AND t.estado <> 'cancelado'
+             ORDER BY t.profesional_id, t.hora_inicio, t.id`,
+            [dia]
+        );
+        // Agrupar por profesional
+        const porProf = {};
+        rows.forEach(t => {
+            const key = t.profesional_id || 0;
+            if (!porProf[key]) porProf[key] = { profesional_id: key, profesional: t.profesional || 'Sin asignar', turnos: [] };
+            porProf[key].turnos.push(t);
+        });
+
+        const huecos = [];
+        Object.values(porProf).forEach(g => {
+            g.turnos.forEach((t, i) => {
+                // Solo turnos cobrados con fin_real pueden generar hueco
+                const finRealMin = _horaAMin(t.fin_real);
+                if (t.estado !== 'cobrado' || finRealMin === null) return;
+                // Buscar el próximo turno del profesional que empiece después del fin real
+                const siguiente = g.turnos.find(n => _horaAMin(n.hora_inicio) > finRealMin);
+                if (!siguiente) return;
+                const inicioSig = _horaAMin(siguiente.hora_inicio);
+                const libres = inicioSig - finRealMin;
+                if (libres <= 0) return;
+                huecos.push({
+                    turno_origen: t.id,
+                    profesional_id: g.profesional_id,
+                    profesional: g.profesional,
+                    desde: _minAFecha(finRealMin),
+                    hasta: siguiente.hora_inicio,
+                    minutos: libres
+                });
+            });
+        });
+        res.json(huecos);
+    } catch (e) {
+        console.error('âŒ Error sobreturnos disponibles:', e.message);
+        res.status(500).json({ error: 'Error al calcular sobreturnos' });
+    }
+});
+
+// Crear sobreturno: turno tipo 'sobreturno' en un hueco con los minutos libres disponibles
+app.post('/api/sobreturnos', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const { profesional_id, fecha, desde, cliente_nombre, cliente_telefono, cliente_email, cliente_fecha_nacimiento, servicios = [] } = req.body;
+    if (!profesional_id || !fecha || !desde || !Array.isArray(servicios) || !servicios.length) {
+        return res.status(400).json({ success: false, message: 'Faltan datos para el sobreturno' });
+    }
+    const clienteNom = (cliente_nombre || '').trim();
+    if (!clienteNom) return res.status(400).json({ success: false, message: 'Ingresá el nombre del cliente' });
+
+    try {
+        // Obtener el próximo turno del profesional después de "desde"
+        const [proximos] = await pool.query(
+            `SELECT DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio
+             FROM turnos t
+             WHERE t.profesional_id = ? AND t.fecha = ? AND t.estado <> 'cancelado'
+               AND t.hora_inicio > ?
+             ORDER BY t.hora_inicio ASC LIMIT 1`,
+            [profesional_id, fecha, desde + ':00']
+        );
+        let minutosLibres = null;
+        if (proximos.length) {
+            minutosLibres = _horaAMin(proximos[0].hora_inicio) - _horaAMin(desde);
+        }
+        // Sin próximo turno: el hueco va hasta cierre (22:00 por defecto)
+        if (minutosLibres === null) {
+            minutosLibres = 22 * 60 - _horaAMin(desde);
+        }
+        if (minutosLibres <= 0) {
+            return res.status(400).json({ success: false, message: 'No hay hueco libre en ese horario' });
+        }
+
+        // Sumar duración de los servicios elegidos
+        const [serviciosInfo] = await pool.query(
+            `SELECT id, nombre, precio, COALESCE(duracion, 60) as duracion FROM servicios WHERE id IN (?) AND activo = TRUE`, [servicios]
+        );
+        if (!serviciosInfo.length) return res.status(400).json({ success: false, message: 'Servicios inválidos' });
+        const duracionTotal = serviciosInfo.reduce((s, sv) => s + parseInt(sv.duracion || 60, 10), 0);
+        if (duracionTotal > minutosLibres) {
+            return res.status(400).json({ success: false, message: `Los servicios elegidos duran ${duracionTotal} min pero el hueco tiene ${minutosLibres} min` });
+        }
+
+        // Verificar no choque con turnos existentes en ese rango
+        const [existentes] = await pool.query(
+            `SELECT t.id FROM turnos t
+             WHERE t.profesional_id = ? AND t.fecha = ? AND t.estado <> 'cancelado'
+               AND t.hora_inicio > ? AND t.hora_inicio < ADDTIME(?, SEC_TO_TIME(?))`,
+            [profesional_id, fecha, desde + ':00', desde + ':00', duracionTotal * 60]
+        );
+
+        const precioTotal = serviciosInfo.reduce((s, sv) => s + parseFloat(sv.precio || 0), 0);
+        const primerId = serviciosInfo[0].id;
+
+        // Upsert cliente frecuente (igual que en turnos)
+        const telCliente = (cliente_telefono || '').trim() || null;
+        if (telCliente) {
+            try {
+                const [exCl] = await pool.query('SELECT id FROM clientes WHERE telefono = ? AND activo = 1 LIMIT 1', [telCliente]);
+                if (exCl.length) {
+                    await pool.query(
+                        `UPDATE clientes SET nombre = ?, email = COALESCE(?, email),
+                                fecha_nacimiento = COALESCE(?, fecha_nacimiento),
+                                fecha_ultima_visita = NOW() WHERE id = ?`,
+                        [clienteNom, cliente_email || null, cliente_fecha_nacimiento || null, exCl[0].id]
+                    );
+                } else {
+                    await pool.query(
+                        `INSERT INTO clientes (nombre, email, telefono, fecha_nacimiento, fecha_ultima_visita, activo)
+                         VALUES (?, ?, ?, ?, NOW(), 1)`,
+                        [clienteNom, cliente_email || null, telCliente, cliente_fecha_nacimiento || null]
+                    );
+                }
+            } catch (eCli) { console.error('⚠️ Error upsert cliente sobreturno:', eCli.message); }
+        }
+
+        const [r] = await pool.query(
+            `INSERT INTO turnos (cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio, precio, estado, tipo, notas)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmado', 'sobreturno', ?)`,
+            [null, clienteNom, telCliente, profesional_id, primerId, fecha, desde + ':00', precioTotal, `Sobreturno — hueco ${duracionTotal} min`]
+        );
+        const turnoId = r.insertId;
+
+        const items = serviciosInfo.map(sv => [turnoId, sv.id, sv.nombre, parseFloat(sv.precio || 0)]);
+        await pool.query(
+            'INSERT INTO turno_items (turno_id, servicio_id, nombre, precio) VALUES ?', [items]
+        );
+
+        res.json({ success: true, id: turnoId, message: 'Sobreturno agendado correctamente' });
+    } catch (e) {
+        console.error('âŒ Error crear sobreturno:', e.message);
+        res.status(500).json({ success: false, error: 'Error al crear el sobreturno: ' + e.message });
+    }
+});
+
+// ============================================
 // ðŸ“Š ESTADÃSTICAS
 // ============================================
 app.get('/api/estadisticas', autenticar, autorizar(['admin']), async (req, res) => {
@@ -1653,13 +1817,14 @@ app.get('/api/caja/config/public', async (req, res) => {
 app.get('/api/caja/dia', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [rows] = await pool.query(
-            `SELECT t.id, t.fecha, DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio, t.estado,
+            `SELECT t.id, t.fecha, DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio, t.estado, t.tipo,
+                    DATE_FORMAT(t.fin_real, '%H:%i') as fin_real,
                     COALESCE(t.cliente_nombre, c.nombre) as cliente_nombre,
                     COALESCE(t.cliente_telefono, c.telefono) as cliente_telefono,
                     t.cliente_email,
                     s.nombre as servicio,
                     COALESCE(NULLIF(t.precio,0), s.precio) as precio,
-                    p.nombre as profesional,
+                    p.nombre as profesional, t.profesional_id,
                     (SELECT COUNT(*) FROM turno_items ti WHERE ti.turno_id = t.id) as cant_items
              FROM turnos t
              JOIN servicios s ON t.servicio_id = s.id
@@ -1813,8 +1978,8 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
             itemsTicket = [{ servicio: 'Servicio', importe: montoFinal }];
         }
 
-        // Marcar turno como cobrado
-        await pool.query('UPDATE turnos SET estado = ?, precio = ? WHERE id = ?', ['cobrado', montoFinal, id]);
+        // Marcar turno como cobrado y registrar el fin real (para sobreturnos)
+        await pool.query('UPDATE turnos SET estado = ?, precio = ?, fin_real = CURTIME() WHERE id = ?', ['cobrado', montoFinal, id]);
 
         // Datos del turno para el ticket
         const [d] = await pool.query(
