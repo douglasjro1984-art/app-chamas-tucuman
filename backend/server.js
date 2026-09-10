@@ -438,6 +438,28 @@ app.patch('/api/auth/cambiar-contrasena', autenticar, async (req, res) => {
 // ============================================
 //  CREAR USUARIO / REGISTRAR PROFESIONAL
 // ============================================
+// Permite que un profesional comparta email con admin/recepcionista (la misma persona
+// puede hacer las dos funciones). Devuelve true si el email está disponible.
+async function emailDisponibleProfesional(email, rolNuevo, excluirId = null) {
+    if (!email) return true;
+    const [rows] = await pool.query(
+        excluirId
+            ? 'SELECT id, rol FROM usuarios WHERE email = ? AND id != ?'
+            : 'SELECT id, rol FROM usuarios WHERE email = ?',
+        excluirId ? [email, excluirId] : [email]
+    );
+    for (const u of rows) {
+        const mismoTipo = (u.rol === rolNuevo);
+        const esProfBase = (u.rol === 'profesional' || rolNuevo === 'profesional');
+        const esGestor = (u.rol === 'admin' || u.rol === 'recepcionista' || rolNuevo === 'admin' || rolNuevo === 'recepcionista');
+        // Solo se permite duplicar entre profesional <-> admin/recepcionista
+        if (mismoTipo || !(esProfBase && esGestor)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => {
     const { nombre, email, password, telefono, rol = 'profesional', servicios, porcentaje_retiro } = req.body;
     
@@ -459,9 +481,9 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
     }
     
     try { 
-        // Verificar si el email ya existe
-        const [existente] = await pool.query('SELECT id FROM usuarios WHERE email = ?', [email]);
-        if (existente.length > 0) {
+        // Verificar si el email ya existe (los profesionales pueden repetir
+        // con admin/recepcionista porque hacen las dos funciones)
+        if (!(await emailDisponibleProfesional(email, rol))) {
             return res.status(400).json({ success: false, message: 'El email ya está registrado' });
         }
         
@@ -501,10 +523,10 @@ app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) 
         if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         if (u[0].rol === 'admin') return res.status(403).json({ success: false, message: 'No se puede editar el admin' });
 
-        // Validar email único (excepto a sí mismo)
-        if (email) {
-            const [existe] = await pool.query('SELECT id FROM usuarios WHERE email = ? AND id != ?', [email, id]);
-            if (existe.length) return res.status(400).json({ success: false, message: 'El email ya está registrado' });
+        // Validar email único (excepto a sí mismo); los profesionales pueden
+        // repetir con admin/recepcionista porque hacen las dos funciones
+        if (email && !(await emailDisponibleProfesional(email, rol || u[0].rol, id))) {
+            return res.status(400).json({ success: false, message: 'El email ya está registrado' });
         }
 
         let campos = [];
