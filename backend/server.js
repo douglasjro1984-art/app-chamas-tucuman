@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcrypt');
@@ -12,12 +12,12 @@ const pool = require('./database');
 const app = express();
 
 // ============================================
-//  CONFIGURACIÓN DE SEGURIDAD
+//  CONFIGURACIÃ“N DE SEGURIDAD
 // ============================================
 const JWT_SECRET = process.env.JWT_SECRET || 'cambiar-este-secreto-en-produccion';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Lista de orígenes permitidos para CORS
+// Lista de orÃ­genes permitidos para CORS
 const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:5500',
@@ -26,22 +26,22 @@ const allowedOrigins = [
     'https://chamas-spa.onrender.com'
 ];
 
-// Limitador de peticiones general: máx 300 por IP cada 15 min
+// Limitador de peticiones general: mÃ¡x 300 por IP cada 15 min
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { success: false, message: 'Demasiadas peticiones. Intentá de nuevo más tarde.' }
+    message: { success: false, message: 'Demasiadas peticiones. IntentÃ¡ de nuevo mÃ¡s tarde.' }
 });
 
-// Limitador estricto para login/registro: máx 10 intentos por 15 min
+// Limitador estricto para login/registro: mÃ¡x 10 intentos por 15 min
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { success: false, message: 'Demasiados intentos. Intentá de nuevo en 15 minutos.' }
+    message: { success: false, message: 'Demasiados intentos. IntentÃ¡ de nuevo en 15 minutos.' }
 });
 
 // ============================================
@@ -62,8 +62,8 @@ app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use('/api', generalLimiter);
 
-// Servir el frontend estático desde la raíz del proyecto.
-// IMPORTANTE: bloqueamos explícitamente el acceso a carpetas y archivos sensibles
+// Servir el frontend estÃ¡tico desde la raÃ­z del proyecto.
+// IMPORTANTE: bloqueamos explÃ­citamente el acceso a carpetas y archivos sensibles
 // (backend/, node_modules/, .env, package-lock, etc.) para no exponerlos.
 const BLOCKED_STATIC = [
     '/backend/', '/node_modules/', '/.env', '/package-lock.json',
@@ -78,16 +78,16 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../')));
 app.use('/img', express.static(path.join(__dirname, '../img')));
 
-// Helper: registra peticiones solo en desarrollo (evita loguear datos en producción)
+// Helper: registra peticiones solo en desarrollo (evita loguear datos en producciÃ³n)
 if (NODE_ENV !== 'production') {
     app.use((req, res, next) => {
-        console.log(`📨 ${req.method} ${req.url}`);
+        console.log(`ðŸ“¨ ${req.method} ${req.url}`);
         next();
     });
 }
 
 // ============================================
-//  AUTENTICACIÓN JWT
+//  AUTENTICACIÃ“N JWT
 // ============================================
 // Genera un token firmado con los datos del usuario (sin password)
 function generarToken(usuario) {
@@ -98,7 +98,7 @@ function generarToken(usuario) {
     );
 }
 
-// Middleware: verifica que haya un token válido y adjunta el usuario a req.usuario
+// Middleware: verifica que haya un token vÃ¡lido y adjunta el usuario a req.usuario
 function autenticar(req, res, next) {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
@@ -110,7 +110,7 @@ function autenticar(req, res, next) {
         req.usuario = payload;
         next();
     } catch (err) {
-        return res.status(401).json({ success: false, message: 'Sesión expirada o inválida' });
+        return res.status(401).json({ success: false, message: 'SesiÃ³n expirada o invÃ¡lida' });
     }
 }
 
@@ -121,7 +121,7 @@ function autorizar(rolesPermitidos) {
             return res.status(401).json({ success: false, message: 'No autenticado' });
         }
         if (!rolesPermitidos.includes(req.usuario.rol)) {
-            return res.status(403).json({ success: false, message: 'No tenés permiso para esta acción' });
+            return res.status(403).json({ success: false, message: 'No tenÃ©s permiso para esta acciÃ³n' });
         }
         next();
     };
@@ -132,12 +132,12 @@ app.use((err, req, res, next) => {
     if (err.message === 'Origen no permitido por CORS') {
         return res.status(403).json({ success: false, message: 'Origen no permitido' });
     }
-    console.error('❌ Error no controlado:', err.message);
+    console.error('âŒ Error no controlado:', err.message);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
 });
 
 // ============================================
-//  AUTENTICACIÓN - RUTA DE LOGIN
+//  AUTENTICACIÃ“N - RUTA DE LOGIN
 // ============================================
 app.post('/api/auth/login', authLimiter, async (req, res) => {
     // Acepta "emailOTelefono" (nuevo) o "email" (compatibilidad)
@@ -145,11 +145,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     const password      = req.body.password;
 
     if (!identificador || !password) {
-        return res.json({ success: false, message: 'Ingresá tu email o teléfono y contraseña' });
+        return res.json({ success: false, message: 'IngresÃ¡ tu email o telÃ©fono y contraseÃ±a' });
     }
 
     try {
-        // Buscar por email O por teléfono
+        // Buscar por email O por telÃ©fono
         const [rows] = await pool.query(
             `SELECT id, nombre, email, rol, telefono, password
              FROM usuarios
@@ -159,7 +159,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         );
 
         if (rows.length === 0) {
-            return res.json({ success: false, message: 'Datos incorrectos. Revisá tu email, teléfono o contraseña.' });
+            return res.json({ success: false, message: 'Datos incorrectos. RevisÃ¡ tu email, telÃ©fono o contraseÃ±a.' });
         }
 
         const usuario = rows[0];
@@ -170,33 +170,33 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         // clientes/profesionales/caja antiguos ya no pueden entrar.
         const rolesPermitidos = ['admin', 'recepcionista'];
         if (passwordMatch && !rolesPermitidos.includes(usuario.rol)) {
-            return res.json({ success: false, message: 'Esta cuenta no tiene acceso al sistema. Contactá al administrador.' });
+            return res.json({ success: false, message: 'Esta cuenta no tiene acceso al sistema. ContactÃ¡ al administrador.' });
         }
 
         if (passwordMatch) {
             const token = generarToken(usuarioSinPassword);
             res.json({ success: true, token, usuario: usuarioSinPassword });
         } else {
-            res.json({ success: false, message: 'Datos incorrectos. Revisá tu email, teléfono o contraseña.' });
+            res.json({ success: false, message: 'Datos incorrectos. RevisÃ¡ tu email, telÃ©fono o contraseÃ±a.' });
         }
     } catch (error) {
-        console.error('❌ Error login:', error.message);
+        console.error('âŒ Error login:', error.message);
         res.status(500).json({ success: false, message: 'Error en el servidor' });
     }
 });
 
 
 // ============================================
-//  REGISTRO DE CLIENTE (desde el login público)
+//  REGISTRO DE CLIENTE (desde el login pÃºblico)
 // ============================================
 app.post('/api/auth/registro', authLimiter, async (req, res) => {
-    // El registro público quedó deshabilitado: el sistema ahora se maneja
+    // El registro pÃºblico quedÃ³ deshabilitado: el sistema ahora se maneja
     // con cuentas creadas internamente (admin y recepcionista).
-    return res.status(403).json({ success: false, message: 'El registro público está deshabilitado' });
+    return res.status(403).json({ success: false, message: 'El registro pÃºblico estÃ¡ deshabilitado' });
 });
 
 // ============================================
-//  VERIFICAR SESIÓN (para reconstruir sesión al recargar)
+//  VERIFICAR SESIÃ“N (para reconstruir sesiÃ³n al recargar)
 // ============================================
 app.get('/api/auth/me', autenticar, async (req, res) => {
     try {
@@ -209,21 +209,21 @@ app.get('/api/auth/me', autenticar, async (req, res) => {
         }
         res.json({ success: true, usuario: rows[0] });
     } catch (error) {
-        console.error('❌ Error en /auth/me:', error.message);
+        console.error('âŒ Error en /auth/me:', error.message);
         res.status(500).json({ success: false, message: 'Error en el servidor' });
     }
 });
 
 // ============================================
-//  RECUPERACIÓN DE CONTRASEÑA
+//  RECUPERACIÃ“N DE CONTRASEÃ‘A
 // ============================================
 
-// Genera código numérico de 6 dígitos
+// Genera cÃ³digo numÃ©rico de 6 dÃ­gitos
 function generarCodigo6() {
     return String(crypto.randomInt(100000, 999999));
 }
 
-// Normaliza teléfono argentino a formato internacional sin '+' (ej: 5493865437108)
+// Normaliza telÃ©fono argentino a formato internacional sin '+' (ej: 5493865437108)
 function normalizarTelefonoArgentina(tel) {
     let num = (tel || '').replace(/[^\d]/g, '');
     if (!num) return null;
@@ -233,7 +233,7 @@ function normalizarTelefonoArgentina(tel) {
     return '549' + num;
 }
 
-// Enviar correo con el código de recuperación usando SMTP (nodemailer)
+// Enviar correo con el cÃ³digo de recuperaciÃ³n usando SMTP (nodemailer)
 function crearTransportadorCorreo() {
     const host = process.env.MAIL_HOST;
     const user = process.env.MAIL_USER;
@@ -255,23 +255,23 @@ async function enviarCorreoRecuperacion(destino, codigo) {
         await transport.sendMail({
             from: process.env.MAIL_FROM || `Chamas Spa <${process.env.MAIL_USER}>`,
             to: destino,
-            subject: '🔐 Chamas Spa — Código de recuperación',
+            subject: 'ðŸ” Chamas Spa â€” CÃ³digo de recuperaciÃ³n',
             html: `
                 <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;border:1px solid #eee;border-radius:12px;overflow:hidden;">
                     <div style="background:#C06C84;color:white;padding:18px 24px;text-align:center;">
-                        <h2 style="margin:0;font-size:1.2rem;">💆 Chamas Spa</h2>
-                        <p style="margin:4px 0 0;font-size:0.85rem;opacity:.9;">Recuperación de contraseña</p>
+                        <h2 style="margin:0;font-size:1.2rem;">ðŸ’† Chamas Spa</h2>
+                        <p style="margin:4px 0 0;font-size:0.85rem;opacity:.9;">RecuperaciÃ³n de contraseÃ±a</p>
                     </div>
                     <div style="padding:24px;">
-                        <p style="margin:0 0 8px;color:#333;">Tu código de recuperación es:</p>
+                        <p style="margin:0 0 8px;color:#333;">Tu cÃ³digo de recuperaciÃ³n es:</p>
                         <div style="font-size:2rem;font-weight:700;letter-spacing:8px;color:#C06C84;text-align:center;padding:14px;background:#fdf4f6;border-radius:10px;margin:12px 0;">${codigo}</div>
-                        <p style="margin:0;color:#888;font-size:0.85rem;">Válido por 10 minutos. Si no solicitaste este código, ignorá este correo.</p>
+                        <p style="margin:0;color:#888;font-size:0.85rem;">VÃ¡lido por 10 minutos. Si no solicitaste este cÃ³digo, ignorÃ¡ este correo.</p>
                     </div>
                 </div>`
         });
         return { ok: true };
     } catch (e) {
-        console.error('❌ Error enviando correo:', e.message);
+        console.error('âŒ Error enviando correo:', e.message);
         return { ok: false, reason: 'error_envio' };
     }
 }
@@ -281,7 +281,7 @@ async function enviarWhatsAppMeta(destinoInternacional, mensaje) {
     const token = process.env.META_WHATSAPP_TOKEN;
     const phoneId = process.env.META_WHATSAPP_PHONE_ID;
     if (!token || !phoneId) {
-        console.log('⚠️ Meta WhatsApp no configurado (META_WHATSAPP_TOKEN / META_WHATSAPP_PHONE_ID)');
+        console.log('âš ï¸ Meta WhatsApp no configurado (META_WHATSAPP_TOKEN / META_WHATSAPP_PHONE_ID)');
         return { ok: false, reason: 'no_configurado' };
     }
     const body = JSON.stringify({
@@ -308,22 +308,22 @@ async function enviarWhatsAppMeta(destinoInternacional, mensaje) {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     resolve({ ok: true });
                 } else {
-                    console.error('❌ Meta API error:', res.statusCode, data);
+                    console.error('âŒ Meta API error:', res.statusCode, data);
                     resolve({ ok: false, reason: 'api_error', status: res.statusCode });
                 }
             });
         });
-        req.on('error', (e) => { console.error('❌ Meta API red:', e.message); resolve({ ok: false, reason: 'network_error' }); });
+        req.on('error', (e) => { console.error('âŒ Meta API red:', e.message); resolve({ ok: false, reason: 'network_error' }); });
         req.write(body);
         req.end();
     });
 }
 
-// Solicitar código de recuperación (envía por WhatsApp)
+// Solicitar cÃ³digo de recuperaciÃ³n (envÃ­a por WhatsApp)
 app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
     const identifier = (req.body.emailOrPhone || req.body.email || '').trim();
     if (!identifier) {
-        return res.status(400).json({ success: false, message: 'Ingresá tu email o teléfono' });
+        return res.status(400).json({ success: false, message: 'IngresÃ¡ tu email o telÃ©fono' });
     }
     try {
         const [rows] = await pool.query(
@@ -334,7 +334,7 @@ app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
             [identifier, identifier]
         );
         if (rows.length === 0) {
-            return res.status(404).json({ success: false, message: 'No se encontró una cuenta activa con ese dato' });
+            return res.status(404).json({ success: false, message: 'No se encontrÃ³ una cuenta activa con ese dato' });
         }
         const usuario = rows[0];
         const codigo = generarCodigo6();
@@ -348,7 +348,7 @@ app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
         const correoEnviado = await enviarCorreoRecuperacion(usuario.email, codigo);
         let codigoEnPantalla = null;
 
-        // En desarrollo (o si falló el correo), devolver código en respuesta para que funcione
+        // En desarrollo (o si fallÃ³ el correo), devolver cÃ³digo en respuesta para que funcione
         const esDesarrollo = process.env.NODE_ENV !== 'production';
         if (!correoEnviado.ok && esDesarrollo) {
             codigoEnPantalla = codigo;
@@ -357,28 +357,28 @@ app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
         res.json({
             success: true,
             mensaje: correoEnviado.ok
-                ? '✅ Te enviamos un código por correo a ' + usuario.email
-                : (correoEnviado.reason === 'sin_email' ? '⚠️ La cuenta no tiene email registrado. Contactá al administrador.' : '⚠️ No se pudo enviar el correo. Contactá al administrador.'),
+                ? 'âœ… Te enviamos un cÃ³digo por correo a ' + usuario.email
+                : (correoEnviado.reason === 'sin_email' ? 'âš ï¸ La cuenta no tiene email registrado. ContactÃ¡ al administrador.' : 'âš ï¸ No se pudo enviar el correo. ContactÃ¡ al administrador.'),
             usuario_nombre: usuario.nombre,
             correo_enviado: correoEnviado.ok,
             ...(codigoEnPantalla ? { _debug_codigo: codigo } : {})
         });
     } catch (e) {
-        console.error('❌ Error recuperar:', e.message);
+        console.error('âŒ Error recuperar:', e.message);
         res.status(500).json({ success: false, message: 'Error al procesar la solicitud' });
     }
 });
 
-// Confirmar código y establecer nueva contraseña
+// Confirmar cÃ³digo y establecer nueva contraseÃ±a
 app.post('/api/auth/recuperar/confirmar', authLimiter, async (req, res) => {
     const identifier = (req.body.emailOrPhone || req.body.email || '').trim();
     const codigo = (req.body.codigo || '').trim();
     const nuevaPassword = req.body.nuevaPassword || '';
     if (!identifier || !codigo || !nuevaPassword) {
-        return res.status(400).json({ success: false, message: 'Completá todos los campos' });
+        return res.status(400).json({ success: false, message: 'CompletÃ¡ todos los campos' });
     }
     if (nuevaPassword.length < 6) {
-        return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+        return res.status(400).json({ success: false, message: 'La contraseÃ±a debe tener al menos 6 caracteres' });
     }
     try {
         const [rows] = await pool.query(
@@ -392,46 +392,46 @@ app.post('/api/auth/recuperar/confirmar', authLimiter, async (req, res) => {
             [identifier, identifier]
         );
         if (rows.length === 0) {
-            return res.status(400).json({ success: false, message: 'No se encontró una solicitud de recuperación' });
+            return res.status(400).json({ success: false, message: 'No se encontrÃ³ una solicitud de recuperaciÃ³n' });
         }
         const reg = rows[0];
         const now = new Date();
         if (now > new Date(reg.expira_at)) {
-            return res.status(400).json({ success: false, message: 'El código expiró. Solicitá uno nuevo.' });
+            return res.status(400).json({ success: false, message: 'El cÃ³digo expirÃ³. SolicitÃ¡ uno nuevo.' });
         }
         if (reg.codigo !== codigo) {
-            return res.status(400).json({ success: false, message: 'El código es incorrecto' });
+            return res.status(400).json({ success: false, message: 'El cÃ³digo es incorrecto' });
         }
         const hashed = await bcrypt.hash(nuevaPassword, 10);
         await pool.query('UPDATE usuarios SET password = ? WHERE id = ?', [hashed, reg.usuario_id]);
         await pool.query('UPDATE recuperaciones SET usado = 1 WHERE id = ?', [reg.id]);
-        res.json({ success: true, mensaje: '✅ Contraseña actualizada correctamente. Ya podés iniciar sesión.' });
+        res.json({ success: true, mensaje: 'âœ… ContraseÃ±a actualizada correctamente. Ya podÃ©s iniciar sesiÃ³n.' });
     } catch (e) {
-        console.error('❌ Error recuperar/confirmar:', e.message);
-        res.status(500).json({ success: false, message: 'Error al actualizar la contraseña' });
+        console.error('âŒ Error recuperar/confirmar:', e.message);
+        res.status(500).json({ success: false, message: 'Error al actualizar la contraseÃ±a' });
     }
 });
 
-// Cambiar contraseña (requiere sesión activa)
+// Cambiar contraseÃ±a (requiere sesiÃ³n activa)
 app.patch('/api/auth/cambiar-contrasena', autenticar, async (req, res) => {
     const { passwordActual, nuevaPassword } = req.body;
     if (!passwordActual || !nuevaPassword) {
-        return res.status(400).json({ success: false, message: 'Completá ambos campos' });
+        return res.status(400).json({ success: false, message: 'CompletÃ¡ ambos campos' });
     }
     if (nuevaPassword.length < 6) {
-        return res.status(400).json({ success: false, message: 'La nueva contraseña debe tener al menos 6 caracteres' });
+        return res.status(400).json({ success: false, message: 'La nueva contraseÃ±a debe tener al menos 6 caracteres' });
     }
     try {
         const [rows] = await pool.query('SELECT id, password FROM usuarios WHERE id = ?', [req.usuario.id]);
         if (rows.length === 0) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         const ok = await bcrypt.compare(passwordActual, rows[0].password);
-        if (!ok) return res.status(400).json({ success: false, message: 'La contraseña actual es incorrecta' });
+        if (!ok) return res.status(400).json({ success: false, message: 'La contraseÃ±a actual es incorrecta' });
         const hashed = await bcrypt.hash(nuevaPassword, 10);
         await pool.query('UPDATE usuarios SET password = ? WHERE id = ?', [hashed, req.usuario.id]);
-        res.json({ success: true, mensaje: '✅ Contraseña actualizada' });
+        res.json({ success: true, mensaje: 'âœ… ContraseÃ±a actualizada' });
     } catch (e) {
-        console.error('❌ Error cambiar-contrasena:', e.message);
-        res.status(500).json({ success: false, message: 'Error al cambiar la contraseña' });
+        console.error('âŒ Error cambiar-contrasena:', e.message);
+        res.status(500).json({ success: false, message: 'Error al cambiar la contraseÃ±a' });
     }
 });
 
@@ -439,7 +439,7 @@ app.patch('/api/auth/cambiar-contrasena', autenticar, async (req, res) => {
 //  CREAR USUARIO / REGISTRAR PROFESIONAL
 // ============================================
 // Permite que un profesional comparta email con admin/recepcionista (la misma persona
-// puede hacer las dos funciones). Devuelve true si el email está disponible.
+// puede hacer las dos funciones). Devuelve true si el email estÃ¡ disponible.
 async function emailDisponibleProfesional(email, rolNuevo, excluirId = null) {
     if (!email) return true;
     const [rows] = await pool.query(
@@ -463,7 +463,7 @@ async function emailDisponibleProfesional(email, rolNuevo, excluirId = null) {
 app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => {
     const { nombre, email, password, telefono, rol = 'profesional', servicios, porcentaje_retiro } = req.body;
     
-    // Validaciones básicas
+    // Validaciones bÃ¡sicas
     if (!nombre || !email || !telefono) {
         return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
     }
@@ -472,11 +472,11 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         return res.status(400).json({ success: false, message: 'Solo se pueden crear profesionales, recepcionistas o clientes' });
     }
 
-    // Profesionales no acceden al sistema (sin login): la contraseña es opcional.
-    // Recepcionistas sí acceden, así que deben definir una contraseña.
+    // Profesionales no acceden al sistema (sin login): la contraseÃ±a es opcional.
+    // Recepcionistas sÃ­ acceden, asÃ­ que deben definir una contraseÃ±a.
     if (rol === 'recepcionista' || rol === 'cliente') {
         if (!password || password.length < 6) {
-            return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+            return res.status(400).json({ success: false, message: 'La contraseÃ±a debe tener al menos 6 caracteres' });
         }
     }
     
@@ -484,10 +484,10 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         // Verificar si el email ya existe (los profesionales pueden repetir
         // con admin/recepcionista porque hacen las dos funciones)
         if (!(await emailDisponibleProfesional(email, rol))) {
-            return res.status(400).json({ success: false, message: 'El email ya está registrado' });
+            return res.status(400).json({ success: false, message: 'El email ya estÃ¡ registrado' });
         }
         
-        // Hash de contraseña (placeholder aleatorio para profesionales que no acceden)
+        // Hash de contraseÃ±a (placeholder aleatorio para profesionales que no acceden)
         const passFinal = password || 'prof-no-accede';
         const hashedPassword = await bcrypt.hash(passFinal, 10);
         
@@ -508,13 +508,13 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         
         res.json({ success: true, id: nuevoId, message: 'Usuario registrado exitosamente' });
     } catch (error) {
-        console.error('❌ Error creando usuario:', error.message);
+        console.error('âŒ Error creando usuario:', error.message);
         res.status(500).json({ success: false, message: 'Error al crear el usuario' });
     }
 });
 
 // Obtener un profesional/usuario con sus servicios asignados
-// Editar un profesional/usuario (nombre, email, telefono, rol, servicios, contraseña opcional)
+// Editar un profesional/usuario (nombre, email, telefono, rol, servicios, contraseÃ±a opcional)
 app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) => {
     const { id } = req.params;
     const { nombre, email, telefono, password, rol, servicios, porcentaje_retiro } = req.body;
@@ -523,10 +523,10 @@ app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) 
         if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         if (u[0].rol === 'admin') return res.status(403).json({ success: false, message: 'No se puede editar el admin' });
 
-        // Validar email único (excepto a sí mismo); los profesionales pueden
+        // Validar email Ãºnico (excepto a sÃ­ mismo); los profesionales pueden
         // repetir con admin/recepcionista porque hacen las dos funciones
         if (email && !(await emailDisponibleProfesional(email, rol || u[0].rol, id))) {
-            return res.status(400).json({ success: false, message: 'El email ya está registrado' });
+            return res.status(400).json({ success: false, message: 'El email ya estÃ¡ registrado' });
         }
 
         let campos = [];
@@ -556,20 +556,20 @@ app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) 
 
         res.json({ success: true, message: 'Profesional actualizado correctamente' });
     } catch (error) {
-        console.error('❌ Error editando usuario:', error.message);
+        console.error('âŒ Error editando usuario:', error.message);
         res.status(500).json({ success: false, message: 'Error al editar el usuario' });
     }
 });
 
 // ============================================
-// 📦 SERVICIOS
+// ðŸ“¦ SERVICIOS
 // ============================================
 app.get('/api/servicios', async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM servicios WHERE activo = TRUE ORDER BY id');
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error servicios:', error.message);
+        console.error('âŒ Error servicios:', error.message);
         res.status(500).json({ error: 'Error al obtener servicios' });
     }
 });
@@ -597,13 +597,13 @@ app.put('/api/servicios/:id', autenticar, autorizar(['admin']), async (req, res)
 
         res.json({ success: true, message: activo !== undefined ? (activo ? 'Servicio activado' : 'Servicio pausado') : 'Actualizado' });
     } catch (error) {
-        console.error('❌ Error actualizando servicio:', error.message);
+        console.error('âŒ Error actualizando servicio:', error.message);
         res.status(500).json({ success: false, error: 'Error al actualizar el servicio' });
     }
 });
 
 // ============================================
-// 📦 SERVICIOS — CREAR / PAUSAR / ELIMINAR
+// ðŸ“¦ SERVICIOS â€” CREAR / PAUSAR / ELIMINAR
 // ============================================
 
 // Obtener TODOS los servicios incluyendo pausados (para el admin editor)
@@ -624,7 +624,7 @@ app.post('/api/servicios', autenticar, autorizar(['admin']), async (req, res) =>
             [nombre.trim(), descripcion||'', parseFloat(precio), imagen||'img/default.jpg']
         );
         res.json({ success: true, id: r.insertId, message: 'Servicio creado correctamente' });
-    } catch (e) { console.error('❌ Error creando servicio:', e.message); res.status(500).json({ success: false, message: 'Error al crear el servicio' }); }
+    } catch (e) { console.error('âŒ Error creando servicio:', e.message); res.status(500).json({ success: false, message: 'Error al crear el servicio' }); }
 });
 
 // Pausar / reactivar servicio (toggle activo)
@@ -633,7 +633,7 @@ app.patch('/api/servicios/:id/activo', autenticar, autorizar(['admin']), async (
     try {
         await pool.query('UPDATE servicios SET activo = ? WHERE id = ?', [activo ? 1 : 0, req.params.id]);
         res.json({ success: true, message: activo ? 'Servicio reactivado' : 'Servicio pausado' });
-    } catch (e) { console.error('❌ Error:', e.message); res.status(500).json({ success: false, message: 'Error al actualizar el servicio' }); }
+    } catch (e) { console.error('âŒ Error:', e.message); res.status(500).json({ success: false, message: 'Error al actualizar el servicio' }); }
 });
 
 // Eliminar servicio (solo si no tiene turnos futuros)
@@ -645,12 +645,12 @@ app.delete('/api/servicios/:id', autenticar, autorizar(['admin']), async (req, r
             'SELECT COUNT(*) as cnt FROM turnos WHERE servicio_id = ? AND fecha >= ?', [id, hoy]
         );
         if (turnos[0].cnt > 0) {
-            return res.status(400).json({ success: false, message: `No se puede eliminar: tiene ${turnos[0].cnt} turno(s) próximo(s). Pausalo primero.` });
+            return res.status(400).json({ success: false, message: `No se puede eliminar: tiene ${turnos[0].cnt} turno(s) prÃ³ximo(s). Pausalo primero.` });
         }
         await pool.query('DELETE FROM profesional_servicios WHERE servicio_id = ?', [id]);
         await pool.query('DELETE FROM servicios WHERE id = ?', [id]);
         res.json({ success: true, message: 'Servicio eliminado' });
-    } catch (e) { console.error('❌ Error eliminando servicio:', e.message); res.status(500).json({ success: false, message: 'Error al eliminar el servicio' }); }
+    } catch (e) { console.error('âŒ Error eliminando servicio:', e.message); res.status(500).json({ success: false, message: 'Error al eliminar el servicio' }); }
 });
 
 // DELETE /api/usuarios
@@ -664,11 +664,11 @@ app.delete('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, re
         await pool.query('DELETE FROM disponibilidad_fechas WHERE profesional_id = ?', [id]);
         await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
         res.json({ success: true, message: `"${u[0].nombre}" eliminado` });
-    } catch (e) { console.error('❌ Error eliminando usuario:', e.message); res.status(500).json({ success: false, message: 'Error al eliminar el usuario' }); }
+    } catch (e) { console.error('âŒ Error eliminando usuario:', e.message); res.status(500).json({ success: false, message: 'Error al eliminar el usuario' }); }
 });
 
 // ============================================
-// 👥 PROFESIONALES Y USUARIOS
+// ðŸ‘¥ PROFESIONALES Y USUARIOS
 // ============================================
 app.get('/api/profesionales/servicio/:id', async (req, res) => {
     try {
@@ -680,7 +680,7 @@ app.get('/api/profesionales/servicio/:id', async (req, res) => {
         );
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error profesionales servicio:', error.message);
+        console.error('âŒ Error profesionales servicio:', error.message);
         res.status(500).json({ error: 'Error al obtener profesionales' });
     }
 });
@@ -688,7 +688,7 @@ app.get('/api/profesionales/servicio/:id', async (req, res) => {
 // Profesionales que cubren TODOS los servicios seleccionados (multi-servicio)
 app.post('/api/profesionales/servicios', async (req, res) => {
     const ids = Array.isArray(req.body.servicios) ? req.body.servicios.map(Number) : [];
-    if (!ids.length) return res.status(400).json({ error: 'Indicá al menos un servicio' });
+    if (!ids.length) return res.status(400).json({ error: 'IndicÃ¡ al menos un servicio' });
     try {
         const placeholders = ids.map(() => '?').join(', ');
         const [rows] = await pool.query(
@@ -702,7 +702,7 @@ app.post('/api/profesionales/servicios', async (req, res) => {
         );
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error profesionales multi-servicio:', error.message);
+        console.error('âŒ Error profesionales multi-servicio:', error.message);
         res.status(500).json({ error: 'Error al obtener profesionales' });
     }
 });
@@ -714,7 +714,7 @@ app.get('/api/usuarios/profesionales', autenticar, async (req, res) => {
         );
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error profesionales:', error.message);
+        console.error('âŒ Error profesionales:', error.message);
         res.status(500).json({ error: 'Error al obtener profesionales' });
     }
 });
@@ -733,13 +733,13 @@ app.get('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) 
         );
         res.json({ success: true, usuario: { ...usuario, servicios: servicios.map(s => s.servicio_id) } });
     } catch (error) {
-        console.error('❌ Error obteniendo usuario:', error.message);
+        console.error('âŒ Error obteniendo usuario:', error.message);
         res.status(500).json({ success: false, message: 'Error al obtener el usuario' });
     }
 });
 
 // ============================================
-// ⏰ DISPONIBILIDAD POR FECHAS EXACTAS
+// â° DISPONIBILIDAD POR FECHAS EXACTAS
 // ============================================
 
 // Slots futuros de un profesional agrupados por fecha
@@ -747,12 +747,12 @@ app.get('/api/disponibilidad_completa/:id', async (req, res) => {
     try {
         const profesionalId = req.params.id;
         
-        // Validar que el ID sea un número
+        // Validar que el ID sea un nÃºmero
         if (!profesionalId || isNaN(profesionalId)) {
-            return res.status(400).json({ error: 'ID de profesional inválido' });
+            return res.status(400).json({ error: 'ID de profesional invÃ¡lido' });
         }
 
-        console.log('📅 Buscando disponibilidad para profesional:', profesionalId);
+        console.log('ðŸ“… Buscando disponibilidad para profesional:', profesionalId);
 
         // Verificar que la tabla existe
         const [tableCheck] = await pool.query(
@@ -761,8 +761,8 @@ app.get('/api/disponibilidad_completa/:id', async (req, res) => {
         );
 
         if (tableCheck.length === 0) {
-            console.warn('⚠️ Tabla disponibilidad_fechas no existe');
-            return res.json([]); // Retornar array vacío si no existe la tabla
+            console.warn('âš ï¸ Tabla disponibilidad_fechas no existe');
+            return res.json([]); // Retornar array vacÃ­o si no existe la tabla
         }
 
         // Obtener los datos
@@ -776,11 +776,11 @@ app.get('/api/disponibilidad_completa/:id', async (req, res) => {
             [profesionalId]
         );
 
-        console.log('✅ Disponibilidad cargada:', rows?.length || 0, 'registros');
+        console.log('âœ… Disponibilidad cargada:', rows?.length || 0, 'registros');
         res.json(rows || []);
     } catch (error) {
-        console.error('❌ Error en disponibilidad_completa:', error.message);
-        // No retornar error 500, retornar array vacío
+        console.error('âŒ Error en disponibilidad_completa:', error.message);
+        // No retornar error 500, retornar array vacÃ­o
         res.json([]);
     }
 });
@@ -812,7 +812,7 @@ app.get('/api/disponibilidad/rango/:profesionalId', async (req, res) => {
             return d.toISOString().split('T')[0];
         }));
     } catch (error) {
-        console.error('❌ Error disponibilidad rango:', error.message);
+        console.error('âŒ Error disponibilidad rango:', error.message);
         res.status(500).json({ error: 'Error al obtener fechas disponibles' });
     }
 });
@@ -837,12 +837,12 @@ app.get('/api/disponibilidad/:profesionalId/:fecha', async (req, res) => {
         );
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error disponibilidad:', error.message);
+        console.error('âŒ Error disponibilidad:', error.message);
         res.status(500).json({ error: 'Error al obtener horarios' });
     }
 });
 
-// Guardar disponibilidad: recibe rango + plantilla de días/horas
+// Guardar disponibilidad: recibe rango + plantilla de dÃ­as/horas
 // y genera los slots concretos en disponibilidad_fechas
 app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, desde, hasta, horarios } = req.body;
@@ -850,15 +850,15 @@ app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','re
     // desde / hasta: "YYYY-MM-DD"
 
     // Un profesional solo puede gestionar SU propia disponibilidad
-    if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
-        return res.status(403).json({ success: false, message: 'No podés modificar horarios de otro profesional' });
+    if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista' && profesional_id !== req.usuario.id) {
+        return res.status(403).json({ success: false, message: 'No podÃ©s modificar horarios de otro profesional' });
     }
 
     if (!profesional_id || !desde || !hasta || !Array.isArray(horarios)) {
         return res.status(400).json({ success: false, message: 'Faltan datos' });
     }
 
-    const mapDia = { 'Lunes':1,'Martes':2,'Miércoles':3,'Jueves':4,'Viernes':5,'Sábado':6,'Domingo':0 };
+    const mapDia = { 'Lunes':1,'Martes':2,'MiÃ©rcoles':3,'Jueves':4,'Viernes':5,'SÃ¡bado':6,'Domingo':0 };
 
     try {
         // Borrar slots existentes en ese rango para ese profesional
@@ -898,26 +898,26 @@ app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','re
 
         res.json({ success: true, count: slots.length });
     } catch (error) {
-        console.error('❌ Error guardando disponibilidad:', error.message);
+        console.error('âŒ Error guardando disponibilidad:', error.message);
         res.status(500).json({ success: false, error: 'Error al guardar la disponibilidad' });
     }
 
 });
 
 // ============================================
-// ✅ CALENDARIO INTERACTIVO - RUTAS
+// âœ… CALENDARIO INTERACTIVO - RUTAS
 // ============================================
 
-// POST: Guardar horarios directamente (fechas específicas)
+// POST: Guardar horarios directamente (fechas especÃ­ficas)
 app.post('/api/disponibilidad/guardar-directas', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, horarios } = req.body;
 
-    if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
-        return res.status(403).json({ success: false, message: 'No podés modificar horarios de otro profesional' });
+    if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista' && profesional_id !== req.usuario.id) {
+        return res.status(403).json({ success: false, message: 'No podÃ©s modificar horarios de otro profesional' });
     }
 
     if (!profesional_id || !Array.isArray(horarios) || horarios.length === 0) {
-        return res.json({ success: false, message: 'Datos inválidos' });
+        return res.json({ success: false, message: 'Datos invÃ¡lidos' });
     }
 
     try {
@@ -942,24 +942,24 @@ app.post('/api/disponibilidad/guardar-directas', autenticar, autorizar(['admin',
             }
         }
 
-        console.log(`✅ ${insertados} horarios guardados`);
+        console.log(`âœ… ${insertados} horarios guardados`);
         res.json({ success: true, message: `${insertados} horarios guardados`, count: insertados });
     } catch (error) {
-        console.error('❌ Error al guardar horarios:', error.message);
+        console.error('âŒ Error al guardar horarios:', error.message);
         res.json({ success: false, message: 'Error del servidor' });
     }
 });
 
-// POST: Eliminar todos los horarios de una fecha específica
+// POST: Eliminar todos los horarios de una fecha especÃ­fica
 app.post('/api/disponibilidad/eliminar-fecha', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, fecha } = req.body;
 
-    if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
-        return res.status(403).json({ success: false, message: 'No podés modificar horarios de otro profesional' });
+    if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista' && profesional_id !== req.usuario.id) {
+        return res.status(403).json({ success: false, message: 'No podÃ©s modificar horarios de otro profesional' });
     }
 
     if (!profesional_id || !fecha) {
-        return res.json({ success: false, message: 'Datos inválidos' });
+        return res.json({ success: false, message: 'Datos invÃ¡lidos' });
     }
 
     try {
@@ -970,21 +970,21 @@ app.post('/api/disponibilidad/eliminar-fecha', autenticar, autorizar(['admin','p
 
         res.json({ success: true, message: `${result.affectedRows} registros eliminados`, deletedCount: result.affectedRows });
     } catch (error) {
-        console.error('❌ Error:', error.message);
+        console.error('âŒ Error:', error.message);
         res.json({ success: false, message: 'Error del servidor' });
     }
 });
 
-// POST: Eliminar una hora específica de TODOS los días
+// POST: Eliminar una hora especÃ­fica de TODOS los dÃ­as
 app.post('/api/disponibilidad/eliminar-horas', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, horas } = req.body;
 
-    if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
-        return res.status(403).json({ success: false, message: 'No podés modificar horarios de otro profesional' });
+    if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista' && profesional_id !== req.usuario.id) {
+        return res.status(403).json({ success: false, message: 'No podÃ©s modificar horarios de otro profesional' });
     }
 
     if (!profesional_id || !Array.isArray(horas) || horas.length === 0) {
-        return res.json({ success: false, message: 'Datos inválidos' });
+        return res.json({ success: false, message: 'Datos invÃ¡lidos' });
     }
 
     try {
@@ -999,24 +999,24 @@ app.post('/api/disponibilidad/eliminar-horas', autenticar, autorizar(['admin','p
             deletedCount += result.affectedRows;
         }
 
-        console.log(`✅ ${deletedCount} registros eliminados`);
+        console.log(`âœ… ${deletedCount} registros eliminados`);
         res.json({ success: true, message: `${deletedCount} registros eliminados`, deletedCount: deletedCount });
     } catch (error) {
-        console.error('❌ Error:', error.message);
+        console.error('âŒ Error:', error.message);
         res.json({ success: false, message: 'Error del servidor' });
     }
 });
 
-// POST: Eliminar UNA hora específica de UNA fecha específica
+// POST: Eliminar UNA hora especÃ­fica de UNA fecha especÃ­fica
 app.post('/api/disponibilidad/eliminar-hora-especifica', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { profesional_id, fecha, hora_inicio } = req.body;
 
-    if (req.usuario.rol !== 'admin' && profesional_id !== req.usuario.id) {
-        return res.status(403).json({ success: false, message: 'No podés modificar horarios de otro profesional' });
+    if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista' && profesional_id !== req.usuario.id) {
+        return res.status(403).json({ success: false, message: 'No podÃ©s modificar horarios de otro profesional' });
     }
 
     if (!profesional_id || !fecha || !hora_inicio) {
-        return res.json({ success: false, message: 'Datos inválidos' });
+        return res.json({ success: false, message: 'Datos invÃ¡lidos' });
     }
 
     try {
@@ -1031,13 +1031,13 @@ app.post('/api/disponibilidad/eliminar-hora-especifica', autenticar, autorizar([
             deletedCount: result.affectedRows
         });
     } catch (error) {
-        console.error('❌ Error:', error.message);
+        console.error('âŒ Error:', error.message);
         res.json({ success: false, message: 'Error del servidor' });
     }
 });
 
 // ============================================
-// 🚫 HORARIOS OCUPADOS
+// ðŸš« HORARIOS OCUPADOS
 // ============================================
 app.get('/api/horarios-ocupados/:profesionalId/:fecha', autenticar, async (req, res) => {
     const { profesionalId, fecha } = req.params;
@@ -1057,18 +1057,18 @@ app.get('/api/horarios-ocupados/:profesionalId/:fecha', autenticar, async (req, 
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error:', error.message);
+        console.error('âŒ Error:', error.message);
         res.status(500).json({ error: 'Error al obtener horarios' });
     }
 });
 
 // ============================================
-// 📅 TURNOS
+// ðŸ“… TURNOS
 // ============================================
 // Todos los turnos (Admin)
 app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
-        // Extraer parámetros de filtro
+        // Extraer parÃ¡metros de filtro
         const { profesional_id, fecha_desde, fecha_hasta } = req.query;
         
         let query = `
@@ -1109,15 +1109,15 @@ app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), a
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (error) {
-        console.error('❌ Error turnos todos:', error.message);
+        console.error('âŒ Error turnos todos:', error.message);
         res.status(500).json({ error: 'Error al obtener los turnos' });
     }
 });
 
 // ============================================
-// 📲 RECORDATORIOS (ADMIN / CAJA)
+// ðŸ“² RECORDATORIOS (ADMIN / CAJA)
 // ============================================
-// Turnos de hoy y mañana con teléfono del cliente para enviar recordatorios
+// Turnos de hoy y maÃ±ana con telÃ©fono del cliente para enviar recordatorios
 app.get('/api/recordatorios', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const hoy = new Date();
@@ -1142,7 +1142,7 @@ app.get('/api/recordatorios', autenticar, autorizar(['admin','recepcionista']), 
         );
         res.json(rows);
     } catch (e) {
-        console.error('❌ Error recordatorios:', e.message);
+        console.error('âŒ Error recordatorios:', e.message);
         res.status(500).json({ error: 'Error al obtener recordatorios' });
     }
 });
@@ -1153,12 +1153,12 @@ app.post('/api/recordatorios/:id/enviado', autenticar, autorizar(['admin','recep
         await pool.query('UPDATE turnos SET recordatorio_enviado = 1 WHERE id = ?', [req.params.id]);
         res.json({ success: true });
     } catch (e) {
-        console.error('❌ Error marcar recordatorio:', e.message);
+        console.error('âŒ Error marcar recordatorio:', e.message);
         res.status(500).json({ success: false });
     }
 });
 
-// Obtener un turno específico
+// Obtener un turno especÃ­fico
 app.get('/api/turnos/:id', autenticar, async (req, res) => {
     const { id } = req.params;
     
@@ -1182,17 +1182,17 @@ app.get('/api/turnos/:id', autenticar, async (req, res) => {
             return res.status(404).json({ error: 'Turno no encontrado' });
         }
 
-        // Restricción: solo admin, el profesional asignado o el cliente dueño del turno
+        // RestricciÃ³n: solo admin, el profesional asignado o el cliente dueÃ±o del turno
         const turno = rows[0];
         if (req.usuario.rol !== 'admin' &&
             req.usuario.id !== turno.profesional_id &&
             req.usuario.id !== turno.cliente_id) {
-            return res.status(403).json({ success: false, message: 'No tenés permiso para ver este turno' });
+            return res.status(403).json({ success: false, message: 'No tenÃ©s permiso para ver este turno' });
         }
         
         res.json(rows[0]);
     } catch (error) {
-        console.error('❌ Error:', error.message);
+        console.error('âŒ Error:', error.message);
         res.status(500).json({ error: 'Error al obtener el turno' });
     }
 });
@@ -1201,7 +1201,7 @@ app.get('/api/turnos/:id', autenticar, async (req, res) => {
 app.get('/api/turnos/profesional/:id', autenticar, async (req, res) => {
     // Un profesional solo puede ver SUS propios turnos; admin puede ver todos
     if (req.usuario.rol !== 'admin' && parseInt(req.params.id) !== req.usuario.id) {
-        return res.status(403).json({ success: false, message: 'No tenés permiso para ver estos turnos' });
+        return res.status(403).json({ success: false, message: 'No tenÃ©s permiso para ver estos turnos' });
     }
     try {
         const [rows] = await pool.query(
@@ -1219,7 +1219,7 @@ app.get('/api/turnos/profesional/:id', autenticar, async (req, res) => {
         );
         res.json(rows || []);
     } catch (error) {
-        console.error('❌ Error turnos profesional:', error.message);
+        console.error('âŒ Error turnos profesional:', error.message);
         res.status(500).json({ error: 'Error al obtener los turnos' });
     }
 });
@@ -1228,7 +1228,7 @@ app.get('/api/turnos/profesional/:id', autenticar, async (req, res) => {
 app.get('/api/turnos/cliente/:id', autenticar, async (req, res) => {
     // Un cliente solo puede ver SUS propios turnos; admin puede ver todos
     if (req.usuario.rol !== 'admin' && parseInt(req.params.id) !== req.usuario.id) {
-        return res.status(403).json({ success: false, message: 'No tenés permiso para ver estos turnos' });
+        return res.status(403).json({ success: false, message: 'No tenÃ©s permiso para ver estos turnos' });
     }
     try {
         const [rows] = await pool.query(
@@ -1242,13 +1242,13 @@ app.get('/api/turnos/cliente/:id', autenticar, async (req, res) => {
         );
         res.json(rows || []);
     } catch (error) {
-        console.error('❌ Error turnos cliente:', error.message);
+        console.error('âŒ Error turnos cliente:', error.message);
         res.status(500).json({ error: 'Error al obtener los turnos' });
     }
 });
 
 // ============================================
-// 🎂 CLIENTES FRECUENTES, CUMPLEAÑOS Y CUPONES
+// ðŸŽ‚ CLIENTES FRECUENTES, CUMPLEAÃ‘OS Y CUPONES
 // ============================================
 
 // Listar clientes frecuentes (admin / recepcionista)
@@ -1263,7 +1263,7 @@ app.get('/api/clientes', autenticar, autorizar(['admin','recepcionista']), async
         );
         res.json(rows);
     } catch (e) {
-        console.error('❌ Error clientes:', e.message);
+        console.error('âŒ Error clientes:', e.message);
         res.status(500).json({ error: 'Error al obtener clientes' });
     }
 });
@@ -1302,12 +1302,12 @@ app.post('/api/clientes', autenticar, autorizar(['admin','recepcionista']), asyn
         );
         res.json({ success: true, id: r.insertId, cliente_id: r.insertId });
     } catch (e) {
-        console.error('❌ Error guardar cliente:', e.message);
+        console.error('âŒ Error guardar cliente:', e.message);
         res.status(500).json({ success: false, error: 'Error al guardar el cliente' });
     }
 });
 
-// 🎂 Cumpleaños: clientes que cumplen en el mes actual (ordenados por día)
+// ðŸŽ‚ CumpleaÃ±os: clientes que cumplen en el mes actual (ordenados por dÃ­a)
 app.get('/api/cumpleanos', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [rows] = await pool.query(
@@ -1321,29 +1321,29 @@ app.get('/api/cumpleanos', autenticar, autorizar(['admin','recepcionista']), asy
         );
         res.json(rows);
     } catch (e) {
-        console.error('❌ Error cumpleaños:', e.message);
-        res.status(500).json({ error: 'Error al obtener cumpleaños' });
+        console.error('âŒ Error cumpleaÃ±os:', e.message);
+        res.status(500).json({ error: 'Error al obtener cumpleaÃ±os' });
     }
 });
 
-// Crear cupón de servicio gratis (SOLO admin) — estado inicial "autorizado"
+// Crear cupÃ³n de servicio gratis (SOLO admin) â€” estado inicial "autorizado"
 app.post('/api/cupones', autenticar, autorizar(['admin']), async (req, res) => {
     const { cliente_id, servicio_id } = req.body;
     if (!cliente_id || !servicio_id) {
-        return res.status(400).json({ success: false, message: 'Seleccioná cliente y servicio' });
+        return res.status(400).json({ success: false, message: 'SeleccionÃ¡ cliente y servicio' });
     }
     try {
         const [sv] = await pool.query('SELECT id FROM servicios WHERE id = ?', [servicio_id]);
-        if (!sv.length) return res.status(400).json({ success: false, message: 'Servicio inválido' });
+        if (!sv.length) return res.status(400).json({ success: false, message: 'Servicio invÃ¡lido' });
         const [r] = await pool.query(
             `INSERT INTO cupones (cliente_id, servicio_id, estado, creado_por)
              VALUES (?, ?, 'autorizado', ?)`,
             [cliente_id, servicio_id, req.usuario.id]
         );
-        res.json({ success: true, id: r.insertId, message: 'Cupón autorizado' });
+        res.json({ success: true, id: r.insertId, message: 'CupÃ³n autorizado' });
     } catch (e) {
-        console.error('❌ Error crear cupón:', e.message);
-        res.status(500).json({ success: false, error: 'Error al crear el cupón' });
+        console.error('âŒ Error crear cupÃ³n:', e.message);
+        res.status(500).json({ success: false, error: 'Error al crear el cupÃ³n' });
     }
 });
 
@@ -1361,12 +1361,12 @@ app.get('/api/cupones', autenticar, autorizar(['admin','recepcionista']), async 
         );
         res.json(rows);
     } catch (e) {
-        console.error('❌ Error cupones:', e.message);
+        console.error('âŒ Error cupones:', e.message);
         res.status(500).json({ error: 'Error al obtener cupones' });
     }
 });
 
-// Marcar cupón como enviado (lo envía la recepcionista por WhatsApp)
+// Marcar cupÃ³n como enviado (lo envÃ­a la recepcionista por WhatsApp)
 app.post('/api/cupones/:id/enviado', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         await pool.query(
@@ -1375,8 +1375,8 @@ app.post('/api/cupones/:id/enviado', autenticar, autorizar(['admin','recepcionis
         );
         res.json({ success: true });
     } catch (e) {
-        console.error('❌ Error marcar cupón:', e.message);
-        res.status(500).json({ success: false, error: 'Error al marcar el cupón' });
+        console.error('âŒ Error marcar cupÃ³n:', e.message);
+        res.status(500).json({ success: false, error: 'Error al marcar el cupÃ³n' });
     }
 });
 
@@ -1385,7 +1385,7 @@ app.post('/api/turnos', autenticar, async (req, res) => {
     const { cliente_id, cliente_nombre, cliente_telefono, cliente_email, cliente_fecha_nacimiento, profesional_id, servicio_id, fecha, hora_inicio } = req.body;
     const servicios = Array.isArray(req.body.servicios) ? req.body.servicios : (servicio_id ? [servicio_id] : []);
     if (!servicios.length) {
-        return res.status(400).json({ success: false, message: 'Seleccioná al menos un servicio' });
+        return res.status(400).json({ success: false, message: 'SeleccionÃ¡ al menos un servicio' });
     }
     try {
         const [existente] = await pool.query(
@@ -1393,7 +1393,7 @@ app.post('/api/turnos', autenticar, async (req, res) => {
             [profesional_id, fecha, hora_inicio]
         );
         if (existente.length > 0) {
-            return res.status(400).json({ success: false, message: 'Este horario ya está ocupado. Por favor selecciona otro.' });
+            return res.status(400).json({ success: false, message: 'Este horario ya estÃ¡ ocupado. Por favor selecciona otro.' });
         }
         let nombreFinal = (cliente_nombre || '').trim();
         if (!nombreFinal && cliente_id) {
@@ -1402,7 +1402,7 @@ app.post('/api/turnos', autenticar, async (req, res) => {
         }
         const telFinal = (cliente_telefono || '').trim() || null;
 
-        // Upsert cliente frecuente (fecha de nacimiento para cumpleaños y cupones)
+        // Upsert cliente frecuente (fecha de nacimiento para cumpleaÃ±os y cupones)
         if (nombreFinal) {
             try {
                 const telCliente = telFinal;
@@ -1424,7 +1424,7 @@ app.post('/api/turnos', autenticar, async (req, res) => {
                     }
                 }
             } catch (eCli) {
-                console.error('⚠️ Sin impacto en turno - error upsert cliente:', eCli.message);
+                console.error('âš ï¸ Sin impacto en turno - error upsert cliente:', eCli.message);
             }
         }
 
@@ -1433,7 +1433,7 @@ app.post('/api/turnos', autenticar, async (req, res) => {
             `SELECT id, nombre, precio FROM servicios WHERE id IN (?)`, [servicios]
         );
         if (!serviciosInfo.length) {
-            return res.status(400).json({ success: false, message: 'Servicios inválidos' });
+            return res.status(400).json({ success: false, message: 'Servicios invÃ¡lidos' });
         }
         const precioTotal = serviciosInfo.reduce((s, sv) => s + parseFloat(sv.precio || 0), 0);
         const primerId = serviciosInfo[0].id;
@@ -1452,7 +1452,7 @@ app.post('/api/turnos', autenticar, async (req, res) => {
 
         res.json({ success: true, id: turnoId, message: 'Turno agendado correctamente' });
     } catch (error) {
-        console.error('❌ Error al crear turno:', error.message);
+        console.error('âŒ Error al crear turno:', error.message);
         res.status(500).json({ success: false, error: 'Error al crear el turno' });
     }
 });
@@ -1466,7 +1466,7 @@ app.put('/api/turnos/:id', autenticar, autorizar(['admin']), async (req, res) =>
             await pool.query('UPDATE turnos SET estado = ? WHERE id = ?', [estado, id]);
             return res.json({ success: true, message: 'Estado actualizado' });
         }
-        // Verificar que el nuevo horario no esté ocupado (excluyendo el turno actual)
+        // Verificar que el nuevo horario no estÃ© ocupado (excluyendo el turno actual)
         const [existente] = await pool.query(
             'SELECT id FROM turnos WHERE profesional_id = ? AND fecha = ? AND hora_inicio = ? AND id != ?',
             [profesional_id, fecha, hora_inicio, id]
@@ -1475,7 +1475,7 @@ app.put('/api/turnos/:id', autenticar, autorizar(['admin']), async (req, res) =>
         if (existente.length > 0) {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Este horario ya está ocupado. Por favor selecciona otro.' 
+                message: 'Este horario ya estÃ¡ ocupado. Por favor selecciona otro.' 
             });
         }
         
@@ -1487,7 +1487,7 @@ app.put('/api/turnos/:id', autenticar, autorizar(['admin']), async (req, res) =>
         
         res.json({ success: true, message: 'Turno actualizado correctamente' });
     } catch (error) {
-        console.error('❌ Error al editar turno:', error.message);
+        console.error('âŒ Error al editar turno:', error.message);
         res.status(500).json({ success: false, error: 'Error al actualizar el turno' });
     }
 });
@@ -1502,7 +1502,7 @@ app.get('/api/turnos/:id/items', autenticar, async (req, res) => {
         );
         res.json(rows);
     } catch (e) {
-        console.error('❌ Error items turno:', e.message);
+        console.error('âŒ Error items turno:', e.message);
         res.status(500).json({ error: 'Error al obtener los servicios del turno' });
     }
 });
@@ -1513,12 +1513,12 @@ app.post('/api/turnos/:id/servicios', autenticar, autorizar(['admin','profesiona
     const { servicio_id } = req.body;
     try {
         const [sv] = await pool.query('SELECT id, nombre, precio FROM servicios WHERE id = ? AND activo = TRUE', [servicio_id]);
-        if (!sv.length) return res.status(400).json({ success: false, message: 'Servicio inválido' });
+        if (!sv.length) return res.status(400).json({ success: false, message: 'Servicio invÃ¡lido' });
 
         const [existe] = await pool.query(
             'SELECT id FROM turno_items WHERE turno_id = ? AND servicio_id = ?', [id, servicio_id]
         );
-        if (existe.length) return res.status(400).json({ success: false, message: 'Ese servicio ya está en el turno' });
+        if (existe.length) return res.status(400).json({ success: false, message: 'Ese servicio ya estÃ¡ en el turno' });
 
         await pool.query(
             'INSERT INTO turno_items (turno_id, servicio_id, nombre, precio) VALUES (?, ?, ?, ?)',
@@ -1531,7 +1531,7 @@ app.post('/api/turnos/:id/servicios', autenticar, autorizar(['admin','profesiona
 
         res.json({ success: true, message: 'Servicio agregado al turno' });
     } catch (e) {
-        console.error('❌ Error agregar servicio a turno:', e.message);
+        console.error('âŒ Error agregar servicio a turno:', e.message);
         res.status(500).json({ success: false, error: 'Error al agregar el servicio' });
     }
 });
@@ -1553,7 +1553,7 @@ app.delete('/api/turnos/:id/servicios/:itemId', autenticar, autorizar(['admin','
         }
         res.json({ success: true, message: 'Servicio quitado del turno' });
     } catch (e) {
-        console.error('❌ Error quitar servicio de turno:', e.message);
+        console.error('âŒ Error quitar servicio de turno:', e.message);
         res.status(500).json({ success: false, error: 'Error al quitar el servicio' });
     }
 });
@@ -1574,13 +1574,13 @@ app.delete('/api/turnos/:id', autenticar, autorizar(['admin']), async (req, res)
         
         res.json({ success: true, message: 'Turno eliminado correctamente' });
     } catch (error) {
-        console.error('❌ Error al eliminar turno:', error.message);
+        console.error('âŒ Error al eliminar turno:', error.message);
         res.status(500).json({ success: false, error: 'Error al eliminar el turno' });
     }
 });
 
 // ============================================
-// 📊 ESTADÍSTICAS
+// ðŸ“Š ESTADÃSTICAS
 // ============================================
 app.get('/api/estadisticas', autenticar, autorizar(['admin']), async (req, res) => {
     try {
@@ -1598,16 +1598,16 @@ app.get('/api/estadisticas', autenticar, autorizar(['admin']), async (req, res) 
             clientesUnicos: clientesUnicos[0].count || 0
         });
     } catch (error) {
-        console.error('❌ Error estadísticas:', error.message);
-        res.status(500).json({ error: 'Error al obtener las estadísticas' });
+        console.error('âŒ Error estadÃ­sticas:', error.message);
+        res.status(500).json({ error: 'Error al obtener las estadÃ­sticas' });
     }
 });
 
 // ============================================
-// 💵 CAJA - PANEL DE COBRO Y TICKETS
+// ðŸ’µ CAJA - PANEL DE COBRO Y TICKETS
 // ============================================
 
-// Configuración del local (para el ticket)
+// ConfiguraciÃ³n del local (para el ticket)
 app.get('/api/caja/config', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT clave, valor FROM configuracion');
@@ -1615,12 +1615,12 @@ app.get('/api/caja/config', autenticar, autorizar(['admin','recepcionista']), as
         rows.forEach(r => config[r.clave] = r.valor);
         res.json(config);
     } catch (e) {
-        console.error('❌ Error configuracion:', e.message);
-        res.status(500).json({ error: 'Error al obtener configuración' });
+        console.error('âŒ Error configuracion:', e.message);
+        res.status(500).json({ error: 'Error al obtener configuraciÃ³n' });
     }
 });
 
-// Editar configuración del local (solo admin)
+// Editar configuraciÃ³n del local (solo admin)
 app.put('/api/caja/config', autenticar, autorizar(['admin']), async (req, res) => {
     const { local_nombre, local_cuit, local_direccion, local_telefono, punto_venta } = req.body;
     try {
@@ -1630,26 +1630,26 @@ app.put('/api/caja/config', autenticar, autorizar(['admin']), async (req, res) =
                 await pool.query('INSERT INTO configuracion (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)', [clave, String(valor)]);
             }
         }
-        res.json({ success: true, message: 'Configuración guardada' });
+        res.json({ success: true, message: 'ConfiguraciÃ³n guardada' });
     } catch (e) {
-        console.error('❌ Error guardando config:', e.message);
-        res.status(500).json({ success: false, message: 'Error al guardar configuración' });
+        console.error('âŒ Error guardando config:', e.message);
+        res.status(500).json({ success: false, message: 'Error al guardar configuraciÃ³n' });
     }
 });
 
-// Teléfono del local (público, para botones de WhatsApp)
+// TelÃ©fono del local (pÃºblico, para botones de WhatsApp)
 app.get('/api/caja/config/public', async (req, res) => {
     try {
         const [rows] = await pool.query("SELECT valor FROM configuracion WHERE clave = 'local_telefono'");
         const telefono = rows[0]?.valor || '';
         res.json({ local_telefono: telefono });
     } catch (e) {
-        console.error('❌ Error config publica:', e.message);
-        res.status(500).json({ error: 'Error al obtener configuración' });
+        console.error('âŒ Error config publica:', e.message);
+        res.status(500).json({ error: 'Error al obtener configuraciÃ³n' });
     }
 });
 
-// Turnos del día para el panel de caja
+// Turnos del dÃ­a para el panel de caja
 app.get('/api/caja/dia', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [rows] = await pool.query(
@@ -1670,12 +1670,12 @@ app.get('/api/caja/dia', autenticar, autorizar(['admin','recepcionista']), async
         );
         res.json(rows);
     } catch (e) {
-        console.error('❌ Error caja dia:', e.message);
-        res.status(500).json({ error: 'Error al obtener turnos del día' });
+        console.error('âŒ Error caja dia:', e.message);
+        res.status(500).json({ error: 'Error al obtener turnos del dÃ­a' });
     }
 });
 
-// Estado de la caja del día (abierta/cerrada + totales)
+// Estado de la caja del dÃ­a (abierta/cerrada + totales)
 app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [caja] = await pool.query(
@@ -1686,12 +1686,12 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
         }
         res.json({ abierta: true, caja: caja[0] });
     } catch (e) {
-        console.error('❌ Error estado caja:', e.message);
+        console.error('âŒ Error estado caja:', e.message);
         res.status(500).json({ error: 'Error al obtener estado de la caja' });
     }
 });
 
-// Abrir caja del día (con monto inicial)
+// Abrir caja del dÃ­a (con monto inicial)
 app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { monto_inicial } = req.body;
     try {
@@ -1708,12 +1708,12 @@ app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), as
         );
         res.json({ success: true, id: r.insertId, message: 'Caja abierta correctamente' });
     } catch (e) {
-        console.error('❌ Error abrir caja:', e.message);
+        console.error('âŒ Error abrir caja:', e.message);
         res.status(500).json({ success: false, message: 'Error al abrir la caja' });
     }
 });
 
-// Cerrar caja del día (monto final contado en caja)
+// Cerrar caja del dÃ­a (monto final contado en caja)
 app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { monto_real } = req.body;
     try {
@@ -1758,12 +1758,12 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
             }
         });
     } catch (e) {
-        console.error('❌ Error cerrar caja:', e.message);
+        console.error('âŒ Error cerrar caja:', e.message);
         res.status(500).json({ success: false, message: 'Error al cerrar la caja' });
     }
 });
 
-// Historial de cierres (últimos días)
+// Historial de cierres (Ãºltimos dÃ­as)
 app.get('/api/caja/historial', autenticar, autorizar(['admin']), async (req, res) => {
     try {
         const [rows] = await pool.query(
@@ -1776,13 +1776,13 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin']), async (req, res
         );
         res.json(rows);
     } catch (e) {
-        console.error('❌ Error historial caja:', e.message);
+        console.error('âŒ Error historial caja:', e.message);
         res.status(500).json({ error: 'Error al obtener historial de cajas' });
     }
 });
 
 // Cobrar un turno + generar ticket (comprobante no fiscal)
-// Registra el pago en la caja del día si hay una caja abierta.
+// Registra el pago en la caja del dÃ­a si hay una caja abierta.
 app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { id } = req.params;
     const { monto, metodo_pago } = req.body;
@@ -1795,11 +1795,11 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
 
         const montoFinal = parseFloat(monto);
         if (!montoFinal || montoFinal <= 0) {
-            return res.status(400).json({ success: false, message: 'Monto inválido' });
+            return res.status(400).json({ success: false, message: 'Monto invÃ¡lido' });
         }
         const metodo = metodo_pago || 'efectivo';
         if (metodo === 'credito') {
-            return res.status(400).json({ success: false, message: 'Este negocio no acepta tarjetas de crédito' });
+            return res.status(400).json({ success: false, message: 'Este negocio no acepta tarjetas de crÃ©dito' });
         }
 
         // Items del turno (multi-servicio). Si no hay, usa el servicio principal.
@@ -1829,7 +1829,7 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
         );
         const dato = d[0] || {};
 
-        // Caja abierta del día (si existe)
+        // Caja abierta del dÃ­a (si existe)
         const [cajaAbierta] = await pool.query(
             "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
         );
@@ -1847,7 +1847,7 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
             );
         }
 
-        // Número correlativo de ticket
+        // NÃºmero correlativo de ticket
         const [ult] = await pool.query('SELECT COALESCE(MAX(numero), 0) as max FROM tickets');
         const numero = ult[0].max + 1;
 
@@ -1893,16 +1893,16 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
             }
         });
     } catch (e) {
-        console.error('❌ Error al cobrar turno:', e.message);
+        console.error('âŒ Error al cobrar turno:', e.message);
         res.status(500).json({ success: false, message: 'Error al procesar el cobro' });
     }
 });
 
 // ============================================
-// 💸 RETIROS DE PROFESIONALES
+// ðŸ’¸ RETIROS DE PROFESIONALES
 // ============================================
-// Resumen de retiros del día + lo que le correspondería retirar a cada
-// profesional según sus turnos cobrados del día (monto × porcentaje_retiro).
+// Resumen de retiros del dÃ­a + lo que le corresponderÃ­a retirar a cada
+// profesional segÃºn sus turnos cobrados del dÃ­a (monto Ã— porcentaje_retiro).
 app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [sugerencias] = await pool.query(
@@ -1923,18 +1923,18 @@ app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), a
         );
         res.json({ sugerencias, retiros });
     } catch (e) {
-        console.error('❌ Error retiros:', e.message);
+        console.error('âŒ Error retiros:', e.message);
         res.status(500).json({ error: 'Error al obtener retiros' });
     }
 });
 
 // Registrar el retiro de una profesional (calcula lo que le corresponde
-// según sus turnos cobrados del día y su porcentaje). El retiro saca dinero
-// de la caja del día: descuenta del efectivo o de la transferencia según el
-// método indicado. NO se puede eliminar un retiro ya registrado.
+// segÃºn sus turnos cobrados del dÃ­a y su porcentaje). El retiro saca dinero
+// de la caja del dÃ­a: descuenta del efectivo o de la transferencia segÃºn el
+// mÃ©todo indicado. NO se puede eliminar un retiro ya registrado.
 app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { profesional_id, monto_retirar, metodo } = req.body;
-    if (!profesional_id) return res.status(400).json({ success: false, message: 'Indicá la profesional' });
+    if (!profesional_id) return res.status(400).json({ success: false, message: 'IndicÃ¡ la profesional' });
     const metodoRetiro = (metodo === 'transferencia') ? 'transferencia' : 'efectivo';
     try {
         const [rows] = await pool.query(
@@ -1948,7 +1948,7 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
         if (!p) return res.status(400).json({ success: false, message: 'Profesional no encontrado' });
         const pct = parseFloat(p.porcentaje_retiro) || 70;
         const bruto = parseFloat(p.cobrado_hoy) || 0;
-        // Descontar lo que la profesional ya retiró hoy para no retirar dos veces
+        // Descontar lo que la profesional ya retirÃ³ hoy para no retirar dos veces
         const [yaRetirado] = await pool.query(
             'SELECT COALESCE(SUM(monto_retirado),0) AS total FROM retiros WHERE profesional_id = ? AND fecha = CURDATE()',
             [profesional_id]
@@ -1962,16 +1962,16 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
             retirado = maximo; // por defecto, se retira TODO lo que le corresponde
         }
         if (retirado <= 0) {
-            return res.status(400).json({ success: false, message: 'No hay saldo para retirar en el día de hoy' });
+            return res.status(400).json({ success: false, message: 'No hay saldo para retirar en el dÃ­a de hoy' });
         }
         const estetica = Math.round((bruto - retirado) * 100) / 100;
 
-        // Requiere caja abierta del día: el retiro saca dinero de esa caja
+        // Requiere caja abierta del dÃ­a: el retiro saca dinero de esa caja
         const [caja] = await pool.query(
             "SELECT id FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
         );
         if (!caja.length) {
-            return res.status(400).json({ success: false, message: 'Abrí la caja del día para poder registrar retiros' });
+            return res.status(400).json({ success: false, message: 'AbrÃ­ la caja del dÃ­a para poder registrar retiros' });
         }
         const cajaId = caja[0].id;
 
@@ -1998,69 +1998,69 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
             mensaje: `Retiro de $${retirado.toFixed(2)} (${metodoRetiro}) registrado para ${p.nombre}`
         });
     } catch (e) {
-        console.error('❌ Error registrar retiro:', e.message);
+        console.error('âŒ Error registrar retiro:', e.message);
         res.status(500).json({ success: false, message: 'Error al registrar el retiro' });
     }
 });
 
 // ============================================
-// 🏥 HEALTH CHECK
+// ðŸ¥ HEALTH CHECK
 // ============================================
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // ============================================
-// 🚀 INICIAR SERVIDOR
+// ðŸš€ INICIAR SERVIDOR
 // ============================================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, '0.0.0.0', () => {
     console.clear();
     console.log('\n' + '='.repeat(70));
-    console.log('🚀  SERVIDOR CHAMAS INICIADO');
+    console.log('ðŸš€  SERVIDOR CHAMAS INICIADO');
     console.log('='.repeat(70));
-    console.log(`📍  URL: https://chamas-spa.onrender.com`);
-    console.log(`⏰  Hora: ${new Date().toLocaleString()}`);
+    console.log(`ðŸ“  URL: https://chamas-spa.onrender.com`);
+    console.log(`â°  Hora: ${new Date().toLocaleString()}`);
     console.log('='.repeat(70));
-    console.log('\n📋  RUTAS DISPONIBLES:\n');
-    console.log('   🔐 POST   /api/auth/login');
-    console.log('   👤 POST   /api/usuarios (registrar profesional)');
-    console.log('   📦 GET    /api/servicios');
-    console.log('   ✏️  PUT    /api/servicios/:id');
-    console.log('   👥 GET    /api/profesionales/servicio/:id');
-    console.log('   👥 GET    /api/usuarios/profesionales');
-    console.log('   ⏰ GET    /api/disponibilidad_completa/:id');
-    console.log('   ⏰ GET    /api/disponibilidad/:profesionalId/:dia');
-    console.log('   📅 POST   /api/disponibilidad');
-    console.log('   💾 POST   /api/disponibilidad/guardar-directas (CALENDARIO)');
-    console.log('   🗑️  POST   /api/disponibilidad/eliminar-fecha (CALENDARIO)');
-    console.log('   🗑️  POST   /api/disponibilidad/eliminar-horas (CALENDARIO)');
-    console.log('   🚫 GET    /api/horarios-ocupados/:profesionalId/:fecha');
-    console.log('   📋 GET    /api/turnos/todos (ADMIN)');
-    console.log('   📋 GET    /api/turnos/:id (obtener uno)');
-    console.log('   📋 GET    /api/turnos/:id/items (servicios del turno)');
-    console.log('   ➕ POST   /api/turnos/:id/servicios (agregar servicio)');
-    console.log('   ➖ DELETE /api/turnos/:id/servicios/:itemId (quitar servicio)');
-    console.log('   👥 POST   /api/profesionales/servicios (multi-servicio)');
-    console.log('   📅 GET    /api/turnos/profesional/:id');
-    console.log('   📅 GET    /api/turnos/cliente/:id');
-    console.log('   📝 POST   /api/turnos (crear)');
-    console.log('   ✏️  PUT    /api/turnos/:id (editar)');
-    console.log('   🗑️  DELETE /api/turnos/:id (eliminar)');
-    console.log('   💵 GET    /api/caja/estado (abierta/cerrada + totales)');
-    console.log('   💵 POST   /api/caja/abrir (abrir caja del día)');
-    console.log('   💵 POST   /api/caja/cerrar (cerrar y resumen)');
-    console.log('   💵 GET    /api/caja/historial (cierres previos)');
-    console.log('   🧾 POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
-    console.log('   💸 GET    /api/caja/retiros (sugerencias + registrados)');
-    console.log('   💸 POST   /api/caja/retiros (registrar retiro de profesional)');
-    console.log('   📊 GET    /api/estadisticas');
-    console.log('   🔐 POST   /api/auth/recuperar (solicitar código)');
-    console.log('   🔐 POST   /api/auth/recuperar/confirmar (verificar código + nueva contraseña)');
-    console.log('   🔐 PATCH  /api/auth/cambiar-contrasena (con sesión)');
-    console.log('   🏥 GET    /api/health');
+    console.log('\nðŸ“‹  RUTAS DISPONIBLES:\n');
+    console.log('   ðŸ” POST   /api/auth/login');
+    console.log('   ðŸ‘¤ POST   /api/usuarios (registrar profesional)');
+    console.log('   ðŸ“¦ GET    /api/servicios');
+    console.log('   âœï¸  PUT    /api/servicios/:id');
+    console.log('   ðŸ‘¥ GET    /api/profesionales/servicio/:id');
+    console.log('   ðŸ‘¥ GET    /api/usuarios/profesionales');
+    console.log('   â° GET    /api/disponibilidad_completa/:id');
+    console.log('   â° GET    /api/disponibilidad/:profesionalId/:dia');
+    console.log('   ðŸ“… POST   /api/disponibilidad');
+    console.log('   ðŸ’¾ POST   /api/disponibilidad/guardar-directas (CALENDARIO)');
+    console.log('   ðŸ—‘ï¸  POST   /api/disponibilidad/eliminar-fecha (CALENDARIO)');
+    console.log('   ðŸ—‘ï¸  POST   /api/disponibilidad/eliminar-horas (CALENDARIO)');
+    console.log('   ðŸš« GET    /api/horarios-ocupados/:profesionalId/:fecha');
+    console.log('   ðŸ“‹ GET    /api/turnos/todos (ADMIN)');
+    console.log('   ðŸ“‹ GET    /api/turnos/:id (obtener uno)');
+    console.log('   ðŸ“‹ GET    /api/turnos/:id/items (servicios del turno)');
+    console.log('   âž• POST   /api/turnos/:id/servicios (agregar servicio)');
+    console.log('   âž– DELETE /api/turnos/:id/servicios/:itemId (quitar servicio)');
+    console.log('   ðŸ‘¥ POST   /api/profesionales/servicios (multi-servicio)');
+    console.log('   ðŸ“… GET    /api/turnos/profesional/:id');
+    console.log('   ðŸ“… GET    /api/turnos/cliente/:id');
+    console.log('   ðŸ“ POST   /api/turnos (crear)');
+    console.log('   âœï¸  PUT    /api/turnos/:id (editar)');
+    console.log('   ðŸ—‘ï¸  DELETE /api/turnos/:id (eliminar)');
+    console.log('   ðŸ’µ GET    /api/caja/estado (abierta/cerrada + totales)');
+    console.log('   ðŸ’µ POST   /api/caja/abrir (abrir caja del dÃ­a)');
+    console.log('   ðŸ’µ POST   /api/caja/cerrar (cerrar y resumen)');
+    console.log('   ðŸ’µ GET    /api/caja/historial (cierres previos)');
+    console.log('   ðŸ§¾ POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
+    console.log('   ðŸ’¸ GET    /api/caja/retiros (sugerencias + registrados)');
+    console.log('   ðŸ’¸ POST   /api/caja/retiros (registrar retiro de profesional)');
+    console.log('   ðŸ“Š GET    /api/estadisticas');
+    console.log('   ðŸ” POST   /api/auth/recuperar (solicitar cÃ³digo)');
+    console.log('   ðŸ” POST   /api/auth/recuperar/confirmar (verificar cÃ³digo + nueva contraseÃ±a)');
+    console.log('   ðŸ” PATCH  /api/auth/cambiar-contrasena (con sesiÃ³n)');
+    console.log('   ðŸ¥ GET    /api/health');
     console.log('\n' + '='.repeat(70));
-    console.log('✅  SERVIDOR LISTO - CALENDARIO INTERACTIVO ACTIVADO');
+    console.log('âœ…  SERVIDOR LISTO - CALENDARIO INTERACTIVO ACTIVADO');
     console.log('='.repeat(70) + '\n');
 });
