@@ -1890,6 +1890,7 @@ document.getElementById('form-turno')?.addEventListener('submit', async (e) => {
     const clienteNombre   = (document.getElementById('cliente-nombre')?.value   || '').trim();
     const clienteEmail    = (document.getElementById('cliente-email')?.value    || '').trim();
     const clienteTelefono = (document.getElementById('cliente-telefono')?.value || '').trim();
+    const clienteFechaNac = (document.getElementById('cliente-fecha-nacimiento')?.value || '').trim();
     const selectServ   = document.getElementById('servicio-select');
     const servicioIdsArr = Array.from(selectServ.selectedOptions).map(o => o.value).filter(v => v).map(Number);
     const profesionalId = document.getElementById('profesional-select').value;
@@ -1902,8 +1903,8 @@ document.getElementById('form-turno')?.addEventListener('submit', async (e) => {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ cliente_id: parseInt(usuario.id), cliente_nombre: clienteNombre,
                 cliente_email: clienteEmail, cliente_telefono: clienteTelefono,
-                profesional_id: parseInt(profesionalId), servicios: servicioIdsArr,
-                fecha, hora_inicio: hora+':00' })
+                cliente_fecha_nacimiento: clienteFechaNac, profesional_id: parseInt(profesionalId),
+                servicios: servicioIdsArr, fecha, hora_inicio: hora+':00' })
         });
         const data = await res.json();
         if (data.success) {
@@ -2313,10 +2314,17 @@ function showSection(sectionId) {
 
     if (sectionId === 'mis-turnos-cliente') {
         cargarTurnosCliente();
+        cargarClientesFrecuentes();
         if (usuario.rol === 'admin') {
             cargarTodosLosTurnos();
             cargarProfesionalesFiltro();
         }
+    }
+
+    if (sectionId === 'cumpleanos') {
+        cargarCumpleanos();
+        cargarCupones();
+        llenarSelectCupones();
     }
 
     if (sectionId === 'mis-turnos-profesional') {
@@ -3614,4 +3622,188 @@ function imprimirTicket(t) {
 </body></html>`);
     win.document.close();
     win.focus();
+}
+
+// =====================================================
+// 🎂 CLIENTES FRECUENTES, CUMPLEAÑOS Y CUPONES
+// =====================================================
+let clientesFrecuentes = [];
+
+function formatearFechaNacimiento(fn) {
+    if (!fn) return '';
+    try {
+        const fechaStr = String(fn).includes('T') ? String(fn).split('T')[0] : String(fn);
+        const [y, m, d] = fechaStr.split('-');
+        return `${d}/${m}/${y}`;
+    } catch (e) { return String(fn || ''); }
+}
+
+function fechaCumpleLabel(fn, diaCumple) {
+    if (!fn) return '';
+    const partes = String(fn).split('-');
+    const d = partes[2] || diaCumple;
+    try {
+        return new Date(`${partes[1]}-${d}`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
+    } catch (e) { return 'Día ' + d; }
+}
+
+async function cargarClientesFrecuentes() {
+    const datalist = document.getElementById('datalist-clientes-frecuentes');
+    if (!datalist) return;
+    try {
+        const res = await fetch(`${API_BASE}/clientes`);
+        const data = await res.json();
+        clientesFrecuentes = Array.isArray(data) ? data : [];
+        datalist.innerHTML = clientesFrecuentes.map(c =>
+            `<option value="${(c.nombre || '').replace(/"/g, '&quot;')}">📞 ${c.telefono || 'sin tel'}${c.fecha_nacimiento ? ' · 🎂 ' + formatearFechaNacimiento(c.fecha_nacimiento) : ''}</option>`
+        ).join('');
+    } catch (e) { console.error('❌ No se pudieron cargar clientes frecuentes:', e.message); }
+}
+
+function autocompletarClienteFrecuente() {
+    const nombreInput = document.getElementById('cliente-nombre');
+    if (!nombreInput) return;
+    const nombre = (nombreInput.value || '').trim();
+    const cliente = clientesFrecuentes.find(c => (c.nombre || '').trim().toLowerCase() === nombre.toLowerCase());
+    if (!cliente) return;
+    const emailEl  = document.getElementById('cliente-email');
+    const telEl    = document.getElementById('cliente-telefono');
+    const fechaEl  = document.getElementById('cliente-fecha-nacimiento');
+    if (cliente.email && emailEl && !emailEl.value)  emailEl.value  = cliente.email;
+    if (cliente.telefono && telEl && !telEl.value)    telEl.value    = cliente.telefono;
+    if (cliente.fecha_nacimiento && fechaEl && !fechaEl.value) fechaEl.value = String(cliente.fecha_nacimiento).split('T')[0];
+}
+
+async function cargarCumpleanos() {
+    const cont = document.getElementById('cumpleanos-lista');
+    if (!cont) return;
+    cont.innerHTML = '<p style="color:#888;">⏳ Cargando cumpleaños...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/cumpleanos`);
+        const cumples = await res.json();
+        if (!Array.isArray(cumples) || !cumples.length) {
+            cont.innerHTML = '<p style="color:#888;">🎂 Nadie cumple años este mes.</p>';
+            return;
+        }
+        cont.innerHTML = cumples.map(c => {
+            const tel = (c.telefono || '').replace(/[^\d]/g, '');
+            let waNum = tel;
+            if (waNum.startsWith('549')) {} else if (waNum.startsWith('54')) {} else if (waNum.startsWith('0')) waNum = '549' + waNum.slice(1); else waNum = '549' + waNum;
+            const msj = encodeURIComponent(`Hola ${c.nombre}! 🎂🎉 *CHAMAS SPA* te desea un feliz cumpleaños 💅💆‍♀️✨\n\nTe esperamos para consentirte. ¡Felicidades! 🥳`);
+            return `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #f3e3ec;flex-wrap:wrap;${c.cumple_hoy ? 'background:#fff3cd;border-radius:9px;padding:11px;' : ''}">
+                    <div style="flex:1;min-width:220px;">
+                        <strong>${c.nombre || 'Sin nombre'}</strong>
+                        ${c.cumple_hoy ? '<span style="color:#B7950B;font-weight:700;margin-left:6px;">🎂 CUMPLE HOY</span>' : ''}
+                        <small style="display:block;color:#888;">🎂 ${fechaCumpleLabel(c.fecha_nacimiento, c.dia_cumple)}</small>
+                        <small style="display:block;color:#666;">📞 ${c.telefono || 'Sin teléfono'}</small>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        ${waNum
+                            ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Felicitar</a>`
+                            : '<span style="color:#888;font-size:0.85rem;">Sin WhatsApp</span>'}
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar cumpleaños.</p>';
+    }
+}
+
+async function autorizarCupon() {
+    const clienteSel = document.getElementById('cupon-cliente-select');
+    const servicioSel = document.getElementById('cupon-servicio-select');
+    const clienteId = clienteSel ? clienteSel.value : '';
+    const servicioId = servicioSel ? servicioSel.value : '';
+    if (!clienteId || !servicioId) {
+        mostrarNotificacion('⚠️ Seleccioná cliente y servicio para el cupón', 'error');
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/cupones`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cliente_id: parseInt(clienteId), servicio_id: parseInt(servicioId) })
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('🎁 Cupón autorizado correctamente', 'success');
+            cargarCupones();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error al autorizar'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
+}
+
+async function cargarCupones() {
+    const cont = document.getElementById('cupones-lista');
+    if (!cont) return;
+    cont.innerHTML = '<p style="color:#888;">⏳ Cargando cupones...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/cupones`);
+        const cupones = await res.json();
+        if (!Array.isArray(cupones) || !cupones.length) {
+            cont.innerHTML = '<p style="color:#888;">🎁 No hay cupones aún.</p>';
+            return;
+        }
+        cont.innerHTML = cupones.map(cp => {
+            const tel = (cp.cliente_telefono || '').replace(/[^\d]/g, '');
+            let waNum = tel;
+            if (waNum.startsWith('549')) {} else if (waNum.startsWith('54')) {} else if (waNum.startsWith('0')) waNum = '549' + waNum.slice(1); else waNum = '549' + waNum;
+            const msj = encodeURIComponent(`Hola ${cp.cliente_nombre || ''}! 🎁 *CHAMAS SPA* te regala *${cp.servicio_nombre || 'un servicio'}* GRATIS 🎉\n\nPresentá este mensaje para reservar tu cupón. ¡Felicidades por tu cumpleaños! 💅💆‍♀️`);
+            const esEnviado = cp.estado === 'enviado';
+            return `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #eee;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:220px;">
+                        <strong>${cp.cliente_nombre || 'Cliente'}</strong> — <span style="color:#6A1B9A;">🎁 ${cp.servicio_nombre || 'Servicio'}</span>
+                        <small style="display:block;color:#888;">${esEnviado ? 'Enviado ' + (cp.fecha_envio ? new Date(cp.fecha_envio).toLocaleString('es-AR') : '') : 'Autorizado ' + new Date(cp.fecha_autorizado).toLocaleString('es-AR')}</small>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        ${esEnviado
+                            ? '<span style="color:#28a745;font-size:0.85rem;font-weight:700;">✅ Enviado</span>'
+                            : (waNum
+                                ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" onclick="marcarCuponEnviado(${cp.id})" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Enviar cupón</a>`
+                                : '<span style="color:#888;font-size:0.85rem;">Sin WhatsApp</span>')}
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar cupones.</p>';
+    }
+}
+
+async function marcarCuponEnviado(id) {
+    try {
+        await fetch(`${API_BASE}/cupones/${id}/enviado`, { method: 'POST' });
+        cargarCupones();
+        cargarCumpleanos();
+    } catch (e) { console.error('❌ Error al marcar cupón enviado:', e.message); }
+}
+
+async function llenarSelectCupones() {
+    const cliSel = document.getElementById('cupon-cliente-select');
+    const srvSel = document.getElementById('cupon-servicio-select');
+    if (!cliSel && !srvSel) return;
+    try {
+        const [cli, srv] = await Promise.all([
+            fetch(`${API_BASE}/cumpleanos`).then(r => r.json()),
+            fetch(`${API_BASE}/servicios`).then(r => r.json())
+        ]);
+        if (cliSel) {
+            cliSel.innerHTML = '<option value="">Seleccionar cliente...</option>' +
+                (Array.isArray(cli) ? cli.map(c =>
+                    `<option value="${c.id}">${c.nombre || 'Sin nombre'} — cumple ${fechaCumpleLabel(c.fecha_nacimiento, c.dia_cumple)}</option>`
+                ).join('') : '');
+        }
+        if (srvSel) {
+            srvSel.innerHTML = '<option value="">Seleccionar servicio...</option>' +
+                (Array.isArray(srv) ? srv.map(s =>
+                    `<option value="${s.id}">${s.nombre} — $${parseFloat(s.precio || 0).toLocaleString()}</option>`
+                ).join('') : '');
+        }
+    } catch (e) {
+        console.error('❌ Error al llenar selects de cupones:', e.message);
+    }
 }

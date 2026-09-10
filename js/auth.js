@@ -473,6 +473,8 @@ function configurarInterfazPorRol(rol) {
     document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.admrecep-only').forEach(el => el.style.display = 'none');
     
     const usuario = obtenerUsuarioActual();
     if (usuario) {
@@ -485,6 +487,8 @@ function configurarInterfazPorRol(rol) {
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.admrecep-only').forEach(el => el.style.display = 'block');
     } else if (rol === 'profesional') {
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
     } else if (rol === 'cliente') {
@@ -493,6 +497,8 @@ function configurarInterfazPorRol(rol) {
         document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.horarios-gestion').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.admrecep-only').forEach(el => el.style.display = 'block');
     }
     
     console.log('✅ Interfaz de', rol.toUpperCase(), 'activada');

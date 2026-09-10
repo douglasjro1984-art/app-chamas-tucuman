@@ -1247,9 +1247,142 @@ app.get('/api/turnos/cliente/:id', autenticar, async (req, res) => {
     }
 });
 
+// ============================================
+// 🎂 CLIENTES FRECUENTES, CUMPLEAÑOS Y CUPONES
+// ============================================
+
+// Listar clientes frecuentes (admin / recepcionista)
+app.get('/api/clientes', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT id, nombre, email, telefono, fecha_nacimiento, direccion, notas,
+                    fecha_ultima_visita, activo
+             FROM clientes
+             WHERE activo = 1
+             ORDER BY nombre ASC`
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('❌ Error clientes:', e.message);
+        res.status(500).json({ error: 'Error al obtener clientes' });
+    }
+});
+
+// Crear o actualizar un cliente frecuente (admin / recepcionista)
+app.post('/api/clientes', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const { id, nombre, email, telefono, fecha_nacimiento, direccion, notas } = req.body;
+    const nom = (nombre || '').trim();
+    if (!nom) return res.status(400).json({ success: false, message: 'El nombre es obligatorio' });
+    try {
+        if (id) {
+            await pool.query(
+                `UPDATE clientes SET nombre = ?, email = ?, telefono = ?, fecha_nacimiento = ?,
+                        direccion = ?, notas = ? WHERE id = ?`,
+                [nom, email || null, telefono || null, fecha_nacimiento || null, direccion || null, notas || null, id]
+            );
+            return res.json({ success: true, id, cliente_id: id });
+        }
+        const tel = (telefono || '').trim();
+        if (tel) {
+            const [ex] = await pool.query('SELECT id FROM clientes WHERE telefono = ? AND activo = 1 LIMIT 1', [tel]);
+            if (ex.length) {
+                const cid = ex[0].id;
+                await pool.query(
+                    `UPDATE clientes SET nombre = ?, email = ?, telefono = ?, fecha_nacimiento = ?,
+                            direccion = ?, notas = ? WHERE id = ?`,
+                    [nom, email || null, tel, fecha_nacimiento || null, direccion || null, notas || null, cid]
+                );
+                return res.json({ success: true, id: cid, cliente_id: cid });
+            }
+        }
+        const [r] = await pool.query(
+            `INSERT INTO clientes (nombre, email, telefono, fecha_nacimiento, direccion, notas, fecha_ultima_visita, activo)
+             VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)`,
+            [nom, email || null, tel || null, fecha_nacimiento || null, direccion || null, notas || null]
+        );
+        res.json({ success: true, id: r.insertId, cliente_id: r.insertId });
+    } catch (e) {
+        console.error('❌ Error guardar cliente:', e.message);
+        res.status(500).json({ success: false, error: 'Error al guardar el cliente' });
+    }
+});
+
+// 🎂 Cumpleaños: clientes que cumplen en el mes actual (ordenados por día)
+app.get('/api/cumpleanos', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT id, nombre, email, telefono, fecha_nacimiento,
+                    DAY(fecha_nacimiento) as dia_cumple,
+                    CASE WHEN DAY(fecha_nacimiento) = DAY(CURDATE()) THEN 1 ELSE 0 END as cumple_hoy
+             FROM clientes
+             WHERE activo = 1 AND fecha_nacimiento IS NOT NULL
+               AND MONTH(fecha_nacimiento) = MONTH(CURDATE())
+             ORDER BY cumple_hoy DESC, DAY(fecha_nacimiento) ASC, nombre ASC`
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('❌ Error cumpleaños:', e.message);
+        res.status(500).json({ error: 'Error al obtener cumpleaños' });
+    }
+});
+
+// Crear cupón de servicio gratis (SOLO admin) — estado inicial "autorizado"
+app.post('/api/cupones', autenticar, autorizar(['admin']), async (req, res) => {
+    const { cliente_id, servicio_id } = req.body;
+    if (!cliente_id || !servicio_id) {
+        return res.status(400).json({ success: false, message: 'Seleccioná cliente y servicio' });
+    }
+    try {
+        const [sv] = await pool.query('SELECT id FROM servicios WHERE id = ?', [servicio_id]);
+        if (!sv.length) return res.status(400).json({ success: false, message: 'Servicio inválido' });
+        const [r] = await pool.query(
+            `INSERT INTO cupones (cliente_id, servicio_id, estado, creado_por)
+             VALUES (?, ?, 'autorizado', ?)`,
+            [cliente_id, servicio_id, req.usuario.id]
+        );
+        res.json({ success: true, id: r.insertId, message: 'Cupón autorizado' });
+    } catch (e) {
+        console.error('❌ Error crear cupón:', e.message);
+        res.status(500).json({ success: false, error: 'Error al crear el cupón' });
+    }
+});
+
+// Listar cupones (admin y recepcionista ven todos, con estado)
+app.get('/api/cupones', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT cp.id, cp.cliente_id, cp.servicio_id, cp.estado, cp.fecha_autorizado, cp.fecha_envio,
+                    c.nombre as cliente_nombre, c.telefono as cliente_telefono,
+                    s.nombre as servicio_nombre
+             FROM cupones cp
+             LEFT JOIN clientes c ON cp.cliente_id = c.id
+             LEFT JOIN servicios s ON cp.servicio_id = s.id
+             ORDER BY (cp.estado = 'autorizado') DESC, cp.fecha_autorizado DESC`
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('❌ Error cupones:', e.message);
+        res.status(500).json({ error: 'Error al obtener cupones' });
+    }
+});
+
+// Marcar cupón como enviado (lo envía la recepcionista por WhatsApp)
+app.post('/api/cupones/:id/enviado', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        await pool.query(
+            `UPDATE cupones SET estado = 'enviado', fecha_envio = NOW() WHERE id = ?`,
+            [req.params.id]
+        );
+        res.json({ success: true });
+    } catch (e) {
+        console.error('❌ Error marcar cupón:', e.message);
+        res.status(500).json({ success: false, error: 'Error al marcar el cupón' });
+    }
+});
+
 // Crear turno (soporta uno o varios servicios: servicios = array de ids)
 app.post('/api/turnos', autenticar, async (req, res) => {
-    const { cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio } = req.body;
+    const { cliente_id, cliente_nombre, cliente_telefono, cliente_email, cliente_fecha_nacimiento, profesional_id, servicio_id, fecha, hora_inicio } = req.body;
     const servicios = Array.isArray(req.body.servicios) ? req.body.servicios : (servicio_id ? [servicio_id] : []);
     if (!servicios.length) {
         return res.status(400).json({ success: false, message: 'Seleccioná al menos un servicio' });
@@ -1268,6 +1401,32 @@ app.post('/api/turnos', autenticar, async (req, res) => {
             if (u.length) nombreFinal = u[0].nombre;
         }
         const telFinal = (cliente_telefono || '').trim() || null;
+
+        // Upsert cliente frecuente (fecha de nacimiento para cumpleaños y cupones)
+        if (nombreFinal) {
+            try {
+                const telCliente = telFinal;
+                if (telCliente) {
+                    const [exCl] = await pool.query('SELECT id FROM clientes WHERE telefono = ? AND activo = 1 LIMIT 1', [telCliente]);
+                    if (exCl.length) {
+                        await pool.query(
+                            `UPDATE clientes SET nombre = ?, email = COALESCE(?, email),
+                                    fecha_nacimiento = COALESCE(?, fecha_nacimiento),
+                                    fecha_ultima_visita = NOW() WHERE id = ?`,
+                            [nombreFinal, cliente_email || null, cliente_fecha_nacimiento || null, exCl[0].id]
+                        );
+                    } else {
+                        await pool.query(
+                            `INSERT INTO clientes (nombre, email, telefono, fecha_nacimiento, fecha_ultima_visita, activo)
+                             VALUES (?, ?, ?, ?, NOW(), 1)`,
+                            [nombreFinal, cliente_email || null, telCliente, cliente_fecha_nacimiento || null]
+                        );
+                    }
+                }
+            } catch (eCli) {
+                console.error('⚠️ Sin impacto en turno - error upsert cliente:', eCli.message);
+            }
+        }
 
         // Precios de los servicios seleccionados
         const [serviciosInfo] = await pool.query(
