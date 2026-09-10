@@ -1211,7 +1211,95 @@ async function cargarTurnosCliente() {
 
         let html = '';
 
-        // ===== SECCIÓN 1: HORARIOS DISPONIBLES =====
+        // ===== SECCIÓN 1: TURNOS AGENDADOS / CITAS DE CLIENTES =====
+        const esGestor = (usuario.rol === 'admin' || usuario.rol === 'recepcionista');
+
+        if (esGestor) {
+            // Admin y recepcionista: todas las citas de los clientes
+            const resTodos = await fetch(`${API_BASE}/turnos/todos`);
+            const turnosTodos = await resTodos.json();
+
+            html += `
+                <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;margin-bottom:25px;">
+                    <h3 style="color:#555;margin-top:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnosTodos)?turnosTodos.length:0} turnos)</span></h3>
+            `;
+
+            if (!Array.isArray(turnosTodos) || turnosTodos.length === 0) {
+                html += `<p style="color:#888;text-align:center;padding:20px;">📭 Aún no hay citas agendadas</p>`;
+            } else {
+                const porProf = {};
+                turnosTodos.forEach(t => {
+                    const n = t.profesional || 'Sin asignar';
+                    if (!porProf[n]) porProf[n] = [];
+                    porProf[n].push(t);
+                });
+                html += Object.entries(porProf).map(([profNom, citas]) => `
+                    <div style="margin-bottom:20px;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">
+                            <span style="background:#C06C84;color:white;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;">👩‍💼</span>
+                            <strong style="color:#C06C84;font-size:1rem;">${profNom}</strong>
+                            <span style="background:#f9e4ee;color:#C06C84;padding:3px 10px;border-radius:20px;font-size:0.82rem;font-weight:700;">${citas.length} cita${citas.length!==1?'s':''}</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            ${citas.map(t => `
+                                <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
+                                    <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
+                                        <span style="font-size:1.3rem;">👤</span>
+                                        <div>
+                                            <strong style="color:#333;display:block;">${t.cliente_nombre||t.cliente||'N/A'}</strong>
+                                            <small style="color:#888;">📞 ${t.telefono||'N/A'}</small>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+                                        <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${t.servicio||'N/A'}</span>
+                                        <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
+                                        <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
+                                    </div>
+                                </div>`).join('')}
+                        </div>
+                    </div>`).join('');
+            }
+            html += `</div>`;
+        } else {
+            html += `
+                <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;margin-bottom:25px;">
+                    <h3 style="color:#555;margin-top:0;">📋 Tus Turnos Agendados</h3>
+            `;
+
+            if (!Array.isArray(turnos) || turnos.length === 0) {
+                html += `
+                    <p style="color:#888;text-align:center;padding:20px;">
+                        😊 Aún no has agendado turnos
+                    </p>
+                `;
+            } else {
+                html += `
+                    <table class="tabla-turnos">
+                        <thead>
+                            <tr>
+                                <th>Servicio</th>
+                                <th>Profesional</th>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${turnos.map(t => `
+                                <tr>
+                                    <td><strong>${t.servicio_nombre || 'N/A'}</strong></td>
+                                    <td>${t.profesional_nombre || 'N/A'}</td>
+                                    <td>${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
+                                    <td>${t.hora_inicio.substring(0,5)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+            html += `</div>`;
+        }
+
+        // ===== SECCIÓN 2: HORARIOS DISPONIBLES =====
         html += `
             <div style="background:white;padding:20px;border-radius:12px;margin-bottom:25px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #C06C84;">
                 <h3 style="color:#C06C84;margin-top:0;">📅 Horarios Disponibles para Agendar</h3>
@@ -1318,94 +1406,6 @@ async function cargarTurnosCliente() {
                 </p>
             </div>
         `;
-
-        // ===== SECCIÓN 2: TURNOS AGENDADOS / CITAS DE CLIENTES =====
-        const esGestor = (usuario.rol === 'admin' || usuario.rol === 'recepcionista');
-
-        if (esGestor) {
-            // Admin y recepcionista: todas las citas de los clientes
-            const resTodos = await fetch(`${API_BASE}/turnos/todos`);
-            const turnosTodos = await resTodos.json();
-
-            html += `
-                <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;margin-top:25px;">
-                    <h3 style="color:#555;margin-top:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnosTodos)?turnosTodos.length:0} turnos)</span></h3>
-            `;
-
-            if (!Array.isArray(turnosTodos) || turnosTodos.length === 0) {
-                html += `<p style="color:#888;text-align:center;padding:20px;">📭 Aún no hay citas agendadas</p>`;
-            } else {
-                const porProf = {};
-                turnosTodos.forEach(t => {
-                    const n = t.profesional || 'Sin asignar';
-                    if (!porProf[n]) porProf[n] = [];
-                    porProf[n].push(t);
-                });
-                html += Object.entries(porProf).map(([profNom, citas]) => `
-                    <div style="margin-bottom:20px;">
-                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">
-                            <span style="background:#C06C84;color:white;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;">👩‍💼</span>
-                            <strong style="color:#C06C84;font-size:1rem;">${profNom}</strong>
-                            <span style="background:#f9e4ee;color:#C06C84;padding:3px 10px;border-radius:20px;font-size:0.82rem;font-weight:700;">${citas.length} cita${citas.length!==1?'s':''}</span>
-                        </div>
-                        <div style="display:flex;flex-direction:column;gap:8px;">
-                            ${citas.map(t => `
-                                <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
-                                    <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
-                                        <span style="font-size:1.3rem;">👤</span>
-                                        <div>
-                                            <strong style="color:#333;display:block;">${t.cliente_nombre||t.cliente||'N/A'}</strong>
-                                            <small style="color:#888;">📞 ${t.telefono||'N/A'}</small>
-                                        </div>
-                                    </div>
-                                    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                                        <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${t.servicio||'N/A'}</span>
-                                        <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
-                                        <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
-                                    </div>
-                                </div>`).join('')}
-                        </div>
-                    </div>`).join('');
-            }
-            html += `</div>`;
-        } else {
-            html += `
-                <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;">
-                    <h3 style="color:#555;margin-top:0;">📋 Tus Turnos Agendados</h3>
-            `;
-
-            if (!Array.isArray(turnos) || turnos.length === 0) {
-                html += `
-                    <p style="color:#888;text-align:center;padding:20px;">
-                        😊 Aún no has agendado turnos
-                    </p>
-                `;
-            } else {
-                html += `
-                    <table class="tabla-turnos">
-                        <thead>
-                            <tr>
-                                <th>Servicio</th>
-                                <th>Profesional</th>
-                                <th>Fecha</th>
-                                <th>Hora</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${turnos.map(t => `
-                                <tr>
-                                    <td><strong>${t.servicio_nombre || 'N/A'}</strong></td>
-                                    <td>${t.profesional_nombre || 'N/A'}</td>
-                                    <td>${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
-                                    <td>${t.hora_inicio.substring(0,5)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            }
-            html += `</div>`;
-        }
 
         container.innerHTML = html;
 
