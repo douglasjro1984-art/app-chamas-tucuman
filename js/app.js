@@ -1254,10 +1254,6 @@ async function cargarTurnosCliente() {
         const resTurnos = await fetch(`${API_BASE}/turnos/cliente/${usuario.id}`);
         const turnos = await resTurnos.json();
 
-        // Obtener horarios disponibles de todos los profesionales
-        const resProfs = await fetch(`${API_BASE}/usuarios/profesionales`);
-        const profesionales = await resProfs.json();
-
         let html = '';
 
         // ===== SECCIÓN 1: TURNOS AGENDADOS / CITAS DE CLIENTES =====
@@ -1348,114 +1344,6 @@ async function cargarTurnosCliente() {
             html += `</div>`;
         }
 
-        // ===== SECCIÓN 2: HORARIOS DISPONIBLES =====
-        html += `
-            <div style="background:white;padding:20px;border-radius:12px;margin-bottom:25px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #C06C84;">
-                <h3 style="color:#C06C84;margin-top:0;">📅 Horarios Disponibles para Agendar</h3>
-                <p style="color:#888;font-size:0.9rem;margin:0 0 15px 0;">Estos son los horarios que los profesionales tienen disponibles:</p>
-        `;
-
-        let hayHorarios = false;
-        const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-
-        for (const prof of profesionales) {
-            const resDisp = await fetch(`${API_BASE}/disponibilidad_completa/${prof.id}`);
-            const disponibilidad = await resDisp.json();
-
-            if (!disponibilidad || disponibilidad.length === 0) {
-                continue; // Saltar profesionales sin horarios
-            }
-
-            hayHorarios = true;
-
-            // Agrupar por fecha
-            const horariosPorFecha = {};
-            
-            disponibilidad.forEach(slot => {
-                // Extraer YYYY-MM-DD de la fecha (puede venir como ISO string)
-                let fechaStr = slot.fecha;
-                if (typeof fechaStr === 'string') {
-                    fechaStr = fechaStr.split('T')[0]; // Tomar solo la parte YYYY-MM-DD
-                }
-                
-                const fechaObj = new Date(fechaStr + 'T00:00:00');
-                const diaSemana = diasSemana[fechaObj.getDay()];
-                
-                // Formatear fecha como DD/MM
-                const [año, mes, dia] = fechaStr.split('-');
-                const fechaFormato = `${dia}/${mes}`;
-                const etiqueta = `${diaSemana} ${fechaFormato}`; // "Lunes 23/02"
-                
-                if (!horariosPorFecha[etiqueta]) {
-                    horariosPorFecha[etiqueta] = [];
-                }
-                
-                const hora = slot.hora_inicio.substring(0, 5); // "HH:MM"
-                horariosPorFecha[etiqueta].push(hora);
-            });
-
-            // Ordenar fechas (extraer día/mes y comparar)
-            const fechasOrdenadas = Object.keys(horariosPorFecha).sort((a, b) => {
-                const fechaA = a.split(' ')[1]; // "23/02"
-                const fechaB = b.split(' ')[1]; // "24/02"
-                // Convertir a formato MMDD para comparar correctamente
-                const [diaA, mesA] = fechaA.split('/');
-                const [diaB, mesB] = fechaB.split('/');
-                const numA = parseInt(mesA + diaA);
-                const numB = parseInt(mesB + diaB);
-                return numA - numB;
-            });
-
-            // Renderizar profesional
-            html += `
-                <div style="background:#f9f9f9;padding:15px;border-radius:8px;margin-bottom:15px;border-left:3px solid #ff9cc5;">
-                    <h4 style="color:#555;margin:0 0 12px 0;">👨‍💼 ${prof.nombre}</h4>
-                    <div style="display:flex;flex-direction:column;gap:10px;">
-            `;
-
-            // Renderizar cada día con sus horas
-            fechasOrdenadas.forEach(etiqueta => {
-                const horas = horariosPorFecha[etiqueta];
-                const horasUnicas = [...new Set(horas)].sort();
-                
-                html += `
-                    <div style="background:white;padding:10px 12px;border-radius:6px;border:1px solid #e8d0da;">
-                        <strong style="color:#C06C84;display:block;margin-bottom:6px;font-size:0.95rem;">📅 ${etiqueta}</strong>
-                        <div style="display:flex;flex-wrap:wrap;gap:5px;">
-                            ${horasUnicas.map(h => `
-                                <span style="background:#C06C84;color:white;padding:4px 8px;border-radius:15px;font-size:0.85rem;font-weight:600;">
-                                    ${h}
-                                </span>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            });
-
-            html += `
-                    </div>
-                    <p style="font-size:0.85rem;color:#888;margin:10px 0 0 0;">
-                        ✅ Total: ${disponibilidad.length} horarios disponibles
-                    </p>
-                </div>
-            `;
-        }
-
-        if (!hayHorarios) {
-            html += `
-                <div style="padding:20px;text-align:center;color:#888;">
-                    <p>📭 No hay horarios disponibles configurados por los profesionales</p>
-                </div>
-            `;
-        }
-
-        html += `
-                <p style="font-size:0.9rem;color:#666;margin-top:15px;">
-                    💡 Elegí un servicio debajo y tocá "<strong>Agendar nuevo turno</strong>" para reservar
-                </p>
-            </div>
-        `;
-
         container.innerHTML = html;
 
     } catch (error) {
@@ -1475,13 +1363,6 @@ async function cargarTurnosProfesional() {
     const esAdmin = usuario.rol === 'admin';
 
     try {
-        // Horarios: solo para profesional
-        let disponibilidad = [];
-        if (!esAdmin) {
-            const resDisp = await fetch(`${API_BASE}/disponibilidad_completa/${usuario.id}`);
-            disponibilidad = await resDisp.json();
-        }
-
         // Turnos: admin ve todos, profesional ve los suyos
         let turnos = [];
         if (esAdmin) {
@@ -1494,95 +1375,7 @@ async function cargarTurnosProfesional() {
 
         let html = '';
 
-        // ===== SECCIÓN 1: HORARIOS CONFIGURADOS =====
-        html += `
-            <div style="background:white;padding:20px;border-radius:12px;margin-bottom:25px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #C06C84;">
-                <h3 style="color:#C06C84;margin-top:0;">📅 Tus Horarios Disponibles</h3>
-        `;
-
-        if (!disponibilidad || disponibilidad.length === 0) {
-            html += `
-                <p style="color:#ff9800;padding:15px;background:#fff3cd;border-radius:6px;margin:0;">
-                    ⚠️ No has configurado horarios disponibles. 
-                    <strong>Configúralos en "Mis Horarios"</strong> para que los clientes puedan agendar.
-                </p>
-            `;
-        } else {
-            // Agrupar por fecha
-            const horariosPorFecha = {};
-            const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-            
-            disponibilidad.forEach(slot => {
-                // Extraer YYYY-MM-DD de la fecha (puede venir como ISO string)
-                let fechaStr = slot.fecha;
-                if (typeof fechaStr === 'string') {
-                    fechaStr = fechaStr.split('T')[0]; // Tomar solo la parte YYYY-MM-DD
-                }
-                
-                const fechaObj = new Date(fechaStr + 'T00:00:00');
-                const diaSemana = diasSemana[fechaObj.getDay()];
-                
-                // Formatear fecha como DD/MM
-                const [año, mes, dia] = fechaStr.split('-');
-                const fechaFormato = `${dia}/${mes}`;
-                const etiqueta = `${diaSemana} ${fechaFormato}`; // "Lunes 23/02"
-                
-                if (!horariosPorFecha[etiqueta]) {
-                    horariosPorFecha[etiqueta] = [];
-                }
-                
-                const hora = slot.hora_inicio.substring(0, 5); // "HH:MM"
-                horariosPorFecha[etiqueta].push(hora);
-            });
-
-            // Ordenar por fecha (extraer día/mes y comparar)
-            const fechasOrdenadas = Object.keys(horariosPorFecha).sort((a, b) => {
-                const fechaA = a.split(' ')[1]; // "23/02"
-                const fechaB = b.split(' ')[1]; // "24/02"
-                // Convertir a formato MMDD para comparar correctamente
-                const [diaA, mesA] = fechaA.split('/');
-                const [diaB, mesB] = fechaB.split('/');
-                const numA = parseInt(mesA + diaA);
-                const numB = parseInt(mesB + diaB);
-                return numA - numB;
-            });
-
-            // Renderizar horarios
-            html += `<div style="display:flex;flex-direction:column;gap:12px;">`;
-            
-            fechasOrdenadas.forEach(etiqueta => {
-                const horas = horariosPorFecha[etiqueta];
-                // Remover duplicados y ordenar
-                const horasUnicas = [...new Set(horas)].sort();
-                
-                html += `
-                    <div style="background:#f9f9f9;padding:12px 14px;border-radius:8px;border-left:4px solid #C06C84;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <strong style="color:#555;font-size:1rem;">📅 ${etiqueta}</strong>
-                            <span style="font-size:0.8rem;color:#888;background:#e8d0da;padding:4px 8px;border-radius:4px;font-weight:600;">
-                                ${horasUnicas.length} hora(s)
-                            </span>
-                        </div>
-                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                            ${horasUnicas.map(h => `
-                                <span style="background:#C06C84;color:white;padding:6px 10px;border-radius:20px;font-size:0.9rem;font-weight:600;">
-                                    ${h}
-                                </span>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += `</div>`;
-            html += `<p style="margin-top:15px;color:#666;font-size:0.9rem;">
-                        ✅ Total: ${disponibilidad.length} horarios configurados
-                    </p>`;
-        }
-
-        html += `</div>`;
-
-        // ===== SECCIÓN 2: CITAS CON CLIENTES =====
+        // ===== SECCIÓN 1: CITAS CON CLIENTES =====
         html += `
             <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;">
                 <h3 style="color:#555;margin-top:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnos)?turnos.length:0} turnos)</span></h3>
