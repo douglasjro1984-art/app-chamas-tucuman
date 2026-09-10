@@ -576,7 +576,7 @@ app.get('/api/servicios', async (req, res) => {
 
 app.put('/api/servicios/:id', autenticar, autorizar(['admin']), async (req, res) => {
     const { id } = req.params;
-    const { nombre, descripcion, precio, imagen, activo, duracion } = req.body;
+    const { nombre, descripcion, precio, imagen, activo, duracion, dias_disponibles } = req.body;
 
     try {
         let fields = [];
@@ -588,6 +588,11 @@ app.put('/api/servicios/:id', autenticar, autorizar(['admin']), async (req, res)
         if (descripcion !== undefined) { fields.push('descripcion = ?'); values.push(descripcion); }
         if (imagen !== undefined) { fields.push('imagen = ?'); values.push(imagen); }
         if (duracion !== undefined) { fields.push('duracion = ?'); values.push(parseInt(duracion,10)); }
+        if (dias_disponibles !== undefined) {
+            const dias = typeof dias_disponibles === 'string' ? dias_disponibles.trim() : '';
+            fields.push('dias_disponibles = ?');
+            values.push(dias === '' ? null : dias);
+        }
 
         if (fields.length === 0) {
             return res.status(400).json({ error: 'No hay campos para actualizar' });
@@ -617,12 +622,13 @@ app.get('/api/servicios/todos', autenticar, autorizar(['admin']), async (req, re
 
 // Crear nuevo servicio
 app.post('/api/servicios', autenticar, autorizar(['admin']), async (req, res) => {
-    const { nombre, descripcion, precio, imagen, duracion } = req.body;
+    const { nombre, descripcion, precio, imagen, duracion, dias_disponibles } = req.body;
     if (!nombre || !precio) return res.status(400).json({ success: false, message: 'Nombre y precio son obligatorios' });
     try {
+        const dias = typeof dias_disponibles === 'string' ? dias_disponibles.trim() : '';
         const [r] = await pool.query(
-            'INSERT INTO servicios (nombre, descripcion, precio, imagen, duracion, activo) VALUES (?, ?, ?, ?, COALESCE(?, 60), TRUE)',
-            [nombre.trim(), descripcion||'', parseFloat(precio), imagen||'img/default.jpg', duracion ? parseInt(duracion,10) : null]
+            'INSERT INTO servicios (nombre, descripcion, precio, imagen, duracion, dias_disponibles, activo) VALUES (?, ?, ?, ?, COALESCE(?, 60), ?, TRUE)',
+            [nombre.trim(), descripcion||'', parseFloat(precio), imagen||'img/default.jpg', duracion ? parseInt(duracion,10) : null, dias === '' ? null : dias]
         );
         res.json({ success: true, id: r.insertId, message: 'Servicio creado correctamente' });
     } catch (e) { console.error('âŒ Error creando servicio:', e.message); res.status(500).json({ success: false, message: 'Error al crear el servicio' }); }

@@ -232,6 +232,12 @@ async function cargarEditorPrecios() {
                            placeholder="https://... ó img/nombre.jpg"
                            oninput="prevImgEditor(${s.id},this.value)"
                            style="width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.78rem;box-sizing:border-box;"></div>
+                <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">📅 Días del mes en que se ofrece (opcional)</label>
+                    <input type="text" id="edit-dias-${s.id}" value="${s.dias_disponibles||''}"
+                           placeholder="Ej: 5,20 — vacío = todos los días"
+                           style="width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.78rem;box-sizing:border-box;">
+                    <small style="color:#888;font-size:0.72rem;display:block;margin-top:2px;">Solo se podrá agendar en esos días del mes. Dejalo vacío para ofrecerlo siempre.</small>
+                </div>
             </div>
             <!-- Botones -->
             <div style="display:flex;flex-direction:column;gap:8px;">
@@ -356,6 +362,12 @@ function abrirModalNuevoServicio() {
                     <textarea id="nuevo-desc" rows="2" placeholder="Breve descripción del servicio..."
                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;resize:vertical;font-family:inherit;box-sizing:border-box;"></textarea>
                 </div>
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📅 Días del mes en que se ofrece (opcional)</label>
+                    <input type="text" id="nuevo-dias" placeholder="Ej: 5,20 — vacío = todos los días"
+                           style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;box-sizing:border-box;">
+                    <small style="color:#888;font-size:0.78rem;display:block;margin-top:3px;">Solo se podrá agendar en esos días del mes. Dejalo vacío para ofrecerlo siempre.</small>
+                </div>
                 <div style="text-align:center;">
                     <img id="nuevo-img-prev" style="display:none;width:160px;height:120px;object-fit:cover;border-radius:10px;border:3px solid #e0e0e0;">
                 </div>
@@ -380,6 +392,7 @@ async function confirmarNuevoServicio() {
     const nombre = (document.getElementById('nuevo-nombre')?.value||'').trim();
     const precio = document.getElementById('nuevo-precio')?.value;
     const desc   = (document.getElementById('nuevo-desc')?.value||'').trim();
+    const dias   = (document.getElementById('nuevo-dias')?.value||'').trim();
     let imagen   = (document.getElementById('nuevo-imagen')?.value||'').trim();
     if (!nombre) { mostrarNotificacion('⚠️ El nombre es obligatorio','error'); return; }
     if (!precio || parseFloat(precio) <= 0) { mostrarNotificacion('⚠️ Ingresá un precio válido','error'); return; }
@@ -387,7 +400,7 @@ async function confirmarNuevoServicio() {
     try {
         const res = await fetch(`${API_BASE}/servicios`, {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ nombre, descripcion: desc, precio: parseFloat(precio), imagen: imagen||'img/default.jpg' })
+            body: JSON.stringify({ nombre, descripcion: desc, precio: parseFloat(precio), imagen: imagen||'img/default.jpg', dias_disponibles: dias })
         });
         const data = await res.json();
         if (data.success) {
@@ -410,11 +423,13 @@ async function togglePausarServicio(id, activoActual) {
         const precio    = document.getElementById(`edit-precio-${id}`)?.value;
         const desc      = document.getElementById(`edit-desc-${id}`)?.value?.trim();
         const imagen    = document.getElementById(`edit-imagen-${id}`)?.value?.trim();
+        const dias      = document.getElementById(`edit-dias-${id}`)?.value?.trim() || '';
         const body = { activo: activar };
         if (nombre)  body.nombre      = nombre;
         if (precio)  body.precio      = parseFloat(precio);
         if (desc)    body.descripcion = desc;
         if (imagen)  body.imagen      = imagen;
+        body.dias_disponibles = dias;
 
         const res = await fetch(`${API_BASE}/servicios/${id}`, {
             method: 'PUT', headers: {'Content-Type':'application/json'},
@@ -448,6 +463,7 @@ async function guardarCambiosServicioCompleto(id) {
     const nuevoPrecio = document.getElementById(`edit-precio-${id}`).value;
     const nuevaDesc = document.getElementById(`edit-desc-${id}`).value.trim();
     const nuevaImagen = document.getElementById(`edit-imagen-${id}`).value.trim();
+    const nuevosDias = document.getElementById(`edit-dias-${id}`)?.value.trim() || '';
     if (!nuevoNombre || !nuevoPrecio) {
         mostrarNotificacion('⚠️ Nombre y precio obligatorios', 'error');
         return;
@@ -455,7 +471,7 @@ async function guardarCambiosServicioCompleto(id) {
     try {
         const res = await fetch(`${API_BASE}/servicios/${id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre: nuevoNombre, precio: nuevoPrecio, descripcion: nuevaDesc, imagen: nuevaImagen })
+            body: JSON.stringify({ nombre: nuevoNombre, precio: nuevoPrecio, descripcion: nuevaDesc, imagen: nuevaImagen, dias_disponibles: nuevosDias })
         });
         const data = await res.json();
         if (data.success) {
@@ -1846,24 +1862,50 @@ async function marcarFechasDisponibles(profesionalId) {
     inputFecha.value = '';
     document.getElementById('turno-hora').innerHTML = '<option value="">Primero seleccioná una fecha...</option>';
 
+    // Días del mes del servicio elegido (si está restringido por "días puntuales")
+    const selectServ = document.getElementById('servicio-select');
+    const idsServicios = selectServ ? Array.from(selectServ.selectedOptions).map(o => o.value).filter(v => v) : [];
+    let diasRestringidos = null;
+    if (idsServicios.length === 1 && Array.isArray(servicios)) {
+        const sv = servicios.find(s => String(s.id) === String(idsServicios[0]));
+        if (sv && sv.dias_disponibles) {
+            diasRestringidos = String(sv.dias_disponibles).split(',').map(d => parseInt(d, 10)).filter(n => !isNaN(n));
+        }
+    }
+
     try {
         const res = await fetch(`${API_BASE}/disponibilidad/rango/${profesionalId}`);
         const fechasDisp = await res.json(); // array de "YYYY-MM-DD"
 
-        if (fechasDisp.length === 0) {
+        // Filtrar por días puntuales del mes si aplica
+        let fechasFiltradas = fechasDisp;
+        if (diasRestringidos && diasRestringidos.length) {
+            fechasFiltradas = fechasDisp.filter(f => {
+                const dia = parseInt(f.split('-')[2], 10);
+                return diasRestringidos.includes(dia);
+            });
+        }
+
+        if (fechasFiltradas.length === 0) {
             inputFecha.disabled = true;
-            if (infoFechas) infoFechas.textContent = '⚠️ Este profesional no tiene fechas disponibles';
+            if (infoFechas) {
+                infoFechas.textContent = diasRestringidos
+                    ? `⚠️ Este servicio solo se ofrece los días ${diasRestringidos.join(' y ')} del mes, y el profesional no tiene disponibilidad esos días`
+                    : '⚠️ Este profesional no tiene fechas disponibles';
+            }
             return;
         }
 
         // Guardar en dataset para validar al cambiar fecha
-        inputFecha.dataset.fechasDisponibles = JSON.stringify(fechasDisp);
-        inputFecha.min = fechasDisp[0];
-        inputFecha.max = fechasDisp[fechasDisp.length - 1];
+        inputFecha.dataset.fechasDisponibles = JSON.stringify(fechasFiltradas);
+        inputFecha.min = fechasFiltradas[0];
+        inputFecha.max = fechasFiltradas[fechasFiltradas.length - 1];
         inputFecha.disabled = false;
 
         if (infoFechas) {
-            infoFechas.textContent = `📅 ${fechasDisp.length} fechas disponibles entre ${fechasDisp[0]} y ${fechasDisp[fechasDisp.length-1]}`;
+            const restriccion = diasRestringidos && diasRestringidos.length
+                ? ` (este servicio solo se agenda los días ${diasRestringidos.join(', ')} del mes)` : '';
+            infoFechas.textContent = `📅 ${fechasFiltradas.length} fechas disponibles entre ${fechasFiltradas[0]} y ${fechasFiltradas[fechasFiltradas.length-1]}${restriccion}`;
         }
 
         // Validar fecha elegida contra las disponibles
