@@ -1330,6 +1330,7 @@ async function cargarTurnosCliente() {
                                 <th>Profesional</th>
                                 <th>Fecha</th>
                                 <th>Hora</th>
+                                <th>Estado</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1339,6 +1340,11 @@ async function cargarTurnosCliente() {
                                     <td>${t.profesional_nombre || 'N/A'}</td>
                                     <td>${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
                                     <td>${t.hora_inicio.substring(0,5)}</td>
+                                    <td>${(t.estado||'') === 'cancelado'
+                                        ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">❌ Cancelado</span>'
+                                        : (t.estado||'') === 'cobrado'
+                                            ? '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">✔ Cobrado</span>'
+                                            : '<span style="background:#C06C84;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">📅 Confirmado</span>'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1687,6 +1693,27 @@ async function eliminarTurno(turnoId) {
         }
     } catch (error) {
         mostrarNotificacion('❌ Error', 'error');
+    }
+}
+
+async function cancelarTurno(turnoId) {
+    if (!confirm('❌ ¿Cancelar este turno? Quedará registrado y no se contará en la caja.')) return;
+    try {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: 'cancelado' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('❌ Turno cancelado correctamente');
+            cargarTodosLosTurnos();
+            cargarTurnosCaja();
+            cargarEstadoCaja();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (error) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
     }
 }
 
@@ -2591,13 +2618,18 @@ async function cargarTodosLosTurnos() {
                         <td style="padding:10px 8px;">${t.profesional||'N/A'}</td>
                         <td style="padding:10px 8px;">${t.servicio||'N/A'}</td>
                         <td style="padding:10px 8px;white-space:nowrap;">${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
-                        <td style="padding:10px 8px;font-weight:700;">${(t.hora_inicio||t.hora||'').substring(0,5)}</td>
+                        <td style="padding:10px 8px;white-space:nowrap;">
+                            <span style="font-weight:700;">${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
+                            ${(t.estado||'') === 'cancelado' ? '<br><span style="display:inline-block;margin-top:3px;background:#dc3545;color:white;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700;">❌ Cancelado</span>' : ''}
+                        </td>
                         ${esAdmin ? `<td style="padding:8px;white-space:nowrap;">
                             <div style="display:flex;gap:4px;justify-content:center;">
                                 <button title="Editar" onclick="abrirModalEditar(${t.id})"
                                     style="background:#4CAF50;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">✏️</button>
                                 <button title="Finalizar" onclick="abrirModalPago(${t.id},'${(t.cliente_nombre||t.cliente||'').replace(/'/g,"\\'")}','${(t.servicio||'').replace(/'/g,"\\'")}','${(t.hora_inicio||t.hora||'').substring(0,5)}','${t.fecha?t.fecha.split('T')[0]:''}')"
                                     style="background:#28a745;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">💳</button>
+                                <button title="Cancelar" onclick="cancelarTurno(${t.id})"
+                                    style="background:#ff9800;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">❌</button>
                                 <button title="Eliminar" onclick="eliminarTurno(${t.id})"
                                     style="background:#dc3545;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">🗑️</button>
                             </div>
@@ -3355,8 +3387,10 @@ async function cargarTurnosCaja() {
         }
 
         const hoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        const pendientes = turnos.filter(t => (t.estado || 'pendiente') !== 'cobrado');
-        const cobrados = turnos.filter(t => (t.estado || '') === 'cobrado');
+        const cancelados = turnos.filter(t => (t.estado || '') === 'cancelado');
+        const activos = turnos.filter(t => (t.estado || '') !== 'cancelado');
+        const pendientes = activos.filter(t => (t.estado || 'pendiente') !== 'cobrado');
+        const cobrados = activos.filter(t => (t.estado || '') === 'cobrado');
 
         const tarjeta = (t, esCobrado) => `
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;padding:14px 18px;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${t.tipo === 'sobreturno' ? '#8E44AD' : (esCobrado ? '#28a745' : '#C06C84')};flex-wrap:wrap;">
@@ -3373,19 +3407,41 @@ async function cargarTurnosCaja() {
                     <strong style="color:#28a745;font-size:1.15rem;">$${parseFloat(t.precio || 0).toFixed(2)}</strong>
                     ${esCobrado
                         ? '<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">✔ Cobrado</span>'
-                        : `<button onclick="abrirModalCobro(${t.id},'${(t.cliente_nombre||'').replace(/'/g,"\\'")}','${(t.servicio||'').replace(/'/g,"\\'")}',${t.precio||0})" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">💳 Cobrar</button>`}
+                        : `<button onclick="abrirModalCobro(${t.id},'${(t.cliente_nombre||'').replace(/'/g,"\\'")}','${(t.servicio||'').replace(/'/g,"\\'")}',${t.precio||0})" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">💳 Cobrar</button>
+                        <button onclick="cancelarTurno(${t.id})" style="background:#dc3545;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">❌ Cancelar</button>`}
                 </div>
+            </div>`;
+
+        const tarjetaCancelada = (t) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f9f9f9;padding:12px 18px;border-radius:12px;border-left:4px solid #aaa;opacity:0.75;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                    <div style="display:flex;flex-direction:column;align-items:center;background:#eee;padding:6px 12px;border-radius:8px;min-width:60px;">
+                        <strong style="color:#777;font-size:1.1rem;text-decoration:line-through;">${t.hora_inicio}</strong>
+                    </div>
+                    <div>
+                        <strong style="color:#777;">${t.cliente_nombre || 'Cliente'}</strong>
+                        <small style="color:#aaa;display:block;">💆 ${t.servicio} · 👩‍💼 ${t.profesional || 'Sin profesional'}</small>
+                    </div>
+                </div>
+                <span style="background:#dc3545;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">❌ Cancelado</span>
             </div>`;
 
         container.innerHTML = `
             <div style="background:white;border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;">
                 <h3 style="margin:0;color:#C06C84;text-transform:capitalize;">📅 ${hoy}</h3>
-                <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">${pendientes.length} pendientes · ${cobrados.length} cobrados</p>
+                <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">${pendientes.length} pendientes · ${cobrados.length} cobrados${cancelados.length ? ` · ${cancelados.length} cancelados` : ''}</p>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;">
                 ${pendientes.map(t => tarjeta(t, false)).join('')}
                 ${cobrados.map(t => tarjeta(t, true)).join('')}
-            </div>`;
+            </div>
+            ${cancelados.length ? `
+                <div style="margin-top:24px;">
+                    <h4 style="color:#777;margin:0 0 10px 0;font-size:0.95rem;">❌ Turnos Cancelados (no afectan la caja)</h4>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        ${cancelados.map(t => tarjetaCancelada(t)).join('')}
+                    </div>
+                </div>` : ''}`;
     } catch (e) {
         console.error('❌ Error caja:', e);
         container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:20px;">❌ Error al cargar los turnos del día</p>';

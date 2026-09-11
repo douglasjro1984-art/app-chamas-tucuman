@@ -1080,6 +1080,7 @@ app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), a
         
         let query = `
             SELECT t.id, t.fecha, t.hora_inicio,
+                   t.estado,
                    t.profesional_id,
                    s.nombre as servicio, s.precio,
                    p.nombre as profesional,
@@ -1239,7 +1240,7 @@ app.get('/api/turnos/cliente/:id', autenticar, async (req, res) => {
     }
     try {
         const [rows] = await pool.query(
-            `SELECT t.id, t.fecha, t.hora_inicio, s.nombre as servicio_nombre, u.nombre as profesional_nombre
+            `SELECT t.id, t.fecha, t.hora_inicio, t.estado, s.nombre as servicio_nombre, u.nombre as profesional_nombre
              FROM turnos t 
              JOIN servicios s ON t.servicio_id = s.id 
              JOIN usuarios u ON t.profesional_id = u.id
@@ -1465,11 +1466,14 @@ app.post('/api/turnos', autenticar, async (req, res) => {
 });
 
 // EDITAR turno
-app.put('/api/turnos/:id', autenticar, autorizar(['admin']), async (req, res) => {
+app.put('/api/turnos/:id', autenticar, async (req, res) => {
     const { id } = req.params;
     const { servicio_id, profesional_id, fecha, hora_inicio, estado } = req.body;
     try {
         if (estado && !servicio_id && !profesional_id && !fecha && !hora_inicio) {
+            if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista') {
+                return res.status(403).json({ success: false, message: 'No tenés permisos para cambiar el estado del turno' });
+            }
             await pool.query('UPDATE turnos SET estado = ? WHERE id = ?', [estado, id]);
             return res.json({ success: true, message: 'Estado actualizado' });
         }
@@ -1962,6 +1966,9 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
         if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
         if (turno[0].estado === 'cobrado') {
             return res.status(400).json({ success: false, message: 'Este turno ya fue cobrado' });
+        }
+        if (turno[0].estado === 'cancelado') {
+            return res.status(400).json({ success: false, message: 'Este turno fue cancelado y no puede cobrarse' });
         }
 
         const montoFinal = parseFloat(monto);
