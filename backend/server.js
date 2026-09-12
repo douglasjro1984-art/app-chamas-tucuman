@@ -2285,7 +2285,7 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
 // Registra el pago en la caja del dÃ­a si hay una caja abierta.
 app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { id } = req.params;
-    const { monto, metodo_pago } = req.body;
+    const { monto, metodo_pago, adicionales } = req.body;
     try {
         const [turno] = await pool.query('SELECT * FROM turnos WHERE id = ?', [id]);
         if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
@@ -2314,6 +2314,17 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
             itemsTicket = itemsDb.map(it => ({ servicio: it.nombre, importe: parseFloat(it.precio || 0) }));
         } else {
             itemsTicket = [{ servicio: 'Servicio', importe: montoFinal }];
+        }
+
+        // Adicionales (ej: piedrería por uña, diseños en manos) suman al ticket
+        if (Array.isArray(adicionales) && adicionales.length) {
+            adicionales.forEach(a => {
+                const cant = parseInt(a.cantidad, 10) || 0;
+                const importe = parseFloat(a.importe) || 0;
+                if (cant > 0 && importe > 0) {
+                    itemsTicket.push({ servicio: `${a.nombre} (x${cant})`, importe });
+                }
+            });
         }
 
         // Marcar turno como cobrado y registrar el fin real (para sobreturnos)

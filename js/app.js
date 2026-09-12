@@ -1276,37 +1276,65 @@ async function cargarTurnosCliente() {
             if (!Array.isArray(turnosTodos) || turnosTodos.length === 0) {
                 html += `<p style="color:#888;text-align:center;padding:20px;">📭 Aún no hay citas agendadas</p>`;
             } else {
-                const porProf = {};
-                turnosTodos.forEach(t => {
-                    const n = t.profesional || 'Sin asignar';
-                    if (!porProf[n]) porProf[n] = [];
-                    porProf[n].push(t);
+                // Ordenar de la fecha más cercana a la más lejana (día y hora)
+                const turnosOrdenados = [...turnosTodos].sort((a, b) => {
+                    const cmp = String(a.fecha).slice(0, 10).localeCompare(String(b.fecha).slice(0, 10));
+                    if (cmp !== 0) return cmp;
+                    return String(a.hora_inicio || a.hora || '').localeCompare(String(b.hora_inicio || b.hora || ''));
                 });
-                html += Object.entries(porProf).map(([profNom, citas]) => `
-                    <div style="margin-bottom:20px;">
-                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">
-                            <span style="background:#C06C84;color:white;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;">👩‍💼</span>
-                            <strong style="color:#C06C84;font-size:1rem;">${profNom}</strong>
-                            <span style="background:#f9e4ee;color:#C06C84;padding:3px 10px;border-radius:20px;font-size:0.82rem;font-weight:700;">${citas.length} cita${citas.length!==1?'s':''}</span>
+
+                // Servicios ya realizados (cobrados/cancelados) pasan a "Registros"
+                const activos = turnosOrdenados.filter(t => (t.estado || '') !== 'cobrado' && (t.estado || '') !== 'cancelado');
+                const realizados = turnosOrdenados.filter(t => (t.estado || '') === 'cobrado' || (t.estado || '') === 'cancelado');
+
+                const tarjetaCita = (t) => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
+                        <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
+                            <span style="font-size:1.3rem;">👤</span>
+                            <div>
+                                <strong style="color:#333;display:block;">${t.cliente_nombre||t.cliente||'N/A'}</strong>
+                                <small style="color:#888;">📞 ${t.telefono||'N/A'}</small>
+                            </div>
                         </div>
-                        <div style="display:flex;flex-direction:column;gap:8px;">
-                            ${citas.map(t => `
-                                <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
-                                    <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
-                                        <span style="font-size:1.3rem;">👤</span>
-                                        <div>
-                                            <strong style="color:#333;display:block;">${t.cliente_nombre||t.cliente||'N/A'}</strong>
-                                            <small style="color:#888;">📞 ${t.telefono||'N/A'}</small>
-                                        </div>
-                                    </div>
-                                    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                                        <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${t.servicio||'N/A'}</span>
-                                        <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
-                                        <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
-                                    </div>
-                                </div>`).join('')}
+                        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${t.servicio||'N/A'}</span>
+                            <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
+                            <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
                         </div>
-                    </div>`).join('');
+                    </div>`;
+
+                if (activos.length) {
+                    const porProf = {};
+                    activos.forEach(t => {
+                        const n = t.profesional || 'Sin asignar';
+                        if (!porProf[n]) porProf[n] = [];
+                        porProf[n].push(t);
+                    });
+                    html += Object.entries(porProf).map(([profNom, citas]) => `
+                        <div style="margin-bottom:20px;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">
+                                <span style="background:#C06C84;color:white;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;">👩‍💼</span>
+                                <strong style="color:#C06C84;font-size:1rem;">${profNom}</strong>
+                                <span style="background:#f9e4ee;color:#C06C84;padding:3px 10px;border-radius:20px;font-size:0.82rem;font-weight:700;">${citas.length} cita${citas.length!==1?'s':''}</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                ${citas.map(tarjetaCita).join('')}
+                            </div>
+                        </div>`).join('');
+                } else {
+                    html += `<p style="color:#888;text-align:center;padding:15px;">📭 No hay citas activas pendientes</p>`;
+                }
+
+                // Registros: servicios ya realizados/cancelados (salen de la lista principal)
+                if (realizados.length) {
+                    html += `
+                        <div style="margin-top:18px;padding:16px;background:#fbfbfb;border-radius:12px;border:1px solid #eee;">
+                            <h4 style="margin:0 0 10px 0;color:#777;font-size:0.95rem;">🗂️ Registros (servicios realizados / cancelados) <span style="color:#aaa;font-weight:normal;">${realizados.length}</span></h4>
+                            <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;">
+                                ${realizados.map(tarjetaCita).join('')}
+                            </div>
+                        </div>`;
+                }
             }
             html += `</div>`;
         } else {
@@ -1322,7 +1350,19 @@ async function cargarTurnosCliente() {
                     </p>
                 `;
             } else {
-                html += `
+                const ordenFn = (a, b) => {
+                    const cmp = String(a.fecha).slice(0, 10).localeCompare(String(b.fecha).slice(0, 10));
+                    if (cmp !== 0) return cmp;
+                    return String(a.hora_inicio || '').localeCompare(String(b.hora_inicio || ''));
+                };
+                const pendientes = [...turnos].filter(t => (t.estado || '') !== 'cobrado' && (t.estado || '') !== 'cancelado').sort(ordenFn);
+                const realizados = [...turnos].filter(t => (t.estado || '') === 'cobrado' || (t.estado || '') === 'cancelado').sort(ordenFn);
+                const badgetEstado = (t) => (t.estado || '') === 'cancelado'
+                    ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">❌ Cancelado</span>'
+                    : (t.estado || '') === 'cobrado'
+                        ? '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">✔ Cobrado</span>'
+                        : '<span style="background:#C06C84;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">📅 Confirmado</span>';
+                const tabla = (lista) => `
                     <table class="tabla-turnos">
                         <thead>
                             <tr>
@@ -1334,22 +1374,28 @@ async function cargarTurnosCliente() {
                             </tr>
                         </thead>
                         <tbody>
-                            ${turnos.map(t => `
+                            ${lista.map(t => `
                                 <tr>
                                     <td><strong>${t.servicio_nombre || 'N/A'}</strong></td>
                                     <td>${t.profesional_nombre || 'N/A'}</td>
                                     <td>${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
                                     <td>${t.hora_inicio.substring(0,5)}</td>
-                                    <td>${(t.estado||'') === 'cancelado'
-                                        ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">❌ Cancelado</span>'
-                                        : (t.estado||'') === 'cobrado'
-                                            ? '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">✔ Cobrado</span>'
-                                            : '<span style="background:#C06C84;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">📅 Confirmado</span>'}</td>
+                                    <td>${badgetEstado(t)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
                 `;
+                html += pendientes.length
+                    ? tabla(pendientes)
+                    : '<p style="color:#888;text-align:center;padding:15px;">📭 No tenés turnos pendientes</p>';
+                if (realizados.length) {
+                    html += `
+                        <div style="margin-top:12px;">
+                            <h4 style="margin:0 0 8px 0;color:#777;font-size:0.9rem;">🗂️ Registros (servicios realizados / cancelados) <span style="color:#aaa;font-weight:normal;">${realizados.length}</span></h4>
+                            ${tabla(realizados)}
+                        </div>`;
+                }
             }
             html += `</div>`;
         }
@@ -1376,6 +1422,7 @@ async function cargarTurnosCliente() {
 
             // Agrupar por fecha
             const horariosPorFecha = {};
+            const fechaDeEtiqueta = {};
 
             disponibilidad.forEach(slot => {
                 // Extraer YYYY-MM-DD de la fecha (puede venir como ISO string)
@@ -1394,23 +1441,17 @@ async function cargarTurnosCliente() {
 
                 if (!horariosPorFecha[etiqueta]) {
                     horariosPorFecha[etiqueta] = [];
+                    fechaDeEtiqueta[etiqueta] = fechaStr; // "YYYY-MM-DD" para ordenar
                 }
 
                 const hora = slot.hora_inicio.substring(0, 5); // "HH:MM"
                 horariosPorFecha[etiqueta].push(hora);
             });
 
-            // Ordenar fechas (extraer día/mes y comparar)
-            const fechasOrdenadas = Object.keys(horariosPorFecha).sort((a, b) => {
-                const fechaA = a.split(' ')[1]; // "23/02"
-                const fechaB = b.split(' ')[1]; // "24/02"
-                // Convertir a formato MMDD para comparar correctamente
-                const [diaA, mesA] = fechaA.split('/');
-                const [diaB, mesB] = fechaB.split('/');
-                const numA = parseInt(mesA + diaA);
-                const numB = parseInt(mesB + diaB);
-                return numA - numB;
-            });
+            // Ordenar fechas de la más cercana a la más lejana (por fecha completa YYYY-MM-DD)
+            const fechasOrdenadas = Object.keys(horariosPorFecha).sort((a, b) =>
+                String(fechaDeEtiqueta[a]).localeCompare(String(fechaDeEtiqueta[b]))
+            );
 
             // Renderizar profesional
             html += `
@@ -2107,9 +2148,28 @@ async function asistenteElegirProfesional(id) {
     document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando fechas...</p>';
     try {
         const rango = await fetch(`${API_BASE}/disponibilidad/rango/${id}`);
-        const fechas = await rango.json(); // array YYYY-MM-DD
+        let fechas = await rango.json(); // array YYYY-MM-DD
         document.getElementById('asistente-input').innerHTML = '';
-        if (!fechas.length) { _asistenteBurbuja('bot', '😕 No hay fechas disponibles para esta profesional. Probá con otra.'); return; }
+
+        // Servicios de días puntuales del mes (ej: Depilación Definitiva → días 5 y 20)
+        const srv = _asistenteEstado.servicio;
+        if (srv && srv.dias_disponibles) {
+            const dias = String(srv.dias_disponibles).split(',').map(d => parseInt(d, 10)).filter(n => !isNaN(n));
+            if (dias.length) {
+                fechas = fechas.filter(f => {
+                    const dia = parseInt(String(f).split('-')[2], 10);
+                    return dias.includes(dia);
+                });
+            }
+        }
+
+        if (!fechas.length) {
+            const restriccion = srv && srv.dias_disponibles
+                ? ` (este servicio solo se agenda los días ${String(srv.dias_disponibles).split(',').map(d => parseInt(d, 10)).filter(n => !isNaN(n)).join(' y ')} del mes)`
+                : '';
+            _asistenteBurbuja('bot', '😕 No hay fechas disponibles para esta profesional en esos días. Probá con otra.' + restriccion);
+            return;
+        }
         _asistenteBurbuja('opciones', fechas.slice(0, 10).map(f => {
             const d = new Date(f + 'T00:00:00');
             const label = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -2131,10 +2191,47 @@ async function asistenteElegirFecha(fecha) {
         const res = await fetch(`${API_BASE}/disponibilidad/${_asistenteEstado.profesional.id}/${fecha}`);
         const horas = await res.json(); // array de horas "HH:MM" o {hora}
         document.getElementById('asistente-input').innerHTML = '';
-        const lista = (Array.isArray(horas) ? horas : []).map(h => {
+        let lista = (Array.isArray(horas) ? horas : []).map(h => {
             const raw = typeof h === 'string' ? h : (h.hora || h.hora_inicio || '');
             return raw.length > 5 ? raw.substring(0, 5) : raw;
-        });
+        }).filter(Boolean);
+
+        // Servicios con horarios cada X minutos (ej: Depilación Definitiva → cada 20 min)
+        const srv = _asistenteEstado.servicio;
+        let pasoMin = null;
+        if (srv && srv.dias_disponibles) {
+            pasoMin = 20;
+        } else if (srv && Number(srv.duracion) > 0 && Number(srv.duracion) < 60) {
+            pasoMin = Number(srv.duracion);
+        }
+
+        // Horarios ya ocupados de ese profesional/fecha para excluirlos de la expansión
+        let ocupados = new Set();
+        try {
+            const oRes = await fetch(`${API_BASE}/horarios-ocupados/${_asistenteEstado.profesional.id}/${fecha}`);
+            const oData = await oRes.json();
+            if (Array.isArray(oData)) {
+                ocupados = new Set(oData.map(o => typeof o.hora_inicio === 'string' ? o.hora_inicio.substring(0, 5) : ''));
+            }
+        } catch (e) { /* si falla, seguimos sin excluir */ }
+
+        if (pasoMin && lista.length) {
+            // Expandir dentro del rango de las horas base: min → max en pasos de N minutos
+            const aMin = h => { const [hh, mm] = h.split(':').map(Number); return hh * 60 + mm; };
+            const aStr = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+            const mins = lista.map(aMin);
+            const min = Math.min(...mins);
+            const max = Math.max(...mins);
+            const expandidas = [];
+            for (let m = min; m <= max; m += pasoMin) {
+                const cand = aStr(m);
+                if (!ocupados.has(cand)) expandidas.push(cand);
+            }
+            lista = [...new Set(expandidas)];
+        } else {
+            lista = lista.filter(h => !ocupados.has(h));
+        }
+
         if (!lista.length) { _asistenteBurbuja('bot', '😕 No hay horarios libres ese día. Elegí otra fecha.'); return; }
         _asistenteBurbuja('opciones', lista.map(h =>
             `<button onclick="asistenteElegirHora('${h}')" style="display:inline-block;padding:10px 14px;margin:4px;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:700;">🕐 ${h}</button>`).join(''));
@@ -3321,12 +3418,11 @@ function cerrarCajaModal() {
     const modal = document.createElement('div');
     modal.id = 'modal-cerrar-caja';
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
-    const billetes = [2000, 1000, 500, 200, 100, 50, 20, 10];
-    const monedas = [10, 5, 2, 1, 0.5, 0.1];
+    const billetes = [20000, 10000, 2000, 1000, 500, 100];
     const fila = (v, tipo) => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;">
-            <span style="font-weight:600;color:#555;min-width:90px;">${tipo === 'billete' ? '💵' : '🪙'} $${v}</span>
-            <input type="number" min="0" step="1" value="0" data-denom="${v}" data-tipo="${tipo}" oninput="actualizarTotalArqueo()"
+            <span style="font-weight:600;color:#555;min-width:90px;">💵 $${v}</span>
+            <input type="number" min="0" step="1" value="0" data-denom="${v}" data-tipo="billete" oninput="actualizarTotalArqueo()"
                    style="width:80px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
             <span class="subtotal-arqueo" data-denom="${v}" style="font-weight:700;color:#28a745;min-width:70px;text-align:right;">$0.00</span>
         </div>`;
@@ -3337,8 +3433,6 @@ function cerrarCajaModal() {
             <div style="max-height:40vh;overflow-y:auto;padding-right:4px;">
                 <h4 style="margin:8px 0 6px;color:#555;font-size:0.9rem;">💵 Billetes</h4>
                 ${billetes.map(b => fila(b, 'billete')).join('')}
-                <h4 style="margin:10px 0 6px;color:#555;font-size:0.9rem;">🪙 Monedas</h4>
-                ${monedas.map(m => fila(m, 'moneda')).join('')}
             </div>
             <div style="margin-top:14px;background:#f9f9f9;border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
                 <span style="font-weight:700;color:#555;">💵 Total contado</span>
@@ -4028,6 +4122,23 @@ async function abrirModalCobro(turnoId, cliente, servicio, precio) {
             </div>
             <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
                 <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">💎 Adicionales</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;">
+                        <span style="font-size:0.9rem;color:#333;">💅 Piedrería <small style="color:#888;">($10000/uña)</small></span>
+                        <input type="number" id="adicional-piedreria" min="0" step="1" value="0" placeholder="cant. uñas"
+                               oninput="recalcularTotalModalCobro()"
+                               style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-size:0.9rem;box-sizing:border-box;width:100%;">
+                        <span id="subtotal-piedreria" style="font-weight:700;color:#28a745;text-align:right;min-width:70px;">$0.00</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-top:6px;">
+                        <span style="font-size:0.9rem;color:#333;">🎨 Diseños en manos <small style="color:#888;">($800/uña)</small></span>
+                        <input type="number" id="adicional-disenos" min="0" step="1" value="0" placeholder="cant. uñas"
+                               oninput="recalcularTotalModalCobro()"
+                               style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-size:0.9rem;box-sizing:border-box;width:100%;">
+                        <span id="subtotal-disenos" style="font-weight:700;color:#28a745;text-align:right;min-width:70px;">$0.00</span>
+                    </div>
+                </div>
+                <div>
                     <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto a cobrar ($)</label>
                     <input type="number" id="cobro-monto" value="${precioBase}" step="0.01" min="0"
                            style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
@@ -4064,6 +4175,21 @@ async function abrirModalCobro(turnoId, cliente, servicio, precio) {
     setTimeout(() => document.getElementById('cobro-monto')?.focus(), 80);
 }
 
+// Recalcula el total del modal sumando servicios + adicionales (piedrería/diseños)
+function recalcularTotalModalCobro() {
+    const base = (_turnoItemsActivos || []).reduce((s, it) => s + parseFloat(it.precio || 0), 0);
+    const cantPiedreria = parseInt(document.getElementById('adicional-piedreria')?.value || 0) || 0;
+    const cantDisenos = parseInt(document.getElementById('adicional-disenos')?.value || 0) || 0;
+    const subPiedreria = cantPiedreria * 10000;
+    const subDisenos = cantDisenos * 800;
+    const spP = document.getElementById('subtotal-piedreria');
+    const spD = document.getElementById('subtotal-disenos');
+    if (spP) spP.textContent = '$' + subPiedreria.toFixed(2);
+    if (spD) spD.textContent = '$' + subDisenos.toFixed(2);
+    const monto = document.getElementById('cobro-monto');
+    if (monto) monto.value = (base + subPiedreria + subDisenos).toFixed(2);
+}
+
 // Carga los items (servicios) del turno dentro del modal
 async function cargarItemsModalCobro(turnoId) {
     const cont = document.getElementById('cobro-items');
@@ -4074,6 +4200,7 @@ async function cargarItemsModalCobro(turnoId) {
         _turnoItemsActivos = Array.isArray(items) ? items : [];
         if (!_turnoItemsActivos.length) {
             cont.innerHTML = '<p style="color:#888;font-size:0.85rem;">Sin servicios registrados</p>';
+            recalcularTotalModalCobro();
             return;
         }
         const total = _turnoItemsActivos.reduce((s, it) => s + parseFloat(it.precio || 0), 0);
@@ -4088,6 +4215,7 @@ async function cargarItemsModalCobro(turnoId) {
                         style="background:#fff0f0;border:none;color:#dc3545;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">✖</button>
                 </span>
             </div>`).join('');
+        recalcularTotalModalCobro();
     } catch (e) {
         cont.innerHTML = '<p style="color:#dc3545;font-size:0.85rem;">Error al cargar servicios</p>';
     }
@@ -4155,11 +4283,16 @@ async function confirmarCobro(turnoId) {
         mostrarNotificacion('⚠️ Ingresá el monto a cobrar', 'error');
         return;
     }
+    const adicionales = [];
+    const cantPiedreria = parseInt(document.getElementById('adicional-piedreria')?.value || 0) || 0;
+    const cantDisenos = parseInt(document.getElementById('adicional-disenos')?.value || 0) || 0;
+    if (cantPiedreria > 0) adicionales.push({ nombre: 'Piedrería', tipo: 'extra', cantidad: cantPiedreria, precio_unitario: 10000, importe: cantPiedreria * 10000 });
+    if (cantDisenos > 0) adicionales.push({ nombre: 'Diseños en manos', tipo: 'extra', cantidad: cantDisenos, precio_unitario: 800, importe: cantDisenos * 800 });
     try {
         const res = await fetch(`${API_BASE}/caja/turnos/${turnoId}/cerrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ monto: parseFloat(monto), metodo_pago: metodo })
+            body: JSON.stringify({ monto: parseFloat(monto), metodo_pago: metodo, adicionales })
         });
         const data = await res.json();
         if (data.success) {
