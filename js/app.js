@@ -13,6 +13,17 @@ let _calendario_mes_actual = new Date();
 let _calendario_dias_seleccionados = {};
 let _calendario_paso_actual = 60;
 
+// Escapa texto para insertarlo seguro en innerHTML (previene XSS almacenado)
+function esc(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("🚀 Aplicación iniciada conectando a:", URL_BASE);
     const usuario = obtenerUsuarioActual();
@@ -1311,12 +1322,12 @@ async function cargarTurnosCliente() {
                         <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
                             <span style="font-size:1.3rem;">👤</span>
                             <div>
-                                <strong style="color:#333;display:block;">${t.cliente_nombre||t.cliente||'N/A'}</strong>
-                                <small style="color:#888;">📞 ${t.telefono||'N/A'}</small>
+                                <strong style="color:#333;display:block;">${esc(t.cliente_nombre||t.cliente||'N/A')}</strong>
+                                <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${t.servicio||'N/A'}</span>
+                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${esc(t.servicio||'N/A')}</span>
                             <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
                             <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
                         </div>
@@ -1595,12 +1606,12 @@ async function cargarTurnosProfesional() {
                                 <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
                                     <span style="font-size:1.3rem;">👤</span>
                                     <div>
-                                        <strong style="color:#333;display:block;">${t.cliente_nombre||t.cliente||'N/A'}</strong>
-                                        <small style="color:#888;">📞 ${t.telefono||'N/A'}</small>
-                                    </div>
-                                </div>
-                                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                                    <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${t.servicio||'N/A'}</span>
+<strong style="color:#333;display:block;">${esc(t.cliente_nombre||t.cliente||'N/A')}</strong>
+                                <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${esc(t.servicio||'N/A')}</span>
                                     <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
                                     <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
                                 </div>
@@ -1615,12 +1626,12 @@ async function cargarTurnosProfesional() {
                         <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
                             <span style="font-size:1.3rem;">👤</span>
                             <div>
-                                <strong style="color:#333;display:block;">${t.cliente_nombre||t.cliente||'N/A'}</strong>
-                                <small style="color:#888;">📞 ${t.telefono||'N/A'}</small>
+                                <strong style="color:#333;display:block;">${esc(t.cliente_nombre||t.cliente||'N/A')}</strong>
+                                <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${t.servicio||'N/A'}</span>
+                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${esc(t.servicio||'N/A')}</span>
                             <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
                             <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
                         </div>
@@ -2631,8 +2642,8 @@ function rptProf(nombre, turnos, desde, hasta) {
                     <tbody>
                         ${turnos.map((t,i)=>`
                         <tr style="background:${i%2===0?'white':'#fdf5f8'};border-bottom:1px solid #f0e0ea;">
-                            <td style="padding:6px 8px;">${t.cliente_nombre||t.cliente||'N/A'}</td>
-                            <td style="padding:6px 8px;">${t.servicio||'N/A'}</td>
+                            <td style="padding:6px 8px;">${esc(t.cliente_nombre||t.cliente||'N/A')}</td>
+                            <td style="padding:6px 8px;">${esc(t.servicio||'N/A')}</td>
                             <td style="padding:6px 8px;white-space:nowrap;">${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
                             <td style="padding:6px 8px;text-align:right;font-weight:700;">$${parseFloat(t.precio||0).toLocaleString()}</td>
                         </tr>`).join('')}
@@ -2741,15 +2752,15 @@ async function cargarTodosLosTurnos() {
                     <tr style="background:${i%2===0?'white':'#fdf5f8'};border-bottom:1px solid #f0e0ea;">
                         <td style="padding:10px 8px;font-weight:700;color:#C06C84;">#${t.id}</td>
                         <td style="padding:10px 8px;">
-                            <strong>${t.cliente_nombre||t.cliente||'N/A'}</strong>
-                            ${t.telefono&&t.telefono!='N/A'?`<br><small style="color:#888;">📞 ${t.telefono}</small>`:''}
+                            <strong>${esc(t.cliente_nombre||t.cliente||'N/A')}</strong>
+                            ${t.telefono&&t.telefono!='N/A'?`<br><small style="color:#888;">📞 ${esc(t.telefono)}</small>`:''}
                         </td>
                         <td style="padding:10px 8px;font-size:0.8rem;color:#777;">
-                            🔑 ${t.registrado_por||t.cliente||'N/A'}
-                            ${t.email?`<br><span style="color:#aaa;">📧 ${t.email}</span>`:''}
+                            🔑 ${esc(t.registrado_por||t.cliente||'N/A')}
+                            ${t.email?`<br><span style="color:#aaa;">📧 ${esc(t.email)}</span>`:''}
                         </td>
-                        <td style="padding:10px 8px;">${t.profesional||'N/A'}</td>
-                        <td style="padding:10px 8px;">${t.servicio||'N/A'}</td>
+                        <td style="padding:10px 8px;">${esc(t.profesional||'N/A')}</td>
+                        <td style="padding:10px 8px;">${esc(t.servicio||'N/A')}</td>
                         <td style="padding:10px 8px;white-space:nowrap;">${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
                         <td style="padding:10px 8px;white-space:nowrap;">
                             <span style="font-weight:700;">${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
@@ -2863,8 +2874,8 @@ async function cargarListaProfesionalesAdmin() {
             ${profs.map(p=>`
                 <div style="display:flex;align-items:center;justify-content:space-between;background:white;padding:14px 18px;border-radius:10px;border-left:3px solid #C06C84;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
                     <div>
-                        <strong style="color:#333;">${p.nombre}</strong>
-                        <small style="color:#888;display:block;">📧 ${p.email||'N/A'} &nbsp;📞 ${p.telefono||'N/A'}</small>
+                        <strong style="color:#333;">${esc(p.nombre)}</strong>
+                        <small style="color:#888;display:block;">📧 ${esc(p.email||'N/A')} &nbsp;📞 ${esc(p.telefono||'N/A')}</small>
                     </div>
                     <div style="display:flex;gap:8px;">
                     <button onclick="abrirModalEditarProfesional(${p.id})"
@@ -2899,23 +2910,23 @@ async function abrirModalEditarProfesional(id) {
                 <div style="display:flex;flex-direction:column;gap:14px;">
                     <div>
                         <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">👤 Nombre</label>
-                        <input type="text" id="ep-nombre" value="${(p.nombre||'').replace(/"/g,'&quot;')}" required
+                        <input type="text" id="ep-nombre" value="${esc(p.nombre||'')}" required
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                     <div>
                         <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📧 Email</label>
-                        <input type="email" id="ep-email" value="${(p.email||'').replace(/"/g,'&quot;')}" required
+                        <input type="email" id="ep-email" value="${esc(p.email||'')}" required
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                     <div>
                         <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📞 Teléfono</label>
-                        <input type="tel" id="ep-telefono" value="${(p.telefono||'').replace(/"/g,'&quot;')}"
+                        <input type="tel" id="ep-telefono" value="${esc(p.telefono||'')}"
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                     <div>
                         <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💆 Servicios asignados (Ctrl/Cmd para varios)</label>
                         <select id="ep-servicios" multiple style="width:100%;min-height:120px;padding:8px;border:2px solid #e0e0e0;border-radius:9px;box-sizing:border-box;">
-                            ${servicios.map(s => `<option value="${s.id}" ${(p.servicios||[]).includes(s.id) ? 'selected' : ''}>${s.nombre}</option>`).join('')}
+                            ${servicios.map(s => `<option value="${s.id}" ${(p.servicios||[]).includes(s.id) ? 'selected' : ''}>${esc(s.nombre)}</option>`).join('')}
                         </select>
                     </div>
                     <div>
@@ -3133,9 +3144,9 @@ async function cargarRecordatorios() {
             return `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #eef2e6;flex-wrap:wrap;">
                     <div style="flex:1;min-width:220px;">
-                        <strong>${t.cliente_nombre || 'Sin nombre'}</strong>
-                        <small style="display:block;color:#888;">${fechaLabel} · ${t.hora_inicio} · ${t.profesional}</small>
-                        <small style="display:block;color:#666;">📞 ${t.cliente_telefono || 'Sin teléfono'}</small>
+                        <strong>${esc(t.cliente_nombre || 'Sin nombre')}</strong>
+                        <small style="display:block;color:#888;">${esc(fechaLabel)} · ${esc(t.hora_inicio)} · ${esc(t.profesional)}</small>
+                        <small style="display:block;color:#666;">📞 ${esc(t.cliente_telefono || 'Sin teléfono')}</small>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         ${t.recordatorio_enviado
@@ -3216,7 +3227,7 @@ async function cargarRetiros() {
                 ${retiros.map(r => `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fdf5f8;border-left:3px solid #C06C84;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
-                            <strong>${r.profesional_nombre}</strong>
+                            <strong>${esc(r.profesional_nombre)}</strong>
                             <small style="display:block;color:#888;">${r.metodo_retiro === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'} · Bruto del día: $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: $${parseFloat(r.monto_estetica).toFixed(2)}</small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
@@ -3347,7 +3358,7 @@ function renderizarAperturaCaja(data) {
 
     const pagosHtml = tickets.length ? tickets.map((t, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
-            <span style="color:#444;"><strong>#${t.numero}</strong> <small style="color:#aaa;">${t.hora}hs</small> · ${t.cliente_nombre || 'Cliente'}${t.profesional_nombre ? ' · <span style="color:#C06C84;">' + t.profesional_nombre + '</span>' : ''}<br><small style="color:#777;">${itemsLegibles(t.items)}</small></span>
+            <span style="color:#444;"><strong>#${t.numero}</strong> <small style="color:#aaa;">${t.hora}hs</small> · ${esc(t.cliente_nombre || 'Cliente')}${t.profesional_nombre ? ' · <span style="color:#C06C84;">' + esc(t.profesional_nombre) + '</span>' : ''}<br><small style="color:#777;">${esc(itemsLegibles(t.items))}</small></span>
             <span><strong>${metodoIcon(t.metodo_pago)} $${parseFloat(t.total).toFixed(2)}</strong></span>
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">📭 Todavía no se cobró ningún turno del día.</p>';
 
@@ -3359,7 +3370,7 @@ function renderizarAperturaCaja(data) {
 
     const retirosHtml = retiros.length ? retiros.map((r, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
-            <span style="color:#555;"><strong>${r.profesional_nombre}</strong><br><small style="color:#aaa;">Bruto $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${r.porcentaje_retiro}%</small></span>
+            <span style="color:#555;"><strong>${esc(r.profesional_nombre)}</strong><br><small style="color:#aaa;">Bruto $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${r.porcentaje_retiro}%</small></span>
             <span style="font-weight:700;color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</span>
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">💡 Aún no se retiraron porcentajes. Se sugieren abajo según los cobros del día.</p>';
 
@@ -3638,8 +3649,8 @@ async function cargarTurnosCaja() {
                         <strong style="color:${t.tipo === 'sobreturno' ? '#6C3483' : '#C06C84'};font-size:1.1rem;">${t.hora_inicio}</strong>
                     </div>
                     <div>
-                        <strong style="color:#333;">${t.cliente_nombre || 'Cliente'}${t.tipo === 'sobreturno' ? ' <span style="background:#8E44AD;color:white;font-size:0.7rem;border-radius:6px;padding:2px 6px;font-weight:700;vertical-align:middle;">⏱️ SOBRETURNO</span>' : ''}</strong>
-                        <small style="color:#888;display:block;">💆 ${t.servicio}${parseInt(t.cant_items||1) > 1 ? ` <span style="background:#fdf0f4;color:#C06C84;border-radius:6px;padding:1px 6px;font-weight:700;">+${parseInt(t.cant_items)-1}</span>` : ''} · 👩‍💼 ${t.profesional || 'Sin profesional'}${t.cliente_telefono ? ' · 📞 ' + t.cliente_telefono : ''}</small>
+                        <strong style="color:#333;">${esc(t.cliente_nombre || 'Cliente')}${t.tipo === 'sobreturno' ? ' <span style="background:#8E44AD;color:white;font-size:0.7rem;border-radius:6px;padding:2px 6px;font-weight:700;vertical-align:middle;">⏱️ SOBRETURNO</span>' : ''}</strong>
+                        <small style="color:#888;display:block;">💆 ${esc(t.servicio)}${parseInt(t.cant_items||1) > 1 ? ` <span style="background:#fdf0f4;color:#C06C84;border-radius:6px;padding:1px 6px;font-weight:700;">+${parseInt(t.cant_items)-1}</span>` : ''} · 👩‍💼 ${esc(t.profesional || 'Sin profesional')}${t.cliente_telefono ? ' · 📞 ' + esc(t.cliente_telefono) : ''}</small>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;">
@@ -3658,8 +3669,8 @@ async function cargarTurnosCaja() {
                         <strong style="color:#777;font-size:1.1rem;text-decoration:line-through;">${t.hora_inicio}</strong>
                     </div>
                     <div>
-                        <strong style="color:#777;">${t.cliente_nombre || 'Cliente'}</strong>
-                        <small style="color:#aaa;display:block;">💆 ${t.servicio} · 👩‍💼 ${t.profesional || 'Sin profesional'}</small>
+                        <strong style="color:#777;">${esc(t.cliente_nombre || 'Cliente')}</strong>
+                        <small style="color:#aaa;display:block;">💆 ${esc(t.servicio)} · 👩‍💼 ${esc(t.profesional || 'Sin profesional')}</small>
                     </div>
                 </div>
                 <span style="background:#dc3545;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">❌ Cancelado</span>
@@ -4066,7 +4077,7 @@ async function verDetalleCaja(cajaId) {
         };
         const pagos = (d.tickets || []).map((t, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
-                <span style="color:#444;"><strong>#${t.numero}</strong> · ${t.hora}hs · ${t.cliente_nombre || 'Cliente'} · ${t.profesional_nombre || ''} ${itemsLegibles(t.items)}</span>
+                <span style="color:#444;"><strong>#${t.numero}</strong> · ${esc(t.hora)}hs · ${esc(t.cliente_nombre || 'Cliente')} · ${esc(t.profesional_nombre || '')} ${esc(itemsLegibles(t.items))}</span>
                 <span><strong>${metodoIcon(t.metodo_pago)} $${parseFloat(t.total).toFixed(2)}</strong></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin pagos.</p>';
 
@@ -4078,7 +4089,7 @@ async function verDetalleCaja(cajaId) {
 
         const retiros = (d.retiros || []).map((r, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
-                <span style="color:#444;"><strong>${r.profesional_nombre}</strong> · bruto $${parseFloat(r.monto_bruto).toFixed(2)} · ${r.porcentaje_retiro}%</span>
+                <span style="color:#444;"><strong>${esc(r.profesional_nombre)}</strong> · bruto $${parseFloat(r.monto_bruto).toFixed(2)} · ${r.porcentaje_retiro}%</span>
                 <span><strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</strong> <small style="color:#aaa;">${metodoIcon(r.metodo_retiro)}</small></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin retiros.</p>';
 
@@ -4240,7 +4251,7 @@ async function cargarItemsModalCobro(turnoId) {
         if (montoInput) montoInput.value = total.toFixed(2);
         cont.innerHTML = _turnoItemsActivos.map(it => `
             <div style="display:flex;justify-content:space-between;align-items:center;background:#f9f9f9;border-radius:8px;padding:8px 10px;">
-                <span style="font-size:0.9rem;">${it.nombre}</span>
+                <span style="font-size:0.9rem;">${esc(it.nombre)}</span>
                 <span style="display:flex;align-items:center;gap:8px;">
                     <strong style="color:#28a745;font-size:0.9rem;">$${parseFloat(it.precio || 0).toFixed(2)}</strong>
                     <button onclick="quitarServicioDelTurno(${turnoId}, ${it.id})" title="Quitar servicio"
@@ -4348,12 +4359,12 @@ async function confirmarCobro(turnoId) {
 // el CAE y reemplazar/complementar el contenido por el comprobante oficial.
 function imprimirTicket(t) {
     const itemsHtml = (t.items || []).map(it =>
-        `<tr><td style="padding:2px 0;">${it.servicio}</td><td style="padding:2px 0;text-align:right;">$${parseFloat(it.importe).toFixed(2)}</td></tr>`
+        `<tr><td style="padding:2px 0;">${esc(it.servicio)}</td><td style="padding:2px 0;text-align:right;">$${parseFloat(it.importe).toFixed(2)}</td></tr>`
     ).join('');
 
-    const cuitLine = t.local_cuit ? `<p style="margin:2px 0;">CUIT: ${t.local_cuit}</p>` : '';
-    const direccionLine = t.local_direccion ? `<p style="margin:2px 0;">${t.local_direccion}</p>` : '';
-    const telLine = t.local_telefono ? `<p style="margin:2px 0;">Tel: ${t.local_telefono}</p>` : '';
+    const cuitLine = t.local_cuit ? `<p style="margin:2px 0;">CUIT: ${esc(t.local_cuit)}</p>` : '';
+    const direccionLine = t.local_direccion ? `<p style="margin:2px 0;">${esc(t.local_direccion)}</p>` : '';
+    const telLine = t.local_telefono ? `<p style="margin:2px 0;">Tel: ${esc(t.local_telefono)}</p>` : '';
 
     const win = window.open('', '_blank', 'width=360,height=640');
     win.document.write(`<!DOCTYPE html>
@@ -4367,16 +4378,16 @@ function imprimirTicket(t) {
   @media print{ body{width:80mm;} }
 </style></head><body>
   <div class="center">
-    <h2 style="margin:4px 0;">${t.local_nombre}</h2>
+    <h2 style="margin:4px 0;">${esc(t.local_nombre)}</h2>
     ${cuitLine}${direccionLine}${telLine}
-    <p style="margin:2px 0;">Punto de Venta: ${t.punto_venta}</p>
+    <p style="margin:2px 0;">Punto de Venta: ${esc(t.punto_venta)}</p>
     <p style="margin:2px 0;">TICKET N° ${String(t.numero).padStart(6,'0')}</p>
-    <p style="margin:2px 0;">${t.fecha_emision}</p>
+    <p style="margin:2px 0;">${esc(t.fecha_emision)}</p>
   </div>
   <hr>
-  <p>${t.cliente_nombre ? 'Cliente: ' + t.cliente_nombre : ''}</p>
-  ${t.cliente_telefono ? '<p>Tel: ' + t.cliente_telefono + '</p>' : ''}
-  ${t.profesional ? '<p>Profesional: ' + t.profesional + '</p>' : ''}
+  <p>${t.cliente_nombre ? 'Cliente: ' + esc(t.cliente_nombre) : ''}</p>
+  ${t.cliente_telefono ? '<p>Tel: ' + esc(t.cliente_telefono) + '</p>' : ''}
+  ${t.profesional ? '<p>Profesional: ' + esc(t.profesional) + '</p>' : ''}
   <table>
     <thead><tr><th align="left">Detalle</th><th align="right">Importe</th></tr></thead>
     <tbody>${itemsHtml}</tbody>
@@ -4388,7 +4399,7 @@ function imprimirTicket(t) {
     <p class="bold" style="margin:2px 0;font-size:14px;">TOTAL: $${parseFloat(t.total).toFixed(2)}</p>
   </div>
   <hr>
-  <p style="margin:2px 0;">Método de pago: ${t.metodo_pago}</p>
+  <p style="margin:2px 0;">Método de pago: ${esc(t.metodo_pago)}</p>
   <div class="footer">
     <p>Comprobante NO FISCAL</p>
     <p>Gracias por su visita. ¡Vuelva pronto!</p>
@@ -4430,7 +4441,7 @@ async function cargarClientesFrecuentes() {
         const data = await res.json();
         clientesFrecuentes = Array.isArray(data) ? data : [];
         datalist.innerHTML = clientesFrecuentes.map(c =>
-            `<option value="${(c.nombre || '').replace(/"/g, '&quot;')}">📞 ${c.telefono || 'sin tel'}${c.fecha_nacimiento ? ' · 🎂 ' + formatearFechaNacimiento(c.fecha_nacimiento) : ''}</option>`
+            `<option value="${esc(c.nombre || '')}">📞 ${esc(c.telefono || 'sin tel')}${c.fecha_nacimiento ? ' · 🎂 ' + esc(formatearFechaNacimiento(c.fecha_nacimiento)) : ''}</option>`
         ).join('');
     } catch (e) { console.error('❌ No se pudieron cargar clientes frecuentes:', e.message); }
 }
@@ -4468,10 +4479,10 @@ async function cargarCumpleanos() {
             return `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #f3e3ec;flex-wrap:wrap;${c.cumple_hoy ? 'background:#fff3cd;border-radius:9px;padding:11px;' : ''}">
                     <div style="flex:1;min-width:220px;">
-                        <strong>${c.nombre || 'Sin nombre'}</strong>
+                        <strong>${esc(c.nombre || 'Sin nombre')}</strong>
                         ${c.cumple_hoy ? '<span style="color:#B7950B;font-weight:700;margin-left:6px;">🎂 CUMPLE HOY</span>' : ''}
-                        <small style="display:block;color:#888;">🎂 ${fechaCumpleLabel(c.fecha_nacimiento, c.dia_cumple)}</small>
-                        <small style="display:block;color:#666;">📞 ${c.telefono || 'Sin teléfono'}</small>
+                        <small style="display:block;color:#888;">🎂 ${esc(fechaCumpleLabel(c.fecha_nacimiento, c.dia_cumple))}</small>
+                        <small style="display:block;color:#666;">📞 ${esc(c.telefono || 'Sin teléfono')}</small>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         ${waNum
@@ -4532,7 +4543,7 @@ async function cargarCupones() {
             return `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #eee;flex-wrap:wrap;">
                     <div style="flex:1;min-width:220px;">
-                        <strong>${cp.cliente_nombre || 'Cliente'}</strong> — <span style="color:#6A1B9A;">🎁 ${cp.servicio_nombre || 'Servicio'}</span>
+                        <strong>${esc(cp.cliente_nombre || 'Cliente')}</strong> — <span style="color:#6A1B9A;">🎁 ${esc(cp.servicio_nombre || 'Servicio')}</span>
                         <small style="display:block;color:#888;">${esEnviado ? 'Enviado ' + (cp.fecha_envio ? new Date(cp.fecha_envio).toLocaleString('es-AR') : '') : 'Autorizado ' + new Date(cp.fecha_autorizado).toLocaleString('es-AR')}</small>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -4569,7 +4580,7 @@ async function llenarSelectCupones() {
         if (cliSel) {
             cliSel.innerHTML = '<option value="">Seleccionar cliente...</option>' +
                 (Array.isArray(cli) ? cli.map(c =>
-                    `<option value="${c.id}">${c.nombre || 'Sin nombre'} — cumple ${fechaCumpleLabel(c.fecha_nacimiento, c.dia_cumple)}</option>`
+                    `<option value="${c.id}">${esc(c.nombre || 'Sin nombre')} — cumple ${esc(fechaCumpleLabel(c.fecha_nacimiento, c.dia_cumple))}</option>`
                 ).join('') : '');
         }
         if (srvSel) {

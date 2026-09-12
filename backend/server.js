@@ -1,5 +1,22 @@
-﻿const express = require('express');
+﻿// Cargar variables de entorno desde backend/.env (o del entorno real en producción)
+require('./loadEnv');
+
+// Validación de configuración crítica en producción: si falta alguna variable
+// imprescindible se corta la ejecución para no arrancar con credenciales vacías.
+const ENV_REQUERIDAS = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET'];
+if (process.env.NODE_ENV === 'production') {
+    const faltantes = ENV_REQUERIDAS.filter(v => !process.env[v]);
+    if (faltantes.length) {
+        console.error('❌ Configuración incompleta en producción. Faltan variables de entorno:');
+        faltantes.forEach(v => console.error('   - ' + v));
+        console.error('Definilas antes de iniciar el servidor.');
+        process.exit(1);
+    }
+}
+
+const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -40,6 +57,9 @@ const pool = require('./database');
 })(); 
 
 const app = express();
+
+// Helmet: cabeceras HTTP de seguridad (X-Frame-Options, nosniff, etc.)
+app.use(helmet());
 
 // ============================================
 //  CONFIGURACIÃ“N DE SEGURIDAD
@@ -157,15 +177,8 @@ function autorizar(rolesPermitidos) {
     };
 }
 
-// Manejo de errores de CORS: responder un error limpio sin exponer detalles
-app.use((err, req, res, next) => {
-    if (err.message === 'Origen no permitido por CORS') {
-        return res.status(403).json({ success: false, message: 'Origen no permitido' });
-    }
-    console.error('âŒ Error no controlado:', err.message);
-    res.status(500).json({ success: false, message: 'Error interno del servidor' });
-});
-
+// ============================================
+//  AUTENTICACIÓN - RUTA DE LOGIN
 // ============================================
 //  AUTENTICACIÃ“N - RUTA DE LOGIN
 // ============================================
@@ -1105,9 +1118,19 @@ app.get('/api/horarios-ocupados/:profesionalId/:fecha', autenticar, async (req, 
 // Todos los turnos (Admin)
 app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
-        // Extraer parÃ¡metros de filtro
-        const { profesional_id, fecha_desde, fecha_hasta } = req.query;
+        // Extraer parámetros de filtro + paginación
+        const { profesional_id, fecha_desde, fecha_hasta, page, limit } = req.query;
         
+        // Sin filtros de fecha: limitar por defecto a los últimos 90 días
+        const fechaDefault = new Date();
+        fechaDefault.setDate(fechaDefault.getDate() - 90);
+        const fechaMin = fechaDefault.toISOString().slice(0, 10);
+
+        // Paginación: page empieza en 1, limit por defecto 500 (máx 1000)
+        const pagina = Math.max(1, parseInt(page, 10) || 1);
+        const porPagina = Math.min(1000, Math.max(1, parseInt(limit, 10) || 500));
+        const offset = (pagina - 1) * porPagina;
+
         let query = `
             SELECT t.id, t.fecha, t.hora_inicio,
                    t.estado,
@@ -1135,6 +1158,9 @@ app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), a
         if (fecha_desde) {
             query += ' AND t.fecha >= ?';
             params.push(fecha_desde);
+        } else {
+            query += ' AND t.fecha >= ?';
+            params.push(fechaMin);
         }
         
         if (fecha_hasta) {
@@ -1142,12 +1168,13 @@ app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), a
             params.push(fecha_hasta);
         }
         
-        query += ' ORDER BY t.fecha DESC, t.hora_inicio DESC';
+        query += ' ORDER BY t.fecha DESC, t.hora_inicio DESC LIMIT ? OFFSET ?';
+        params.push(porPagina, offset);
         
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (error) {
-        console.error('âŒ Error turnos todos:', error.message);
+        console.error('❌ Error turnos todos:', error.message);
         res.status(500).json({ error: 'Error al obtener los turnos' });
     }
 });
@@ -1241,7 +1268,10 @@ app.get('/api/turnos/profesional/:id', autenticar, async (req, res) => {
     if (req.usuario.rol !== 'admin' && parseInt(req.params.id) !== req.usuario.id) {
         return res.status(403).json({ success: false, message: 'No tenÃ©s permiso para ver estos turnos' });
     }
-    try {
+try {
+        const fechaDefault = new Date();
+        fechaDefault.setDate(fechaDefault.getDate() - 90);
+        const fechaMin = fechaDefault.toISOString().slice(0, 10);
         const [rows] = await pool.query(
             `SELECT t.id, t.fecha, t.hora_inicio,
                     COALESCE(t.cliente_nombre, u.nombre)     as cliente_nombre,
@@ -1252,12 +1282,14 @@ app.get('/api/turnos/profesional/:id', autenticar, async (req, res) => {
              JOIN servicios s ON t.servicio_id = s.id 
              JOIN usuarios u ON t.cliente_id = u.id
              WHERE t.profesional_id = ? 
-             ORDER BY t.fecha ASC, t.hora_inicio ASC`,
-            [req.params.id]
+               AND t.fecha >= ?
+             ORDER BY t.fecha ASC, t.hora_inicio ASC
+             LIMIT 500`,
+            [req.params.id, fechaMin]
         );
         res.json(rows || []);
     } catch (error) {
-        console.error('âŒ Error turnos profesional:', error.message);
+        console.error('❌ Error turnos profesional:', error.message);
         res.status(500).json({ error: 'Error al obtener los turnos' });
     }
 });
@@ -1268,19 +1300,20 @@ app.get('/api/turnos/cliente/:id', autenticar, async (req, res) => {
     if (req.usuario.rol !== 'admin' && parseInt(req.params.id) !== req.usuario.id) {
         return res.status(403).json({ success: false, message: 'No tenÃ©s permiso para ver estos turnos' });
     }
-    try {
+try {
         const [rows] = await pool.query(
             `SELECT t.id, t.fecha, t.hora_inicio, t.estado, s.nombre as servicio_nombre, u.nombre as profesional_nombre
              FROM turnos t 
              JOIN servicios s ON t.servicio_id = s.id 
              JOIN usuarios u ON t.profesional_id = u.id
              WHERE t.cliente_id = ? 
-             ORDER BY t.fecha DESC, t.hora_inicio DESC`,
+             ORDER BY t.fecha DESC, t.hora_inicio DESC
+             LIMIT 500`,
             [req.params.id]
         );
         res.json(rows || []);
     } catch (error) {
-        console.error('âŒ Error turnos cliente:', error.message);
+        console.error('❌ Error turnos cliente:', error.message);
         res.status(500).json({ error: 'Error al obtener los turnos' });
     }
 });
@@ -1291,17 +1324,18 @@ app.get('/api/turnos/cliente/:id', autenticar, async (req, res) => {
 
 // Listar clientes frecuentes (admin / recepcionista)
 app.get('/api/clientes', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
-    try {
+try {
         const [rows] = await pool.query(
             `SELECT id, nombre, email, telefono, fecha_nacimiento, direccion, notas,
                     fecha_ultima_visita, activo
              FROM clientes
              WHERE activo = 1
-             ORDER BY nombre ASC`
+             ORDER BY nombre ASC
+             LIMIT 1000`
         );
         res.json(rows);
     } catch (e) {
-        console.error('âŒ Error clientes:', e.message);
+        console.error('❌ Error clientes:', e.message);
         res.status(500).json({ error: 'Error al obtener clientes' });
     }
 });
@@ -1387,7 +1421,7 @@ app.post('/api/cupones', autenticar, autorizar(['admin']), async (req, res) => {
 
 // Listar cupones (admin y recepcionista ven todos, con estado)
 app.get('/api/cupones', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
-    try {
+try {
         const [rows] = await pool.query(
             `SELECT cp.id, cp.cliente_id, cp.servicio_id, cp.estado, cp.fecha_autorizado, cp.fecha_envio,
                     c.nombre as cliente_nombre, c.telefono as cliente_telefono,
@@ -1395,11 +1429,12 @@ app.get('/api/cupones', autenticar, autorizar(['admin','recepcionista']), async 
              FROM cupones cp
              LEFT JOIN clientes c ON cp.cliente_id = c.id
              LEFT JOIN servicios s ON cp.servicio_id = s.id
-             ORDER BY (cp.estado = 'autorizado') DESC, cp.fecha_autorizado DESC`
+             ORDER BY (cp.estado = 'autorizado') DESC, cp.fecha_autorizado DESC
+             LIMIT 500`
         );
         res.json(rows);
     } catch (e) {
-        console.error('âŒ Error cupones:', e.message);
+        console.error('❌ Error cupones:', e.message);
         res.status(500).json({ error: 'Error al obtener cupones' });
     }
 });
@@ -2525,7 +2560,19 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============================================
-// ðŸš€ INICIAR SERVIDOR
+//  MANEJO DE ERRORES (al final, después de todas las rutas)
+// ============================================
+// Manejo de errores de CORS: responder un error limpio sin exponer detalles
+app.use((err, req, res, next) => {
+    if (err.message === 'Origen no permitido por CORS') {
+        return res.status(403).json({ success: false, message: 'Origen no permitido' });
+    }
+    console.error('❌ Error no controlado:', err.message);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+});
+
+// ============================================
+//  INICIAR SERVIDOR
 // ============================================
 const PORT = process.env.PORT || 3000;
 

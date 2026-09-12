@@ -10,3 +10,5 @@ node_modules/
 *verificar_db*.js
 *TiDB*Cloud*.md
 *credentials*
+*diagnostico*.js
+*migracion*.js
