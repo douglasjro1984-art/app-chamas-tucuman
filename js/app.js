@@ -2320,6 +2320,7 @@ function showSection(sectionId) {
         cargarEstadisticas();
         cargarReporteCaja();
         cargarGastosAdmin();
+        cargarHistorialCajas();
     }
     if (sectionId === 'gestionar-horarios')      cargarGestionHorarios();
 
@@ -3181,12 +3182,6 @@ async function cargarEstadoCaja() {
                 </div>`;
         } else {
             const c = data.caja;
-            const totEf = parseFloat(c.total_efectivo || 0);
-            const totTr = parseFloat(c.total_transferencia || 0);
-            const totDb = parseFloat(c.total_debito || 0);
-            const total = totEf + totTr + totDb;
-            const gastos = data.gastos || [];
-            const totalGastos = gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
             const avisoAnterior = data.dia_anterior ? `
                 <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                     <div style="display:flex;align-items:center;gap:10px;">
@@ -3198,40 +3193,80 @@ async function cargarEstadoCaja() {
                     </div>
                     <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:10px 18px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">🔒 Arqueo y Cierre</button>
                 </div>` : '';
-            cont.innerHTML = avisoAnterior + `
-                <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #28a745;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
-                        <div>
-                            <h3 style="margin:0;color:#28a745;">🟢 Caja Abierta</h3>
-                            <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">
-                                Fondo inicial: <strong>$${c.monto_inicial ? parseFloat(c.monto_inicial).toFixed(2) : '0.00'}</strong>
-                                · Cobrado: <strong style="color:#28a745;">$${total.toFixed(2)}</strong>
-                                ${totalGastos ? ' · 🧾 Gastos: <strong style="color:#dc3545;">-$' + totalGastos.toFixed(2) + '</strong>' : ''}
-                                ${c.cajero_nombre ? ' · 👤 ' + c.cajero_nombre : ''}
-                            </p>
-                        </div>
-                        <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔒 Arqueo y Cierre</button>
-                    </div>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:14px;">
-                        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💵 Efectivo</small><br><strong>$${totEf.toFixed(2)}</strong></div>
-                        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">🏦 Transferencia</small><br><strong>$${totTr.toFixed(2)}</strong></div>
-                        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💳 Débito</small><br><strong>$${totDb.toFixed(2)}</strong></div>
-                    </div>
-                    ${gastos.length ? `
-                    <div style="margin-top:14px;border-top:1px dashed #ddd;padding-top:12px;">
-                        <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">🧾 Gastos registrados en esta caja</h4>
-                        ${gastos.map(g => `
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#fdf5f8;border-radius:8px;margin-bottom:5px;font-size:0.88rem;">
-                                <span style="color:#555;"><strong>${g.tipo === 'fijo' ? '📌' : '🛒'} ${g.descripcion}</strong> · ${g.metodo_pago}</span>
-                                <span style="font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</span>
-                            </div>`).join('')}
-                    </div>` : ''}
-                </div>`;
+            cont.innerHTML = avisoAnterior + renderizarAperturaCaja(data);
         }
     } catch (e) {
         console.error('❌ Error estado caja:', e);
         cont.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar el estado de la caja</p>';
     }
+}
+
+// Renderiza la apertura del día con pagos, gastos y retiros de la caja abierta
+function renderizarAperturaCaja(data) {
+    const c = data.caja;
+    const tickets = data.tickets || [];
+    const gastos = data.gastos || [];
+    const retiros = data.retiros || [];
+    const metodoIcon = (m) => m === 'efectivo' ? '💵' : m === 'transferencia' ? '🏦' : '💳';
+    const itemsLegibles = (jsonStr) => {
+        try {
+            const arr = JSON.parse(jsonStr);
+            if (Array.isArray(arr) && arr.length) return arr.map(x => x.servicio || 'Servicio').join(' + ');
+        } catch (e) {}
+        return '';
+    };
+
+    const pagosHtml = tickets.length ? tickets.map((t, i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
+            <span style="color:#444;"><strong>#${t.numero}</strong> <small style="color:#aaa;">${t.hora}hs</small> · ${t.cliente_nombre || 'Cliente'}${t.profesional_nombre ? ' · <span style="color:#C06C84;">' + t.profesional_nombre + '</span>' : ''}<br><small style="color:#777;">${itemsLegibles(t.items)}</small></span>
+            <span><strong>${metodoIcon(t.metodo_pago)} $${parseFloat(t.total).toFixed(2)}</strong></span>
+        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">📭 Todavía no se cobró ningún turno del día.</p>';
+
+    const gastosHtml = gastos.length ? gastos.map((g, i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;">
+            <span style="color:#555;"><strong>${g.tipo === 'fijo' ? '📌' : '🛒'} ${g.descripcion}</strong><br><small style="color:#aaa;">${metodoIcon(g.metodo_pago)} ${g.metodo_pago}</small></span>
+            <span style="font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</span>
+        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">✅ Sin gastos registrados.</p>';
+
+    const retirosHtml = retiros.length ? retiros.map((r, i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
+            <span style="color:#555;"><strong>${r.profesional_nombre}</strong><br><small style="color:#aaa;">Bruto $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${r.porcentaje_retiro}%</small></span>
+            <span style="font-weight:700;color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</span>
+        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">💡 Aún no se retiraron porcentajes. Se sugieren abajo según los cobros del día.</p>';
+
+    return `
+        <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #28a745;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px dashed #ddd;padding-bottom:12px;">
+                <div>
+                    <h3 style="margin:0;color:#28a745;">🟢 Apertura de Caja del Día</h3>
+                    <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">
+                        Fondo inicial: <strong>$${c.monto_inicial ? parseFloat(c.monto_inicial).toFixed(2) : '0.00'}</strong> ·
+                        Cobrado: <strong style="color:#28a745;">$${(parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0)).toFixed(2)}</strong>
+                        ${c.cajero_nombre ? ' · 👤 ' + c.cajero_nombre : ''}
+                    </p>
+                </div>
+                <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔒 Arqueo y Cierre</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:14px 0;">
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💵 Efectivo</small><br><strong>$${parseFloat(c.total_efectivo || 0).toFixed(2)}</strong></div>
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">🏦 Transferencia</small><br><strong>$${parseFloat(c.total_transferencia || 0).toFixed(2)}</strong></div>
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💳 Débito</small><br><strong>$${parseFloat(c.total_debito || 0).toFixed(2)}</strong></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+                <div>
+                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">💳 Pagos de clientes (${tickets.length})</h4>
+                    ${pagosHtml}
+                </div>
+                <div>
+                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">${gastos.length ? '🧾 Gastos (' + gastos.length + ')' : '🧾 Gastos del día'}</h4>
+                    ${gastosHtml}
+                </div>
+                <div>
+                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">💸 Retiros de profesionales (${retiros.length})</h4>
+                    ${retirosHtml}
+                </div>
+            </div>
+        </div>`;
 }
 
 // Modal para abrir la caja del día
@@ -3810,6 +3845,158 @@ async function cargarReporteCaja() {
             </div>`;
     } catch (e) {
         container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar el reporte</p>';
+    }
+}
+
+// =====================================================
+// 🏦 APERTURAS Y CIERRES DE CAJA (historial por día)
+// =====================================================
+const cacheDetalleCajas = {};
+
+async function cargarHistorialCajas() {
+    const container = document.getElementById('historial-cajas');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">⏳ Cargando historial...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/caja/historial`);
+        const cajas = await res.json();
+        if (!Array.isArray(cajas) || !cajas.length) {
+            container.innerHTML = '<div class="mensaje-vacio"><h3>No hay cajas registradas</h3></div>';
+            return;
+        }
+        const fmt = (f) => String(f || '').slice(0, 10).split('-').reverse().join('/');
+        const fmtHora = (f) => String(f || '').slice(11, 16);
+        container.innerHTML = `
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:800px;">
+                    <thead><tr style="background:#B9770E;color:white;">
+                        <th style="padding:10px 8px;">Fecha</th>
+                        <th style="padding:10px 8px;">Estado</th>
+                        <th style="padding:10px 8px;">Cajera</th>
+                        <th style="padding:10px 8px;">Apertura</th>
+                        <th style="padding:10px 8px;">💵 Efect.</th>
+                        <th style="padding:10px 8px;">🏦 Transf.</th>
+                        <th style="padding:10px 8px;">💳 Débito</th>
+                        <th style="padding:10px 8px;">💰 Cobrado</th>
+                        <th style="padding:10px 8px;">🧾 Gastos</th>
+                        <th style="padding:10px 8px;">💸 Retiros</th>
+                        <th style="padding:10px 8px;">🔒 Cierre</th>
+                        <th style="padding:10px 8px;"></th>
+                    </tr></thead>
+                    <tbody>
+                    ${cajas.map((c, i) => `
+                        <tr style="background:${i % 2 === 0 ? 'white' : '#fdf7ea'};border-bottom:1px solid #f0e0ea;">
+                            <td style="padding:10px 8px;font-weight:700;color:#B9770E;">${fmt(c.fecha)}</td>
+                            <td style="padding:10px 8px;">${c.estado === 'abierta' ? '<span style="background:#e8f8f0;color:#1aa851;padding:3px 8px;border-radius:6px;font-weight:700;">🟢 Abierta</span>' : '<span style="background:#fdf5f8;color:#C06C84;padding:3px 8px;border-radius:6px;font-weight:700;">🔴 Cerrada</span>'}</td>
+                            <td style="padding:10px 8px;">${c.cajero_nombre || '—'}<br><small style="color:#aaa;">${fmtHora(c.abierta_at)}hs</small></td>
+                            <td style="padding:10px 8px;">$${parseFloat(c.monto_inicial || 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${parseFloat(c.efectivo || 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${parseFloat(c.transferencia || 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${parseFloat(c.debito || 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;font-weight:700;">$${parseFloat(c.total_cobrado || 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;color:#dc3545;">-$${Number(c.total_gastos || 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;color:#C06C84;">-$${Number(c.total_retiros || 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? '$' + Number(c.monto_final || 0).toFixed(2) + '<br><small style="color:#aaa;font-weight:400;">' + fmtHora(c.cerrada_at) + 'hs</small>' : '—'}</td>
+                            <td style="padding:10px 8px;">
+                                <button title="Ver detalle completo" onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">👁️ Ver</button>
+                            </td>
+                        </tr>
+                        <tr id="detalle-caja-${c.id}" style="display:none;">
+                            <td colspan="12" style="padding:0;background:#fffdf7;"></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    } catch (e) {
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar el historial de cajas</p>';
+    }
+}
+
+async function verDetalleCaja(cajaId) {
+    const row = document.getElementById(`detalle-caja-${cajaId}`);
+    const td = row?.cells?.[0];
+    if (!row || !td) return;
+    const visible = row.style.display !== 'none';
+    if (visible) { row.style.display = 'none'; return; }
+
+    if (cacheDetalleCajas[cajaId]) {
+        td.innerHTML = cacheDetalleCajas[cajaId];
+        row.style.display = 'table-row';
+        return;
+    }
+    td.innerHTML = '<p style="color:#888;text-align:center;padding:14px;">⏳ Cargando detalle...</p>';
+    row.style.display = 'table-row';
+    try {
+        const res = await fetch(`${API_BASE}/caja/historial/${cajaId}`);
+        const d = await res.json();
+        const fmtHora = (f) => String(f || '').slice(11, 16);
+        const metodoIcon = (m) => m === 'efectivo' ? '💵' : m === 'transferencia' ? '🏦' : '💳';
+        const itemsLegibles = (jsonStr) => {
+            try {
+                const arr = JSON.parse(jsonStr);
+                if (Array.isArray(arr) && arr.length) return arr.map(x => x.servicio || 'Servicio').join(' + ');
+            } catch (e) {}
+            return '';
+        };
+        const pagos = (d.tickets || []).map((t, i) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
+                <span style="color:#444;"><strong>#${t.numero}</strong> · ${t.hora}hs · ${t.cliente_nombre || 'Cliente'} · ${t.profesional_nombre || ''} ${itemsLegibles(t.items)}</span>
+                <span><strong>${metodoIcon(t.metodo_pago)} $${parseFloat(t.total).toFixed(2)}</strong></span>
+            </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin pagos.</p>';
+
+        const gastos = (d.gastos || []).map((g, i) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
+                <span style="color:#444;"><strong>${g.tipo === 'fijo' ? '📌' : '🛒'} ${g.descripcion}</strong> · ${metodoIcon(g.metodo_pago)}</span>
+                <span><strong style="color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</strong></span>
+            </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin gastos.</p>';
+
+        const retiros = (d.retiros || []).map((r, i) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
+                <span style="color:#444;"><strong>${r.profesional_nombre}</strong> · bruto $${parseFloat(r.monto_bruto).toFixed(2)} · ${r.porcentaje_retiro}%</span>
+                <span><strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</strong> <small style="color:#aaa;">${metodoIcon(r.metodo_retiro)}</small></span>
+            </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin retiros.</p>';
+
+        const arqueo = (d.arqueo || []).map((a, i) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;">
+                <span style="color:#444;">${a.tipo === 'moneda' ? '🪙' : '💵'} $${a.denominacion} × ${a.cantidad}</span>
+                <span><strong>$${parseFloat(a.subtotal).toFixed(2)}</strong></span>
+            </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin arqueo registrado.</p>';
+
+        const c = d.caja || {};
+        const esperado = parseFloat(c.monto_inicial || 0) + parseFloat(d.total_ventas || 0);
+        const diferencia = c.estado === 'cerrada' ? (parseFloat(c.monto_final || 0) - esperado) : null;
+
+        td.innerHTML = `
+            <div style="padding:16px 20px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px;">
+                    <div style="background:#fdf7ea;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Apertura</small><br><strong>$${parseFloat(c.monto_inicial || 0).toFixed(2)}</strong></div>
+                    <div style="background:#e8f8f0;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Cobrado</small><br><strong style="color:#1aa851;">$${parseFloat(d.total_ventas || 0).toFixed(2)}</strong></div>
+                    <div style="background:#fdf5f8;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Esperado</small><br><strong>$${esperado.toFixed(2)}</strong></div>
+                    <div style="background:#fdf5f8;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Contado (cierre)</small><br><strong>${c.estado === 'cerrada' ? '$' + parseFloat(c.monto_final || 0).toFixed(2) : '—'}</strong></div>
+                    <div style="background:${diferencia === null ? '#f0f0f0' : (diferencia === 0 ? '#e8f8f0' : (diferencia < 0 ? '#fdeaea' : '#fff8e1'))};border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Diferencia</small><br><strong style="color:${diferencia === null ? '#888' : (diferencia === 0 ? '#1aa851' : (diferencia < 0 ? '#dc3545' : '#B9770E'))};">${diferencia === null ? '—' : (diferencia >= 0 ? '+' : '') + diferencia.toFixed(2)}</strong></div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;">
+                    <div>
+                        <strong style="color:#555;">💳 Pagos de clientes (${(d.tickets || []).length})</strong>
+                        <div style="margin-top:6px;">${pagos}</div>
+                    </div>
+                    <div>
+                        <strong style="color:#555;">🧾 Gastos (${(d.gastos || []).length})</strong>
+                        <div style="margin-top:6px;">${gastos}</div>
+                    </div>
+                    <div>
+                        <strong style="color:#555;">💸 Retiros (${(d.retiros || []).length})</strong>
+                        <div style="margin-top:6px;">${retiros}</div>
+                    </div>
+                    <div>
+                        <strong style="color:#555;">🪙 Arqueo del cierre</strong>
+                        <div style="margin-top:6px;">${arqueo}</div>
+                    </div>
+                </div>
+            </div>`;
+        cacheDetalleCajas[cajaId] = td.innerHTML;
+    } catch (e) {
+        td.innerHTML = '<p style="color:#dc3545;text-align:center;padding:14px;">❌ Error al cargar el detalle</p>';
     }
 }
 

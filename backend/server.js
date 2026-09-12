@@ -1895,7 +1895,31 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
         const [gastos] = await pool.query(
             'SELECT id, tipo, descripcion, monto, metodo_pago, fecha FROM gastos WHERE caja_id = ? ORDER BY id', [caja[0].id]
         );
-        res.json({ abierta: true, dia_anterior: caja[0].es_hoy !== 1 && caja[0].es_hoy !== '1' && caja[0].es_hoy !== true, caja: caja[0], gastos });
+        const [tickets] = await pool.query(
+            `SELECT t.id, t.numero, DATE_FORMAT(t.fecha_emision, '%H:%i') as hora, t.cliente_nombre,
+                    t.profesional_nombre, t.items, t.total, t.metodo_pago
+             FROM tickets t WHERE t.caja_id = ? ORDER BY t.id`, [caja[0].id]
+        );
+        const [retiros] = await pool.query(
+            `SELECT id, profesional_nombre, monto_bruto, porcentaje_retiro, monto_retirado, monto_estetica, metodo_retiro
+             FROM retiros WHERE caja_id = ? ORDER BY id`, [caja[0].id]
+        );
+        const [sugerencias] = await pool.query(
+            `SELECT u.id AS profesional_id, u.nombre AS profesional_nombre, u.porcentaje_retiro,
+                    COALESCE(SUM(t.precio), 0) AS cobrado_hoy, COUNT(t.id) AS turnos_cobrados
+             FROM usuarios u
+             LEFT JOIN turnos t ON t.profesional_id = u.id
+                  AND t.estado = 'cobrado' AND t.fecha = CURDATE()
+             WHERE u.rol = 'profesional'
+             GROUP BY u.id, u.nombre, u.porcentaje_retiro
+             HAVING cobrado_hoy > 0
+             ORDER BY u.nombre`
+        );
+        res.json({
+            abierta: true,
+            dia_anterior: caja[0].es_hoy !== 1 && caja[0].es_hoy !== '1' && caja[0].es_hoy !== true,
+            caja: caja[0], gastos, tickets, retiros, sugerencias
+        });
     } catch (e) {
         console.error('❌ Error caja estado:', e.message);
         res.status(500).json({ error: 'Error al obtener estado de la caja' });
@@ -2010,21 +2034,88 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
     }
 });
 
-// Historial de cierres (Ãºltimos dÃ­as)
-app.get('/api/caja/historial', autenticar, autorizar(['admin']), async (req, res) => {
+// Historial de cajas (aperturas y cierres de todos los días)
+app.get('/api/caja/historial', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [rows] = await pool.query(
-            `SELECT c.id, c.fecha, c.estado, c.monto_inicial, c.monto_final,
-                    c.total_efectivo, c.total_transferencia, c.total_debito,
+            `SELECT c.id, DATE_FORMAT(c.fecha, '%Y-%m-%d') as fecha, c.estado, c.monto_inicial, c.monto_final,
+                    c.total_efectivo, c.total_transferencia, c.total_debito, c.total_credito,
                     c.cajero_nombre, c.abierta_at, c.cerrada_at,
-                    (SELECT COALESCE(SUM(r.monto_retirado),0) FROM retiros r WHERE r.caja_id = c.id) AS total_retiros,
-                    (SELECT COALESCE(SUM(r.monto_retirado),0) FROM retiros r WHERE r.caja_id = c.id) != 0 AS tiene_retiros
-             FROM cajas c ORDER BY c.id DESC LIMIT 15`
+                    (SELECT COUNT(*) FROM tickets t WHERE t.caja_id = c.id) AS cantidad_turnos,
+                    (SELECT COALESCE(SUM(t.total),0) FROM tickets t WHERE t.caja_id = c.id) AS total_cobrado,
+                    (SELECT COALESCE(SUM(g.monto),0) FROM gastos g WHERE g.caja_id = c.id) AS total_gastos,
+                    (SELECT COALESCE(SUM(r.monto_retirado),0) FROM retiros r WHERE r.caja_id = c.id) AS total_retiros
+             FROM cajas c ORDER BY c.fecha DESC, c.id DESC LIMIT 120`
         );
-        res.json(rows);
+        // Enriquecer cada caja con el total de sus tickets por método de pago
+        const IDs = rows.map(r => r.id);
+        let ticks = [];
+        if (IDs.length) {
+            const ph = IDs.map(() => '?').join(',');
+            const [t] = await pool.query(
+                `SELECT caja_id, COALESCE(SUM(CASE WHEN metodo_pago='efectivo' THEN total ELSE 0 END),0) AS efectivo,
+                        COALESCE(SUM(CASE WHEN metodo_pago='transferencia' THEN total ELSE 0 END),0) AS transferencia,
+                        COALESCE(SUM(CASE WHEN metodo_pago='debito' THEN total ELSE 0 END),0) AS debito
+                 FROM tickets WHERE caja_id IN (${ph}) GROUP BY caja_id`, IDs
+            );
+            ticks = t;
+        }
+        const resFull = rows.map(r => {
+            const t = ticks.find(x => x.caja_id === r.id) || { efectivo: 0, transferencia: 0, debito: 0 };
+            return {
+                ...r,
+                efectivo: parseFloat(t.efectivo || 0),
+                transferencia: parseFloat(t.transferencia || 0),
+                debito: parseFloat(t.debito || 0),
+                total_gastos: parseFloat(r.total_gastos || 0),
+                total_retiros: parseFloat(r.total_retiros || 0),
+                total_cobrado: parseFloat(r.total_cobrado || 0)
+            };
+        });
+        res.json(resFull);
     } catch (e) {
         console.error('âŒ Error historial caja:', e.message);
         res.status(500).json({ error: 'Error al obtener historial de cajas' });
+    }
+});
+
+// Detalle de una caja (apertura, pagos, gastos, retiros y arqueo)
+app.get('/api/caja/historial/:id', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const [caja] = await pool.query(
+            `SELECT *, DATE_FORMAT(fecha, '%Y-%m-%d') as fecha_larga FROM cajas WHERE id = ?`, [req.params.id]
+        );
+        if (!caja.length) return res.status(404).json({ error: 'Caja no encontrada' });
+        const [tickets] = await pool.query(
+            `SELECT t.numero, DATE_FORMAT(t.fecha_emision, '%H:%i') as hora, t.cliente_nombre,
+                    t.profesional_nombre, t.items, t.total, t.metodo_pago, t.cajero_nombre
+             FROM tickets t WHERE t.caja_id = ? ORDER BY t.numero`, [req.params.id]
+        );
+        const [gastos] = await pool.query(
+            'SELECT tipo, descripcion, monto, metodo_pago, DATE_FORMAT(fecha, "%H:%i") as hora FROM gastos WHERE caja_id = ? ORDER BY id', [req.params.id]
+        );
+        const [retiros] = await pool.query(
+            'SELECT profesional_nombre, monto_bruto, porcentaje_retiro, monto_retirado, monto_estetica, metodo_retiro, DATE_FORMAT(creado_at, "%H:%i") as hora FROM retiros WHERE caja_id = ? ORDER BY id', [req.params.id]
+        );
+        const [arqueo] = await pool.query(
+            'SELECT denominacion, tipo, cantidad, subtotal FROM arqueo_caja WHERE caja_id = ? ORDER BY id', [req.params.id]
+        );
+        const totalEf = parseFloat(caja[0].total_efectivo || 0) +
+            parseFloat(tickets.reduce((s, t) => s + (t.metodo_pago === 'efectivo' ? parseFloat(t.total || 0) : 0), 0));
+        res.json({
+            caja: caja[0],
+            fecha_larga: caja[0].fecha_larga,
+            tickets,
+            gastos,
+            retiros,
+            arqueo,
+            total_ventas: parseFloat(caja[0].total_efectivo || 0) + parseFloat(caja[0].total_transferencia || 0) + parseFloat(caja[0].total_debito || 0),
+            total_gastos: gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0),
+            total_retiros: retiros.reduce((s, r) => s + parseFloat(r.monto_retirado || 0), 0)
+        });
+    } catch (e) {
+        console.error('âŒ Error detalle caja:', e.message);
+        res.status(500).json({ error: 'Error al obtener detalle de la caja' });
     }
 });
 
