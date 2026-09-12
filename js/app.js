@@ -1268,24 +1268,43 @@ async function cargarTurnosCliente() {
             const resTodos = await fetch(`${API_BASE}/turnos/todos`);
             const turnosTodos = await resTodos.json();
 
+            // Filtro por día: por defecto solo las citas del día de hoy, con opción de ver desde otro día
+            const inputFechaFiltro = document.getElementById('filtro-citas-fecha');
+            const hoy = new Date();
+            const hoyLocal = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+            const fechaFiltro = (inputFechaFiltro && inputFechaFiltro.value) ? inputFechaFiltro.value : hoyLocal;
+
             html += `
                 <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;margin-bottom:25px;">
-                    <h3 style="color:#555;margin-top:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnosTodos)?turnosTodos.length:0} turnos)</span></h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+                        <h3 style="color:#555;margin:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnosTodos)?turnosTodos.length:0} turnos)</span></h3>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <label for="filtro-citas-fecha" style="color:#888;font-size:0.88rem;">📅 Día a mostrar:</label>
+                            <input type="date" id="filtro-citas-fecha" value="${fechaFiltro}" onchange="cargarTurnosCliente()" style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-weight:600;color:#C06C84;background:white;">
+                            <button onclick="document.getElementById('filtro-citas-fecha').value='';cargarTurnosCliente();" class="btn-whatsapp-mini" style="padding:9px 12px;width:auto;background:#f5f5f5;color:#C06C84;">✖ Ver: Hoy</button>
+                        </div>
+                    </div>
             `;
 
             if (!Array.isArray(turnosTodos) || turnosTodos.length === 0) {
-                html += `<p style="color:#888;text-align:center;padding:20px;">📭 Aún no hay citas agendadas</p>`;
+                html += `<p style="color:#888;text-align:center;padding:20px;">📭 No hay citas agendadas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
             } else {
+                const turnosFiltrados = (Array.isArray(turnosTodos) ? turnosTodos : []).filter(t => String(t.fecha).slice(0,10) === fechaFiltro);
+
                 // Ordenar de la fecha más cercana a la más lejana (día y hora)
-                const turnosOrdenados = [...turnosTodos].sort((a, b) => {
+                const turnosOrdenados = [...turnosFiltrados].sort((a, b) => {
                     const cmp = String(a.fecha).slice(0, 10).localeCompare(String(b.fecha).slice(0, 10));
                     if (cmp !== 0) return cmp;
                     return String(a.hora_inicio || a.hora || '').localeCompare(String(b.hora_inicio || b.hora || ''));
                 });
 
                 // Servicios ya realizados (cobrados/cancelados) pasan a "Registros"
-                const activos = turnosOrdenados.filter(t => (t.estado || '') !== 'cobrado' && (t.estado || '') !== 'cancelado');
-                const realizados = turnosOrdenados.filter(t => (t.estado || '') === 'cobrado' || (t.estado || '') === 'cancelado');
+                const activos = [...turnosOrdenados].filter(t => (t.estado || '') !== 'cobrado' && (t.estado || '') !== 'cancelado');
+                const realizados = (Array.isArray(turnosTodos) ? turnosTodos : []).filter(t => (t.estado || '') === 'cobrado' || (t.estado || '') === 'cancelado').sort((a, b) => {
+                    const cmp = String(b.fecha).slice(0, 10).localeCompare(String(a.fecha).slice(0, 10));
+                    if (cmp !== 0) return cmp;
+                    return String(b.hora_inicio || b.hora || '').localeCompare(String(a.hora_inicio || a.hora || ''));
+                });
 
                 const tarjetaCita = (t) => `
                     <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
@@ -1322,7 +1341,7 @@ async function cargarTurnosCliente() {
                             </div>
                         </div>`).join('');
                 } else {
-                    html += `<p style="color:#888;text-align:center;padding:15px;">📭 No hay citas activas pendientes</p>`;
+                    html += `<p style="color:#888;text-align:center;padding:15px;">📭 No hay citas activas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
                 }
 
                 // Registros: servicios ya realizados/cancelados (salen de la lista principal)
@@ -1535,17 +1554,30 @@ async function cargarTurnosProfesional() {
         let html = '';
 
         // ===== SECCIÓN 1: CITAS CON CLIENTES =====
+        const inputFechaFiltro = document.getElementById('filtro-citas-fecha-prof');
+        const hoy = new Date();
+        const hoyLocal = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+        const fechaFiltro = (inputFechaFiltro && inputFechaFiltro.value) ? inputFechaFiltro.value : hoyLocal;
+        const turnosFiltrados = (Array.isArray(turnos) ? turnos : []).filter(t => String(t.fecha).slice(0,10) === fechaFiltro);
+
         html += `
             <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;">
-                <h3 style="color:#555;margin-top:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnos)?turnos.length:0} turnos)</span></h3>
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+                    <h3 style="color:#555;margin:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnos)?turnos.length:0} turnos)</span></h3>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <label for="filtro-citas-fecha-prof" style="color:#888;font-size:0.88rem;">📅 Día a mostrar:</label>
+                        <input type="date" id="filtro-citas-fecha-prof" value="${fechaFiltro}" onchange="cargarTurnosProfesional()" style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-weight:600;color:#C06C84;background:white;">
+                        <button onclick="document.getElementById('filtro-citas-fecha-prof').value='';cargarTurnosProfesional();" class="btn-whatsapp-mini" style="padding:9px 12px;width:auto;background:#f5f5f5;color:#C06C84;">✖ Ver: Hoy</button>
+                    </div>
+                </div>
         `;
 
-        if (!Array.isArray(turnos) || turnos.length === 0) {
-            html += `<p style="color:#888;text-align:center;padding:20px;">📭 Aún no hay citas agendadas</p>`;
+        if (turnosFiltrados.length === 0) {
+            html += `<p style="color:#888;text-align:center;padding:20px;">📭 No hay citas agendadas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
         } else if (esAdmin) {
             // Admin: agrupar por profesional
             const porProf = {};
-            turnos.forEach(t => {
+            turnosFiltrados.forEach(t => {
                 const n = t.profesional || 'Sin asignar';
                 if (!porProf[n]) porProf[n] = [];
                 porProf[n].push(t);
@@ -1578,7 +1610,7 @@ async function cargarTurnosProfesional() {
         } else {
             // Profesional: sus propias citas como cards
             html += `<div style="display:flex;flex-direction:column;gap:8px;">
-                ${turnos.map(t => `
+                ${turnosFiltrados.map(t => `
                     <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
                         <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
                             <span style="font-size:1.3rem;">👤</span>
