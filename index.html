@@ -123,6 +123,17 @@
                         <div id="retiros-lista"></div>
                     </div>
                 </div>
+
+                <div class="admrecep-only" style="margin-top: 30px;">
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #8E44AD;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                            <h3 style="margin:0;color:#6C3483;">🧾 Gastos del Local (fijos y compras)</h3>
+                            <button onclick="abrirModalGasto()" class="btn-guardar" style="padding:10px 16px;width:auto;">➕ Registrar Gasto</button>
+                        </div>
+                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">Los gastos se descuentan de la caja abierta y quedan registrados en el arqueo y en el reporte de Administración.</p>
+                        <div id="gastos-caja-lista"></div>
+                    </div>
+                </div>
             </section>
 
             <section id="mis-turnos-cliente" class="section">
@@ -308,6 +319,53 @@
 
                 <!-- Lista de profesionales registradas -->
                 <div id="lista-profesionales-admin" style="margin-top:28px;"></div>
+
+                <div style="margin-top:40px;">
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #C06C84;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+                            <h3 style="margin:0;color:#C06C84;">📊 Registro de Cobranzas en Caja</h3>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <span style="color:#888;font-size:0.88rem;">Período:</span>
+                                <select id="reporte-periodo" onchange="cargarReporteCaja()" style="padding:9px 12px;border:2px solid #C06C84;border-radius:9px;font-weight:600;color:#C06C84;background:white;">
+                                    <option value="diario">📆 Diario</option>
+                                    <option value="semanal">🗓️ Semanal</option>
+                                    <option value="mensual">📅 Mensual</option>
+                                </select>
+                                <button onclick="cargarReporteCaja()" class="btn-guardar" style="padding:9px 14px;width:auto;">🔄 Actualizar</button>
+                            </div>
+                        </div>
+                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">Resumen desplegable de las cobranzas del período: ventas por método de pago, gastos del local y retiros de profesionales.</p>
+                        <div id="reporte-caja-lista"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top:25px;">
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #8E44AD;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                            <h3 style="margin:0;color:#6C3483;">🧾 Gastos Fijos y Compras del Local</h3>
+                            <button onclick="abrirModalGasto()" class="btn-guardar" style="padding:10px 16px;width:auto;">➕ Registrar Gasto</button>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:15px;">
+                            <div>
+                                <label style="font-size:0.9rem;color:#555;">Desde:</label>
+                                <input type="date" id="gastos-filtro-desde" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.9rem;color:#555;">Hasta:</label>
+                                <input type="date" id="gastos-filtro-hasta" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.9rem;color:#555;">Tipo:</label>
+                                <select id="gastos-filtro-tipo" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
+                                    <option value="">Todos</option>
+                                    <option value="fijo">📌 Fijos</option>
+                                    <option value="compra">🛒 Compras</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="gastos-admin-lista"></div>
+                    </div>
+                </div>
             </div>
             </section>
 
@@ -460,7 +518,7 @@
 <script src="js/apiAuth.js?v=20260304"></script>
 <script src="js/api.js?v=20260217"></script>
 <script src="js/auth.js?v=20260911"></script>
-<script src="js/app.js?v=20260910e"></script>
+<script src="js/app.js?v=20260910f"></script>
 <script src="js/roles-funciones.js?v=20260217"></script>
 </body>
 </html>

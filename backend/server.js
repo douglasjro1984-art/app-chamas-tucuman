@@ -9,6 +9,36 @@ const nodemailer = require('nodemailer');
 const rateLimit = require('express-rate-limit');
 const pool = require('./database'); 
 
+// Crear tablas auxiliares de caja si no existen (TiDB Cloud)
+(async () => {
+    try {
+        await pool.query(`CREATE TABLE IF NOT EXISTS arqueo_caja (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            caja_id BIGINT NOT NULL,
+            denominacion VARCHAR(30) NOT NULL,
+            tipo VARCHAR(10) NOT NULL DEFAULT 'billete',
+            cantidad INT NOT NULL DEFAULT 0,
+            subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
+            creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS gastos (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            fecha DATE NOT NULL,
+            tipo VARCHAR(20) NOT NULL DEFAULT 'compra',
+            descripcion VARCHAR(255) NOT NULL,
+            monto DECIMAL(10,2) NOT NULL,
+            metodo_pago VARCHAR(20) NOT NULL DEFAULT 'efectivo',
+            caja_id BIGINT NULL,
+            registrado_por BIGINT NULL,
+            registrado_por_nombre VARCHAR(100) NULL,
+            creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        console.log('🧾 Tablas de arqueo y gastos verificadas');
+    } catch (e) {
+        console.error('❌ Error creando tablas auxiliares:', e.message);
+    }
+})(); 
+
 const app = express();
 
 // ============================================
@@ -1854,14 +1884,20 @@ app.get('/api/caja/dia', autenticar, autorizar(['admin','recepcionista']), async
 app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [caja] = await pool.query(
-            "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
+            `SELECT *,
+                    DATE_FORMAT(fecha, '%Y-%m-%d') as fecha_larga,
+                    DATE_FORMAT(fecha, '%Y-%m-%d') = CURDATE() as es_hoy
+             FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1`
         );
         if (!caja.length) {
             return res.json({ abierta: false });
         }
-        res.json({ abierta: true, caja: caja[0] });
+        const [gastos] = await pool.query(
+            'SELECT id, tipo, descripcion, monto, metodo_pago, fecha FROM gastos WHERE caja_id = ? ORDER BY id', [caja[0].id]
+        );
+        res.json({ abierta: true, dia_anterior: caja[0].es_hoy !== 1 && caja[0].es_hoy !== '1' && caja[0].es_hoy !== true, caja: caja[0], gastos });
     } catch (e) {
-        console.error('âŒ Error estado caja:', e.message);
+        console.error('❌ Error caja estado:', e.message);
         res.status(500).json({ error: 'Error al obtener estado de la caja' });
     }
 });
@@ -1871,10 +1907,15 @@ app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), as
     const { monto_inicial } = req.body;
     try {
         const [abierta] = await pool.query(
-            "SELECT id FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE()"
+            "SELECT id, DATE_FORMAT(fecha, '%Y-%m-%d') as fec, DATE_FORMAT(fecha, '%Y-%m-%d') = CURDATE() as es_hoy FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
         );
         if (abierta.length) {
-            return res.status(400).json({ success: false, message: 'Ya hay una caja abierta hoy' });
+            const a = abierta[0];
+            const esHoy = a.es_hoy === 1 || a.es_hoy === '1' || a.es_hoy === true;
+            const msg = esHoy
+                ? 'Ya hay una caja abierta hoy'
+                : `Ya hay una caja abierta del día ${a.fec}. Cerrala con el arqueo antes de abrir la caja de hoy`;
+            return res.status(400).json({ success: false, message: msg, dia_anterior: !esHoy });
         }
         const inicial = Math.max(0, parseFloat(monto_inicial) || 0);
         const [r] = await pool.query(
@@ -1888,12 +1929,12 @@ app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), as
     }
 });
 
-// Cerrar caja del dÃ­a (monto final contado en caja)
+// Cerrar caja del dÃ­a (monto final contado en caja + arqueo por denominaciones)
 app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
-    const { monto_real } = req.body;
+    const { monto_real, arqueo } = req.body;
     try {
         const [caja] = await pool.query(
-            "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
+            "SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
         );
         if (!caja.length) {
             return res.status(400).json({ success: false, message: 'No hay caja abierta para cerrar' });
@@ -1904,11 +1945,39 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
         const [retiros] = await pool.query(
             'SELECT id, profesional_nombre, monto_retirado, metodo_retiro FROM retiros WHERE caja_id = ?', [c.id]
         );
+        const [gastos] = await pool.query(
+            'SELECT id, tipo, descripcion, monto, metodo_pago FROM gastos WHERE caja_id = ?', [c.id]
+        );
         const totalRetiros = retiros.reduce((s, r) => s + parseFloat(r.monto_retirado || 0), 0);
-        const real = parseFloat(monto_real) || 0;
-        // Los retiros ya descontaron dinero de la caja al registrarse, por eso el esperado
-        // NO vuelve a restar los retiros.
-        const esperado = parseFloat(c.monto_inicial || 0) + total;
+        const totalGastos = gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+
+        let real;
+        const detalleArqueo = [];
+        if (Array.isArray(arqueo) && arqueo.length) {
+            real = arqueo.reduce((s, a) => s + (parseFloat(a.subtotal) || 0), 0);
+            for (const a of arqueo) {
+                const denominacion = (a.denominacion || '').trim();
+                const cantidad = parseInt(a.cantidad) || 0;
+                const subtotal = parseFloat(a.subtotal) || 0;
+                if (!denominacion && subtotal === 0) continue;
+                detalleArqueo.push({
+                    denominacion: denominacion || 'Otros',
+                    tipo: a.tipo === 'moneda' ? 'moneda' : 'billete',
+                    cantidad,
+                    subtotal
+                });
+                await pool.query(
+                    'INSERT INTO arqueo_caja (caja_id, denominacion, tipo, cantidad, subtotal) VALUES (?, ?, ?, ?, ?)',
+                    [c.id, denominacion || 'Otros', a.tipo === 'moneda' ? 'moneda' : 'billete', cantidad, subtotal]
+                );
+            }
+        } else {
+            real = parseFloat(monto_real) || 0;
+        }
+
+        // Los retiros y gastos ya descontaron dinero de las columnas al registrarse,
+        // por eso el esperado NO vuelve a restarlos: monto_inicial + ventas netas.
+        const esperado = Math.round((parseFloat(c.monto_inicial || 0) + total) * 100) / 100;
         const diferencia = Math.round((real - esperado) * 100) / 100;
 
         await pool.query(
@@ -1924,16 +1993,19 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
                 total_efectivo: parseFloat(c.total_efectivo || 0),
                 total_transferencia: parseFloat(c.total_transferencia || 0),
                 total_debito: parseFloat(c.total_debito || 0),
-                total_ventas: total + totalRetiros,
+                total_ventas: total,
                 retiros,
                 total_retiros: Math.round(totalRetiros * 100) / 100,
-                dinero_en_caja_esperado: Math.round(esperado * 100) / 100,
+                gastos,
+                total_gastos: Math.round(totalGastos * 100) / 100,
+                arqueo: detalleArqueo,
+                dinero_en_caja_esperado: esperado,
                 dinero_contado: real,
                 diferencia
             }
-        });
+});
     } catch (e) {
-        console.error('âŒ Error cerrar caja:', e.message);
+        console.error('❌ Error cerrar caja:', e.message);
         res.status(500).json({ success: false, message: 'Error al cerrar la caja' });
     }
 });
@@ -1953,6 +2025,168 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin']), async (req, res
     } catch (e) {
         console.error('âŒ Error historial caja:', e.message);
         res.status(500).json({ error: 'Error al obtener historial de cajas' });
+    }
+});
+
+// ============================================
+// ðŸ§¾ GASTOS DEL LOCAL (fijos y compras)
+// ============================================
+// Listar gastos (admin)
+app.get('/api/gastos', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const { desde, hasta, tipo } = req.query;
+    try {
+        let query = `SELECT g.*, c.nombre as cajero_nombre FROM gastos g
+                     LEFT JOIN usuarios c ON g.registrado_por = c.id WHERE 1=1`;
+        const params = [];
+        if (desde) { query += ' AND g.fecha >= ?'; params.push(desde); }
+        if (hasta) { query += ' AND g.fecha <= ?'; params.push(hasta); }
+        if (tipo) { query += ' AND g.tipo = ?'; params.push(tipo); }
+        query += ' ORDER BY g.fecha DESC, g.id DESC LIMIT 200';
+        const [rows] = await pool.query(query, params);
+        res.json(rows);
+    } catch (e) {
+        console.error('âŒ Error gastos:', e.message);
+        res.status(500).json({ error: 'Error al obtener gastos' });
+    }
+});
+
+// Registrar un gasto (fijo o compra del local)
+app.post('/api/gastos', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const { fecha, tipo, descripcion, monto, metodo_pago } = req.body;
+    const desc = (descripcion || '').trim();
+    const mto = parseFloat(monto);
+    if (!desc) return res.status(400).json({ success: false, message: 'Describí el gasto' });
+    if (!mto || mto <= 0) return res.status(400).json({ success: false, message: 'Monto inválido' });
+    const metodo = ['efectivo', 'transferencia', 'debito'].includes(metodo_pago) ? metodo_pago : 'efectivo';
+    try {
+        const [caja] = await pool.query(
+            "SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
+        );
+        let cajaId = null;
+        if (caja.length) {
+            cajaId = caja[0].id;
+            const colMetodo = {
+                efectivo: 'total_efectivo', transferencia: 'total_transferencia', debito: 'total_debito'
+            }[metodo] || 'total_efectivo';
+            await pool.query(
+                `UPDATE cajas SET ${colMetodo} = GREATEST(0, ${colMetodo} - ?) WHERE id = ?`,
+                [mto, cajaId]
+            );
+        }
+        const [r] = await pool.query(
+            `INSERT INTO gastos (fecha, tipo, descripcion, monto, metodo_pago, caja_id, registrado_por, registrado_por_nombre)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [fecha || new Date().toISOString().slice(0, 10), tipo === 'fijo' ? 'fijo' : 'compra',
+             desc, mto, metodo, cajaId, req.usuario.id, req.usuario.nombre || null]
+        );
+        res.json({ success: true, id: r.insertId, message: 'Gasto registrado correctamente' });
+    } catch (e) {
+        console.error('âŒ Error registrar gasto:', e.message);
+        res.status(500).json({ success: false, message: 'Error al registrar el gasto' });
+    }
+});
+
+// Eliminar un gasto (solo admin)
+app.delete('/api/gastos/:id', autenticar, autorizar(['admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [g] = await pool.query('SELECT * FROM gastos WHERE id = ?', [id]);
+        if (!g.length) return res.status(404).json({ success: false, message: 'Gasto no encontrado' });
+        const gasto = g[0];
+        // Devolver el dinero a la caja si esa caja sigue abierta
+        if (gasto.caja_id) {
+            const colMetodo = {
+                efectivo: 'total_efectivo', transferencia: 'total_transferencia', debito: 'total_debito'
+            }[gasto.metodo_pago] || 'total_efectivo';
+            await pool.query(
+                `UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ? AND estado = 'abierta'`,
+                [parseFloat(gasto.monto) || 0, gasto.caja_id]
+            );
+        }
+        await pool.query('DELETE FROM gastos WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Gasto eliminado correctamente' });
+    } catch (e) {
+        console.error('âŒ Error eliminar gasto:', e.message);
+        res.status(500).json({ success: false, message: 'Error al eliminar el gasto' });
+    }
+});
+
+// ============================================
+// ðŸ“Š REPORTE DE COBRANZAS (diario / semanal / mensual)
+// ============================================
+app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const periodo = req.query.periodo || 'diario'; // diario | semanal | mensual
+    try {
+        const hoyLocal = new Date();
+        const fmtLocal = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const dia = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${dia}`;
+        };
+        let fechas = [];
+        if (periodo === 'mensual') {
+            for (let i = 2; i >= 0; i--) {
+                const m = new Date(hoyLocal.getFullYear(), hoyLocal.getMonth() - i, 1);
+                fechas.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`);
+            }
+        } else if (periodo === 'semanal') {
+            const dia = (hoyLocal.getDay() + 6) % 7; // lunes = 0
+            const lunes = new Date(hoyLocal); lunes.setDate(hoyLocal.getDate() - dia);
+            for (let i = 2; i >= 0; i--) {
+                const s = new Date(lunes); s.setDate(lunes.getDate() - i * 7);
+                fechas.push(fmtLocal(s));
+            }
+        } else { // diario: últimos 7 días
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                fechas.push(fmtLocal(d));
+            }
+        }
+
+        const [tickets] = await pool.query(
+            `SELECT DATE_FORMAT(fecha_emision, '%Y-%m-%d') as fecha, SUM(total) as total, COUNT(*) as cantidad,
+                    SUM(CASE WHEN metodo_pago='efectivo' THEN total ELSE 0 END) as efectivo,
+                    SUM(CASE WHEN metodo_pago='transferencia' THEN total ELSE 0 END) as transferencia,
+                    SUM(CASE WHEN metodo_pago='debito' THEN total ELSE 0 END) as debito
+             FROM tickets GROUP BY DATE_FORMAT(fecha_emision, '%Y-%m-%d')`
+        );
+        const [gastos] = await pool.query(
+            `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, tipo, COALESCE(SUM(monto),0) as total FROM gastos GROUP BY DATE_FORMAT(fecha, '%Y-%m-%d'), tipo`
+        );
+        const [retiros] = await pool.query(
+            `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, COALESCE(SUM(monto_retirado),0) as total FROM retiros GROUP BY DATE_FORMAT(fecha, '%Y-%m-%d')`
+        );
+        const [cierres] = await pool.query(
+            `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, COALESCE(monto_final,0) as monto_final FROM cajas WHERE estado = 'cerrada'`
+        );
+
+        const keyFn = (f) => periodo === 'mensual' ? String(f).slice(0, 7) : String(f).slice(0, 10);
+        const resultado = [];
+        for (const f of fechas) {
+            const clave = f;
+            const ticketsDia = tickets.filter(t => keyFn(t.fecha) === clave);
+            const gastosDia = gastos.filter(g => keyFn(g.fecha) === clave);
+            const retirosDia = retiros.filter(r => keyFn(r.fecha) === clave);
+            const cierre = cierres.find(c => keyFn(c.fecha) === clave);
+            resultado.push({
+                fecha: clave,
+                efectivo: Math.round(ticketsDia.reduce((s, t) => s + parseFloat(t.efectivo || 0), 0) * 100) / 100,
+                transferencia: Math.round(ticketsDia.reduce((s, t) => s + parseFloat(t.transferencia || 0), 0) * 100) / 100,
+                debito: Math.round(ticketsDia.reduce((s, t) => s + parseFloat(t.debito || 0), 0) * 100) / 100,
+                total_ventas: Math.round(ticketsDia.reduce((s, t) => s + parseFloat(t.total || 0), 0) * 100) / 100,
+                cantidad_turnos: ticketsDia.reduce((s, t) => s + parseInt(t.cantidad || 0), 0),
+                gastos_fijos: Math.round(gastosDia.filter(g => g.tipo === 'fijo').reduce((s, g) => s + parseFloat(g.total || 0), 0) * 100) / 100,
+                gastos_compras: Math.round(gastosDia.filter(g => g.tipo === 'compra').reduce((s, g) => s + parseFloat(g.total || 0), 0) * 100) / 100,
+                total_gastos: Math.round(gastosDia.reduce((s, g) => s + parseFloat(g.total || 0), 0) * 100) / 100,
+                total_retiros: Math.round(retirosDia.reduce((s, r) => s + parseFloat(r.total || 0), 0) * 100) / 100,
+                monto_final: cierre ? parseFloat(cierre.monto_final) : null
+            });
+        }
+        res.json({ periodo, datos: resultado });
+    } catch (e) {
+        console.error('âŒ Error reporte caja:', e.message);
+        res.status(500).json({ error: 'Error al obtener el reporte' });
     }
 });
 
@@ -2009,7 +2243,7 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
 
         // Caja abierta del dÃ­a (si existe)
         const [cajaAbierta] = await pool.query(
-            "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1"
+            "SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
         );
         let cajaId = null;
         if (cajaAbierta.length) {

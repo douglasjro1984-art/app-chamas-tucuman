@@ -2318,6 +2318,8 @@ function showSection(sectionId) {
         llenarSelectServiciosRegistro();
         cargarListaProfesionalesAdmin();
         cargarEstadisticas();
+        cargarReporteCaja();
+        cargarGastosAdmin();
     }
     if (sectionId === 'gestionar-horarios')      cargarGestionHorarios();
 
@@ -2326,6 +2328,7 @@ function showSection(sectionId) {
         cargarTurnosCaja();
         cargarRecordatorios();
         cargarRetiros();
+        cargarGastosCaja();
         if (!window._intervaloRecordatorios) {
             window._intervaloRecordatorios = setInterval(() => {
                 if (document.getElementById('caja') && document.getElementById('caja').style.display !== 'none') {
@@ -3172,7 +3175,7 @@ async function cargarEstadoCaja() {
                 <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #C06C84;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
                     <div>
                         <h3 style="margin:0;color:#C06C84;">🔴 Caja Cerrada</h3>
-                        <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">Abrí la caja para registrar los cobros del día y poder cerrarla al final.</p>
+                        <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">Abrí la caja para registrar los cobros del día y poder cerrarla al final de la jornada con el arqueo.</p>
                     </div>
                     <button onclick="abrirCajaModal()" style="background:#C06C84;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔓 Abrir Caja</button>
                 </div>`;
@@ -3182,24 +3185,47 @@ async function cargarEstadoCaja() {
             const totTr = parseFloat(c.total_transferencia || 0);
             const totDb = parseFloat(c.total_debito || 0);
             const total = totEf + totTr + totDb;
-            cont.innerHTML = `
+            const gastos = data.gastos || [];
+            const totalGastos = gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+            const avisoAnterior = data.dia_anterior ? `
+                <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:1.6rem;">⚠️</span>
+                        <div>
+                            <strong style="color:#856404;display:block;">Quedó abierta la caja del día ${String(c.fecha_larga || '').split('-').reverse().join('/')}</strong>
+                            <small style="color:#997404;">Debés hacer el arqueo de esa caja y cerrarla antes de abrir la de hoy.</small>
+                        </div>
+                    </div>
+                    <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:10px 18px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">🔒 Arqueo y Cierre</button>
+                </div>` : '';
+            cont.innerHTML = avisoAnterior + `
                 <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #28a745;">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
                         <div>
                             <h3 style="margin:0;color:#28a745;">🟢 Caja Abierta</h3>
                             <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">
                                 Fondo inicial: <strong>$${c.monto_inicial ? parseFloat(c.monto_inicial).toFixed(2) : '0.00'}</strong>
-                                · Cobrado hoy: <strong style="color:#28a745;">$${total.toFixed(2)}</strong>
+                                · Cobrado: <strong style="color:#28a745;">$${total.toFixed(2)}</strong>
+                                ${totalGastos ? ' · 🧾 Gastos: <strong style="color:#dc3545;">-$' + totalGastos.toFixed(2) + '</strong>' : ''}
                                 ${c.cajero_nombre ? ' · 👤 ' + c.cajero_nombre : ''}
                             </p>
                         </div>
-                        <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔒 Cerrar Caja</button>
+                        <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔒 Arqueo y Cierre</button>
                     </div>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:14px;">
                         <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💵 Efectivo</small><br><strong>$${totEf.toFixed(2)}</strong></div>
                         <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">🏦 Transferencia</small><br><strong>$${totTr.toFixed(2)}</strong></div>
                         <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💳 Débito</small><br><strong>$${totDb.toFixed(2)}</strong></div>
                     </div>
+                    ${gastos.length ? `
+                    <div style="margin-top:14px;border-top:1px dashed #ddd;padding-top:12px;">
+                        <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">🧾 Gastos registrados en esta caja</h4>
+                        ${gastos.map(g => `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#fdf5f8;border-radius:8px;margin-bottom:5px;font-size:0.88rem;">
+                                <span style="color:#555;"><strong>${g.tipo === 'fijo' ? '📌' : '🛒'} ${g.descripcion}</strong> · ${g.metodo_pago}</span>
+                                <span style="font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</span>
+                            </div>`).join('')}
+                    </div>` : ''}
                 </div>`;
         }
     } catch (e) {
@@ -3259,34 +3285,70 @@ async function confirmarAbrirCaja() {
 function cerrarCajaModal() {
     const modal = document.createElement('div');
     modal.id = 'modal-cerrar-caja';
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
+    const billetes = [2000, 1000, 500, 200, 100, 50, 20, 10];
+    const monedas = [10, 5, 2, 1, 0.5, 0.1];
+    const fila = (v, tipo) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;">
+            <span style="font-weight:600;color:#555;min-width:90px;">${tipo === 'billete' ? '💵' : '🪙'} $${v}</span>
+            <input type="number" min="0" step="1" value="0" data-denom="${v}" data-tipo="${tipo}" oninput="actualizarTotalArqueo()"
+                   style="width:80px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
+            <span class="subtotal-arqueo" data-denom="${v}" style="font-weight:700;color:#28a745;min-width:70px;text-align:right;">$0.00</span>
+        </div>`;
     modal.innerHTML = `
-        <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#C06C84;margin:0 0 6px 0;">🔒 Cerrar Caja del Día</h3>
-            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">Ingresá el dinero real que hay en la caja (incluido el fondo inicial). Se calcula la diferencia contra lo esperado.</p>
-            <div style="display:flex;flex-direction:column;gap:12px;">
-                <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💵 Dinero contado en caja ($)</label>
-                    <input type="number" id="cerrar-caja-monto" value="0" step="0.01" min="0"
-                           style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
-                </div>
+        <div style="background:white;border-radius:20px;padding:28px;max-width:460px;width:94%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">🔒 Arqueo y Cierre de Caja</h3>
+            <p style="color:#888;margin:0 0 16px;font-size:0.88rem;">Contá el dinero real en la caja cargando las cantidades por denominación. El total se calcula automáticamente.</p>
+            <div style="max-height:40vh;overflow-y:auto;padding-right:4px;">
+                <h4 style="margin:8px 0 6px;color:#555;font-size:0.9rem;">💵 Billetes</h4>
+                ${billetes.map(b => fila(b, 'billete')).join('')}
+                <h4 style="margin:10px 0 6px;color:#555;font-size:0.9rem;">🪙 Monedas</h4>
+                ${monedas.map(m => fila(m, 'moneda')).join('')}
             </div>
-            <div style="display:flex;gap:10px;margin-top:20px;">
-                <button onclick="confirmarCerrarCaja()" style="flex:1;background:#e74c3c;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Cerrar Caja</button>
+            <div style="margin-top:14px;background:#f9f9f9;border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:700;color:#555;">💵 Total contado</span>
+                <strong id="arqueo-total" style="color:#28a745;font-size:1.25rem;">$0.00</strong>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button onclick="confirmarCerrarCaja()" id="btn-confirmar-arqueo" style="flex:1;background:#e74c3c;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Arqueo y Cerrar Caja</button>
                 <button onclick="document.getElementById('modal-cerrar-caja').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
     modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
-    setTimeout(() => document.getElementById('cerrar-caja-monto')?.focus(), 80);
+}
+
+function actualizarTotalArqueo() {
+    const inputs = document.querySelectorAll('#modal-cerrar-caja input[data-denom]');
+    let total = 0;
+    inputs.forEach(inp => {
+        const v = parseFloat(inp.dataset.denom);
+        const cant = parseInt(inp.value) || 0;
+        const sub = v * cant;
+        total += sub;
+        const sp = document.querySelector(`.subtotal-arqueo[data-denom="${inp.dataset.denom}"]`);
+        if (sp) sp.textContent = '$' + sub.toFixed(2);
+    });
+    document.getElementById('arqueo-total').textContent = '$' + total.toFixed(2);
 }
 
 async function confirmarCerrarCaja() {
-    const monto = parseFloat(document.getElementById('cerrar-caja-monto')?.value || 0);
+    const inputs = document.querySelectorAll('#modal-cerrar-caja input[data-denom]');
+    const arqueo = [];
+    let total = 0;
+    inputs.forEach(inp => {
+        const v = parseFloat(inp.dataset.denom);
+        const cant = parseInt(inp.value) || 0;
+        if (cant > 0) {
+            const sub = v * cant;
+            arqueo.push({ denominacion: String(v), tipo: inp.dataset.tipo, cantidad: cant, subtotal: Math.round(sub * 100) / 100 });
+            total += sub;
+        }
+    });
     try {
         const res = await fetch(`${API_BASE}/caja/cerrar`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ monto_real: isNaN(monto) ? 0 : monto })
+            body: JSON.stringify({ arqueo })
         });
         const data = await res.json();
         if (data.success) {
@@ -3318,6 +3380,17 @@ function mostrarResumenCierre(r) {
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💳 Débito</span><strong>$${r.total_debito.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed #ccc;margin-top:4px;"><span style="color:#555;font-weight:700;">Total ventas</span><strong style="color:#28a745;">$${r.total_ventas.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💸 Retiros de profesionales</span><strong style="color:#C06C84;">-$${(r.total_retiros||0).toFixed(2)}</strong></div>
+                ${r.total_gastos ? `<div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">🧾 Gastos del local</span><strong style="color:#dc3545;">-$${(r.total_gastos||0).toFixed(2)}</strong></div>` : ''}
+                ${(r.arqueo && r.arqueo.length) ? `
+                <div style="border-top:1px dashed #ccc;margin-top:4px;padding-top:6px;">
+                    <span style="color:#555;font-weight:700;">🧮 Arqueo</span>
+                    <div style="margin-top:4px;">
+                    ${r.arqueo.map(a => `
+                        <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:0.85rem;">
+                            <span style="color:#888;">${a.tipo === 'moneda' ? '🪙' : '💵'} $${a.denominacion} × ${a.cantidad}</span><strong>$${a.subtotal.toFixed(2)}</strong>
+                        </div>`).join('')}
+                    </div>
+                </div>` : ''}
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Debería haber</span><strong>$${r.dinero_en_caja_esperado.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Dinero contado</span><strong>$${r.dinero_contado.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:2px solid #C06C84;margin-top:4px;">
@@ -3361,7 +3434,12 @@ function abrirModalPlanillaCierre(json) {
   <div class="row"><span>Débito</span><span>$${r.total_debito.toFixed(2)}</span></div>
   <div class="row"><span>Total ventas</span><span>$${r.total_ventas.toFixed(2)}</span></div>
   <div class="row"><span>💸 Retiros</span><span>-$${(r.total_retiros||0).toFixed(2)}</span></div>
+  ${r.total_gastos ? `<div class="row"><span>🧾 Gastos local</span><span>-$${r.total_gastos.toFixed(2)}</span></div>` : ''}
   <hr>
+  ${(r.arqueo && r.arqueo.length) ? `
+  <div class="center bold" style="margin:4px 0;">-- ARQUEO --</div>
+  ${r.arqueo.map(a => `<div class="row"><span>${a.tipo === 'moneda' ? 'Moneda' : 'Billete'} $${a.denominacion} × ${a.cantidad}</span><span>$${a.subtotal.toFixed(2)}</span></div>`).join('')}
+  <hr>` : ''}
   <div class="row"><span>Debería haber</span><span>$${r.dinero_en_caja_esperado.toFixed(2)}</span></div>
   <div class="row"><span>Dinero contado</span><span>$${r.dinero_contado.toFixed(2)}</span></div>
   <div class="row bold"><span>DIFERENCIA</span><span>$${r.diferencia.toFixed(2)}</span></div>
@@ -3445,6 +3523,293 @@ async function cargarTurnosCaja() {
     } catch (e) {
         console.error('❌ Error caja:', e);
         container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:20px;">❌ Error al cargar los turnos del día</p>';
+    }
+}
+
+// =====================================================
+// 🧾 GASTOS DEL LOCAL (fijos y compras)
+// =====================================================
+function abrirModalGasto() {
+    const modal = document.createElement('div');
+    modal.id = 'modal-gasto';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    const hoy = new Date().toLocaleDateString('en-CA');
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;padding:30px;max-width:440px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">🧾 Registrar Gasto del Local</h3>
+            <p style="color:#888;margin:0 0 18px 0;font-size:0.88rem;">Registrá gastos fijos (alquiler, sueldos, servicios) o compras del local. Todo queda registrado.</p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">🗂️ Tipo de gasto</label>
+                    <select id="gasto-tipo" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                        <option value="compra">🛒 Compra del local</option>
+                        <option value="fijo">📌 Gasto fijo</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📝 Descripción</label>
+                    <input type="text" id="gasto-descripcion" placeholder="Ej: Alquiler del local, Productos de cosmetica..." style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto ($)</label>
+                    <input type="number" id="gasto-monto" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💳 Método de pago</label>
+                    <select id="gasto-metodo" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                        <option value="efectivo">💵 Efectivo</option>
+                        <option value="transferencia">🏦 Transferencia</option>
+                        <option value="debito">💳 Débito</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📅 Fecha</label>
+                    <input type="date" id="gasto-fecha" value="${hoy}" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button onclick="confirmarRegistrarGasto()" style="flex:1;background:#8E44AD;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Registrar Gasto</button>
+                <button onclick="document.getElementById('modal-gasto').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    setTimeout(() => document.getElementById('gasto-descripcion')?.focus(), 80);
+}
+
+async function confirmarRegistrarGasto() {
+    const descripcion = document.getElementById('gasto-descripcion')?.value.trim();
+    const monto = parseFloat(document.getElementById('gasto-monto')?.value);
+    if (!descripcion || !monto || monto <= 0) {
+        mostrarNotificacion('❌ Completá la descripción y un monto válido', 'error');
+        return;
+    }
+    const payload = {
+        fecha: document.getElementById('gasto-fecha')?.value,
+        tipo: document.getElementById('gasto-tipo')?.value || 'compra',
+        descripcion,
+        monto,
+        metodo_pago: document.getElementById('gasto-metodo')?.value || 'efectivo'
+    };
+    try {
+        const res = await fetch(`${API_BASE}/gastos`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('modal-gasto')?.remove();
+            mostrarNotificacion('✅ Gasto registrado correctamente');
+            cargarGastosAdmin();
+            cargarGastosCaja();
+            cargarEstadoCaja();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
+}
+
+async function eliminarGasto(id) {
+    if (!confirm('⚠️ ¿Eliminar este gasto? El dinero vuelve a la caja si sigue abierta.')) return;
+    try {
+        const res = await fetch(`${API_BASE}/gastos/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('✅ Gasto eliminado');
+            cargarGastosAdmin();
+            cargarGastosCaja();
+            cargarEstadoCaja();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
+}
+
+async function cargarGastosAdmin() {
+    const container = document.getElementById('gastos-admin-lista');
+    if (!container) return;
+    const desde = document.getElementById('gastos-filtro-desde')?.value || '';
+    const hasta = document.getElementById('gastos-filtro-hasta')?.value || '';
+    const tipo = document.getElementById('gastos-filtro-tipo')?.value || '';
+    let url = `${API_BASE}/gastos`;
+    const params = new URLSearchParams();
+    if (desde) params.append('desde', desde);
+    if (hasta) params.append('hasta', hasta);
+    if (tipo) params.append('tipo', tipo);
+    if (params.toString()) url += '?' + params.toString();
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">⏳ Cargando gastos...</p>';
+    try {
+        const res = await fetch(url);
+        const gastos = await res.json();
+        if (!Array.isArray(gastos) || !gastos.length) {
+            container.innerHTML = '<div class="mensaje-vacio"><h3>No hay gastos registrados</h3></div>';
+            return;
+        }
+        const total = gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+        const usuario = obtenerUsuarioActual();
+        const esAdmin = usuario && usuario.rol === 'admin';
+        container.innerHTML = `
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:650px;">
+                    <thead><tr style="background:#6C3483;color:white;">
+                        <th style="padding:10px 8px;">Fecha</th>
+                        <th style="padding:10px 8px;">Tipo</th>
+                        <th style="padding:10px 8px;">Descripción</th>
+                        <th style="padding:10px 8px;">Método</th>
+                        <th style="padding:10px 8px;">Registrado por</th>
+                        <th style="padding:10px 8px;">Monto</th>
+                        ${esAdmin ? '<th style="padding:10px 8px;">Acciones</th>' : ''}
+                    </tr></thead>
+                    <tbody>
+                    ${gastos.map((g, i) => `
+                        <tr style="background:${i % 2 === 0 ? 'white' : '#f6f0f8'};border-bottom:1px solid #eee;">
+                            <td style="padding:10px 8px;white-space:nowrap;">${String(g.fecha).slice(0, 10).split('-').reverse().join('/')}</td>
+                            <td style="padding:10px 8px;">${g.tipo === 'fijo' ? '📌 Fijo' : '🛒 Compra'}</td>
+                            <td style="padding:10px 8px;"><strong>${g.descripcion}</strong></td>
+                            <td style="padding:10px 8px;">${g.metodo_pago}</td>
+                            <td style="padding:10px 8px;color:#777;font-size:0.8rem;">${g.cajero_nombre || g.registrado_por_nombre || '—'}</td>
+                            <td style="padding:10px 8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</td>
+                            ${esAdmin ? `<td style="padding:10px 8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;">🗑️</button></td>` : ''}
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                <div style="margin-top:10px;text-align:right;font-size:0.95rem;">
+                    <strong style="color:#6C3483;">Total de gastos del filtro: </strong>
+                    <strong style="color:#dc3545;">$${total.toFixed(2)}</strong>
+                </div>
+            </div>`;
+    } catch (e) {
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar los gastos</p>';
+    }
+}
+
+async function cargarGastosCaja() {
+    const container = document.getElementById('gastos-caja-lista');
+    if (!container) return;
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:12px;">⏳ Cargando gastos...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/gastos`);
+        const gastos = await res.json();
+        const hoy = new Date().toLocaleDateString('en-CA');
+        const deHoy = (Array.isArray(gastos) ? gastos : []).filter(g => String(g.fecha).slice(0, 10) === hoy);
+        if (!deHoy.length) {
+            container.innerHTML = '<p style="color:#888;text-align:center;padding:12px;font-size:0.9rem;">📭 No hay gastos registrados hoy.</p>';
+            return;
+        }
+        const total = deHoy.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+        const usuario = obtenerUsuarioActual();
+        const esAdmin = usuario && usuario.rol === 'admin';
+        container.innerHTML = `
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:500px;">
+                    <thead><tr style="background:#8E44AD;color:white;">
+                        <th style="padding:8px;">Tipo</th>
+                        <th style="padding:8px;">Descripción</th>
+                        <th style="padding:8px;">Método</th>
+                        <th style="padding:8px;">Monto</th>
+                        ${esAdmin ? '<th style="padding:8px;"></th>' : ''}
+                    </tr></thead>
+                    <tbody>
+                    ${deHoy.map((g, i) => `
+                        <tr style="background:${i % 2 === 0 ? 'white' : '#f6f0f8'};border-bottom:1px solid #eee;">
+                            <td style="padding:8px;">${g.tipo === 'fijo' ? '📌 Fijo' : '🛒 Compra'}</td>
+                            <td style="padding:8px;"><strong>${g.descripcion}</strong></td>
+                            <td style="padding:8px;">${g.metodo_pago}</td>
+                            <td style="padding:8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</td>
+                            ${esAdmin ? `<td style="padding:8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:5px 9px;border:none;border-radius:6px;cursor:pointer;">🗑️</button></td>` : ''}
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                <div style="margin-top:8px;text-align:right;font-size:0.9rem;">
+                    <strong style="color:#6C3483;">Total gastos hoy: </strong>
+                    <strong style="color:#dc3545;">$${total.toFixed(2)}</strong>
+                </div>
+            </div>`;
+    } catch (e) {
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:12px;">❌ Error al cargar los gastos</p>';
+    }
+}
+
+// =====================================================
+// 📊 REPORTE DE COBRANZAS (diario / semanal / mensual)
+// =====================================================
+async function cargarReporteCaja() {
+    const container = document.getElementById('reporte-caja-lista');
+    if (!container) return;
+    const periodo = document.getElementById('reporte-periodo')?.value || 'diario';
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">⏳ Cargando reporte...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/caja/reporte?periodo=${periodo}`);
+        const data = await res.json();
+        const filas = data.datos || [];
+        if (!filas.length) {
+            container.innerHTML = '<div class="mensaje-vacio"><h3>No hay datos para este período</h3></div>';
+            return;
+        }
+        const etiqueta = (f) => {
+            if (periodo === 'mensual') {
+                const [a, m] = f.split('-');
+                const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                return meses[parseInt(m) - 1] + ' ' + a;
+            }
+            if (periodo === 'semanal') {
+                const d = new Date(f + 'T12:00:00');
+                const opts = { day: '2-digit', month: '2-digit' };
+                return 'Semana del ' + d.toLocaleDateString('es-AR', opts);
+            }
+            const d = new Date(f + 'T12:00:00');
+            return f.split('-').reverse().join('/') + ' (' + d.toLocaleDateString('es-AR', { weekday: 'short' }) + ')';
+        };
+        const totalVentas = filas.reduce((s, r) => s + r.total_ventas, 0);
+        const totalGastos = filas.reduce((s, r) => s + r.total_gastos, 0);
+        const totalRetiros = filas.reduce((s, r) => s + r.total_retiros, 0);
+        const neto = totalVentas - totalGastos - totalRetiros;
+        container.innerHTML = `
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:760px;">
+                    <thead><tr style="background:#C06C84;color:white;">
+                        <th style="padding:10px 8px;">Período</th>
+                        <th style="padding:10px 8px;">💵 Efectivo</th>
+                        <th style="padding:10px 8px;">🏦 Transf.</th>
+                        <th style="padding:10px 8px;">💳 Débito</th>
+                        <th style="padding:10px 8px;">💰 Total Cobrado</th>
+                        <th style="padding:10px 8px;">🧾 Gastos</th>
+                        <th style="padding:10px 8px;">💸 Retiros</th>
+                        <th style="padding:10px 8px;">✅ Neto</th>
+                    </tr></thead>
+                    <tbody>
+                    ${filas.map((r, i) => `
+                        <tr style="background:${i % 2 === 0 ? 'white' : '#fdf5f8'};border-bottom:1px solid #f0e0ea;">
+                            <td style="padding:10px 8px;font-weight:700;color:#C06C84;">${etiqueta(r.fecha)}</td>
+                            <td style="padding:10px 8px;">$${r.efectivo.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${r.transferencia.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${r.debito.toFixed(2)}</td>
+                            <td style="padding:10px 8px;font-weight:700;">$${r.total_ventas.toFixed(2)}</td>
+                            <td style="padding:10px 8px;color:#dc3545;">-$${r.total_gastos.toFixed(2)}</td>
+                            <td style="padding:10px 8px;color:#C06C84;">-$${r.total_retiros.toFixed(2)}</td>
+                            <td style="padding:10px 8px;font-weight:700;color:#28a745;">$${(r.total_ventas - r.total_gastos - r.total_retiros).toFixed(2)}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#C06C84;color:white;font-weight:700;">
+                            <td style="padding:10px 8px;">TOTALES</td>
+                            <td style="padding:10px 8px;">$${filas.reduce((s, r) => s + r.efectivo, 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${filas.reduce((s, r) => s + r.transferencia, 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${filas.reduce((s, r) => s + r.debito, 0).toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${totalVentas.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">-$${totalGastos.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">-$${totalRetiros.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${neto.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>`;
+    } catch (e) {
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar el reporte</p>';
     }
 }
 
