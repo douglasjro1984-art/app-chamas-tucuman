@@ -260,7 +260,7 @@ async function cargarEditorPrecios() {
                         onclick="togglePausarServicio(this.dataset.sid, this.dataset.activo)"
                         style="background:${s.activo?'#ff9800':'#4CAF50'};color:white;padding:9px;border:none;border-radius:7px;cursor:pointer;font-weight:700;width:100%;font-size:0.85rem;">
                     ${s.activo ? '⏸ Pausar' : '▶️ Activar'}</button>
-                <button onclick="eliminarServicio(${s.id}, '${s.nombre.replace(/'/g,"\'")}')"
+                <button onclick="eliminarServicio(event, ${s.id})" data-nombre="${esc(s.nombre)}"
                         style="background:#dc3545;color:white;padding:9px;border:none;border-radius:7px;cursor:pointer;font-weight:700;width:100%;font-size:0.85rem;">
                     🗑️ Eliminar</button>
                 <button onclick="resetearCampos(${s.id})"
@@ -457,7 +457,8 @@ async function togglePausarServicio(id, activoActual) {
 }
 
 // ── Eliminar servicio ───────────────────────────────────────
-async function eliminarServicio(id, nombre) {
+async function eliminarServicio(event, id) {
+    const nombre = event.currentTarget.dataset.nombre || '';
     if (!confirm(`⚠️ ¿Eliminar el servicio "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausalo.`)) return;
     try {
         const res = await fetch(`${API_BASE}/servicios/${id}`, { method: 'DELETE' });
@@ -2017,16 +2018,16 @@ function mostrarConfirmacionTurno(cn, tel, srv, prof, fecha, hora, regPor) {
         <h2 style="color:#C06C84;margin:0 0 6px 0;">¡Turno Confirmado!</h2>
         <p style="color:#666;margin-bottom:18px;">La reserva fue registrada exitosamente</p>
         <div style="background:#f9e4ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left;">
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>👤</span><div><small style="color:#888;display:block;">Cliente</small><strong>${cn}</strong></div></div>
-            ${tel?`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>📞</span><div><small style="color:#888;display:block;">Teléfono</small><strong>${tel}</strong></div></div>`:''}
-            ${regPor&&regPor!==cn?`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>🔑</span><div><small style="color:#888;display:block;">Registrado por</small><strong style="color:#777;font-size:0.9rem;">${regPor}</strong></div></div>`:''}
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>💆</span><div><small style="color:#888;display:block;">Servicio</small><strong>${srv}</strong></div></div>
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>👩‍💼</span><div><small style="color:#888;display:block;">Profesional</small><strong>${prof}</strong></div></div>
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>📅</span><div><small style="color:#888;display:block;">Fecha</small><strong>${fecha}</strong></div></div>
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;"><span>🕐</span><div><small style="color:#888;display:block;">Hora</small><strong style="color:#C06C84;font-size:1.2rem;">${hora}</strong></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>👤</span><div><small style="color:#888;display:block;">Cliente</small><strong>${esc(cn)}</strong></div></div>
+            ${tel?`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>📞</span><div><small style="color:#888;display:block;">Teléfono</small><strong>${esc(tel)}</strong></div></div>`:''}
+            ${regPor&&regPor!==cn?`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>🔑</span><div><small style="color:#888;display:block;">Registrado por</small><strong style="color:#777;font-size:0.9rem;">${esc(regPor)}</strong></div></div>`:''}
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>💆</span><div><small style="color:#888;display:block;">Servicio</small><strong>${esc(srv)}</strong></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>👩‍💼</span><div><small style="color:#888;display:block;">Profesional</small><strong>${esc(prof)}</strong></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>📅</span><div><small style="color:#888;display:block;">Fecha</small><strong>${esc(fecha)}</strong></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;"><span>🕐</span><div><small style="color:#888;display:block;">Hora</small><strong style="color:#C06C84;font-size:1.2rem;">${esc(hora)}</strong></div></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button onclick="imprimirComprobante('${cn.replace(/'/g,"\'")}','${tel}','${srv.replace(/'/g,"\'")}','${prof.replace(/'/g,"\'")}','${fecha}','${hora}','${regPor.replace(/'/g,"\'")}') "
+            <button onclick="imprimirComprobante(event)" data-cn="${esc(cn)}" data-tel="${esc(tel)}" data-srv="${esc(srv)}" data-prof="${esc(prof)}" data-fecha="${esc(fecha)}" data-hora="${esc(hora)}" data-regpor="${esc(regPor)}"
                     style="flex:1;min-width:100px;background:#c0392b;color:white;padding:10px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.85rem;">🖨️ PDF</button>
             <button onclick="document.getElementById('modal-confirm-turno').remove();showSection('mis-turnos-cliente');"
                     style="flex:1;min-width:100px;background:#C06C84;color:white;padding:10px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">📋 Ver</button>
@@ -2038,7 +2039,10 @@ function mostrarConfirmacionTurno(cn, tel, srv, prof, fecha, hora, regPor) {
     m.onclick=ev=>{if(ev.target===m)m.remove();};
 }
 
-function imprimirComprobante(cn,tel,srv,prof,fecha,hora,regPor) {
+function imprimirComprobante(event) {
+    const b = event.currentTarget.dataset;
+    const cn = b.cn || '', tel = b.tel || '', srv = b.srv || '', prof = b.prof || '', fecha = b.fecha || '', hora = b.hora || '', regPor = b.regPor || '';
+    const escCN = esc(cn), escTel = esc(tel), escSRV = esc(srv), escPROF = esc(prof), escF = esc(fecha), escH = esc(hora), escRP = esc(regPor);
     const win=window.open('','_blank','width=500,height=700');
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Comprobante</title>
     <style>body{font-family:Arial,sans-serif;padding:40px;color:#333;max-width:420px;margin:0 auto;}
@@ -2046,13 +2050,13 @@ function imprimirComprobante(cn,tel,srv,prof,fecha,hora,regPor) {
     .f{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0e0ea;}
     .footer{text-align:center;margin-top:28px;color:#aaa;font-size:0.8rem;}@media print{body{padding:20px;}}</style></head><body>
     <h1>💅 CHAMAS SPA</h1><p class="sub">Comprobante de Turno Confirmado</p>
-    <div class="f"><span>👤 Cliente</span><strong>${cn}</strong></div>
-    ${tel?`<div class="f"><span>📞 Teléfono</span><strong>${tel}</strong></div>`:''}
-    <div class="f"><span>💆 Servicio</span><strong>${srv}</strong></div>
-    <div class="f"><span>👩‍💼 Profesional</span><strong>${prof}</strong></div>
-    <div class="f"><span>📅 Fecha</span><strong>${fecha}</strong></div>
-    <div class="f"><span>🕐 Hora</span><strong style="color:#C06C84;">${hora}</strong></div>
-    <div class="f"><span>🔑 Registrado por</span><strong>${regPor}</strong></div>
+    <div class="f"><span>👤 Cliente</span><strong>${escCN}</strong></div>
+    ${escTel?`<div class="f"><span>📞 Teléfono</span><strong>${escTel}</strong></div>`:''}
+    <div class="f"><span>💆 Servicio</span><strong>${escSRV}</strong></div>
+    <div class="f"><span>👩‍💼 Profesional</span><strong>${escPROF}</strong></div>
+    <div class="f"><span>📅 Fecha</span><strong>${escF}</strong></div>
+    <div class="f"><span>🕐 Hora</span><strong style="color:#C06C84;">${escH}</strong></div>
+    <div class="f"><span>🔑 Registrado por</span><strong>${escRP}</strong></div>
     <div class="footer">Generado el ${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
     <script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
     win.document.close();
@@ -2553,7 +2557,7 @@ async function calcG() {
         <div style="background:white;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
                 <h3 style="margin:0;color:#555;">📊 Por Profesional</h3>
-                <button onclick="rptGeneral('${desde}','${hasta}','${profNom}')"
+                <button onclick="rptGeneral(event)" data-desde="${esc(desde)}" data-hasta="${esc(hasta)}" data-prof="${esc(profNom)}"
                         style="background:#c0392b;color:white;padding:8px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">🖨️ Reporte General PDF</button>
             </div>
             <table style="width:100%;border-collapse:collapse;">
@@ -2572,8 +2576,8 @@ async function calcG() {
                         <td style="padding:9px 12px;text-align:center;">${d.lista.length}</td>
                         <td style="padding:9px 12px;text-align:right;font-weight:700;color:#28a745;">$${d.total.toLocaleString()}</td>
                         <td style="padding:7px 12px;text-align:center;">
-                            <button data-prof="${n}" data-desde="${desde}" data-hasta="${hasta}"
-                                    data-turnos='${JSON.stringify(d.lista)}'
+                            <button data-prof="${esc(n)}" data-desde="${esc(desde)}" data-hasta="${esc(hasta)}"
+                                    data-turnos='${esc(JSON.stringify(d.lista))}'
                                     onclick="rptProf(this.dataset.prof,JSON.parse(this.dataset.turnos),this.dataset.desde,this.dataset.hasta)"
                                     style="background:#C06C84;color:white;padding:5px 11px;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:700;">📄 Ver</button>
                         </td>
@@ -2584,7 +2588,11 @@ async function calcG() {
     } catch(e){ cont.innerHTML='<p style="color:#dc3545;text-align:center;">❌ Error al cargar estadísticas</p>'; }
 }
 
-function rptGeneral(desde, hasta, prof) {
+function rptGeneral(event) {
+    const b = event.currentTarget.dataset;
+    const desde = b.desde || '';
+    const hasta = b.hasta || '';
+    const prof = b.prof || '';
     const cont=document.getElementById('g-resultados');
     const tabla=cont?.querySelector('table')?.outerHTML||'';
     const win=window.open('','_blank','width=800,height=900');
@@ -2594,7 +2602,7 @@ function rptGeneral(desde, hasta, prof) {
     td{padding:9px 12px;border-bottom:1px solid #f0e0ea;}tr:nth-child(even){background:#fdf5f8;}
     .footer{margin-top:30px;color:#aaa;font-size:0.8rem;text-align:center;}@media print{body{padding:20px;}}</style></head><body>
     <h1>📊 Reporte de Ganancias — CHAMAS SPA</h1>
-    <p>Período: <strong>${desde} → ${hasta}</strong> | Profesional: <strong>${prof}</strong></p>
+    <p>Período: <strong>${esc(desde)} → ${esc(hasta)}</strong> | Profesional: <strong>${esc(prof)}</strong></p>
     <p>Generado: ${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
     ${tabla}<div class="footer">CHAMAS - Sistema de Gestión de Turnos</div>
     <script>window.onload=()=>{window.print();}<\/script></body></html>`);
@@ -2609,8 +2617,8 @@ function rptProf(nombre, turnos, desde, hasta) {
     modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);overflow-y:auto;';
     modal.innerHTML=`
         <div style="background:white;border-radius:18px;padding:32px;max-width:560px;width:95%;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#C06C84;margin:0 0 4px 0;">📄 ${nombre}</h3>
-            <p style="color:#888;margin:0 0 18px 0;font-size:0.86rem;">Período: ${desde} → ${hasta}</p>
+            <h3 style="color:#C06C84;margin:0 0 4px 0;">📄 ${esc(nombre)}</h3>
+            <p style="color:#888;margin:0 0 18px 0;font-size:0.86rem;">Período: ${esc(desde)} → ${esc(hasta)}</p>
             <div style="background:#f9f4ff;border:2px solid #C06C84;border-radius:11px;padding:16px;margin-bottom:18px;">
                 <h4 style="color:#C06C84;margin:0 0 12px 0;">💼 Configurar Facturación</h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
@@ -2651,7 +2659,7 @@ function rptProf(nombre, turnos, desde, hasta) {
                 </table>
             </div>
             <div style="display:flex;gap:10px;">
-                <button onclick="impRptProf('${nombre.replace(/'/g,"\\'")}','${desde}','${hasta}',${bruto})"
+                <button onclick="impRptProf(event)" data-nombre="${esc(nombre)}" data-desde="${esc(desde)}" data-hasta="${esc(hasta)}" data-bruto="${bruto}"
                         style="flex:1;background:#c0392b;color:white;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">🖨️ Imprimir PDF</button>
                 <button onclick="document.getElementById('modal-rpt-prof').remove();"
                         style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">✖ Cerrar</button>
@@ -2681,14 +2689,20 @@ function calcFact(bruto) {
         </div></div>`;
 }
 
-function impRptProf(nombre, desde, hasta, bruto) {
+function impRptProf(event) {
+    const b = event.currentTarget.dataset;
+    const nombre = b.nombre || '';
+    const desde = b.desde || '';
+    const hasta = b.hasta || '';
+    const bruto = parseFloat(b.bruto) || 0;
+    const escNombre = esc(nombre), escDesde = esc(desde), escHasta = esc(hasta);
     const pE=parseFloat(document.getElementById('pct-esp')?.value||0)/100;
     const pM=parseFloat(document.getElementById('pct-mat')?.value||0)/100;
     const pI=parseFloat(document.getElementById('pct-iva')?.value||0)/100;
     const oG=parseFloat(document.getElementById('otros-g')?.value||0);
     const esp=bruto*pE, mat=bruto*pM, iva=bruto*pI, neto=bruto-esp-mat-iva-oG;
     const win=window.open('','_blank','width=600,height=800');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reporte ${nombre}</title>
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reporte ${escNombre}</title>
     <style>body{font-family:Arial,sans-serif;padding:40px;color:#333;max-width:480px;margin:0 auto;}
     h1{color:#C06C84;}.sub{color:#888;margin-bottom:20px;}
     .f{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0e0ea;}
@@ -2696,7 +2710,7 @@ function impRptProf(nombre, desde, hasta, bruto) {
     .tot{border-top:3px solid #C06C84;padding-top:10px;margin-top:6px;}
     .footer{text-align:center;margin-top:30px;color:#aaa;font-size:0.8rem;}@media print{body{padding:20px;}}</style></head><body>
     <h1>📄 CHAMAS SPA — Reporte Individual</h1>
-    <p class="sub">Profesional: <strong>${nombre}</strong><br>Período: ${desde} → ${hasta}</p>
+    <p class="sub">Profesional: <strong>${escNombre}</strong><br>Período: ${escDesde} → ${escHasta}</p>
     <div class="f"><span>💰 Ingresos brutos</span><strong>$${bruto.toLocaleString()}</strong></div>
     <div class="f g"><span>🏢 Espacio (${(pE*100).toFixed(1)}%)</span><span>-$${esp.toLocaleString()}</span></div>
     <div class="f g"><span>📦 Materiales (${(pM*100).toFixed(1)}%)</span><span>-$${mat.toLocaleString()}</span></div>
@@ -2770,7 +2784,7 @@ async function cargarTodosLosTurnos() {
                             <div style="display:flex;gap:4px;justify-content:center;">
                                 <button title="Editar" onclick="abrirModalEditar(${t.id})"
                                     style="background:#4CAF50;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">✏️</button>
-                                <button title="Finalizar" onclick="abrirModalPago(${t.id},'${(t.cliente_nombre||t.cliente||'').replace(/'/g,"\\'")}','${(t.servicio||'').replace(/'/g,"\\'")}','${(t.hora_inicio||t.hora||'').substring(0,5)}','${t.fecha?t.fecha.split('T')[0]:''}')"
+                                <button title="Finalizar" onclick="abrirModalPago(event, ${t.id})" data-cliente="${esc(t.cliente_nombre||t.cliente||'')}" data-servicio="${esc(t.servicio||'')}" data-hora="${esc((t.hora_inicio||t.hora||'').substring(0,5))}" data-fecha="${esc(t.fecha?t.fecha.split('T')[0]:'')}"
                                     style="background:#28a745;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">💳</button>
                                 <button title="Cancelar" onclick="cancelarTurno(${t.id})"
                                     style="background:#ff9800;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">❌</button>
@@ -2789,7 +2803,12 @@ async function cargarTodosLosTurnos() {
 // =====================================================
 // MODAL PAGO / FINALIZAR TURNO
 // =====================================================
-function abrirModalPago(turnoId, clienteNombre, servicio, hora, fecha) {
+function abrirModalPago(event, turnoId) {
+    const btn = event.currentTarget;
+    const clienteNombre = btn.dataset.cliente || '';
+    const servicio = btn.dataset.servicio || '';
+    const hora = btn.dataset.hora || '';
+    const fecha = btn.dataset.fecha || '';
     document.getElementById('modal-pago')?.remove();
     const modal = document.createElement('div');
     modal.id = 'modal-pago';
@@ -2797,7 +2816,7 @@ function abrirModalPago(turnoId, clienteNombre, servicio, hora, fecha) {
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:34px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
             <h3 style="color:#28a745;margin:0 0 6px 0;">💳 Finalizar Turno #${turnoId}</h3>
-            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">👤 ${clienteNombre} | 💆 ${servicio} | 📅 ${fecha} ${hora}</p>
+            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">👤 ${esc(clienteNombre)} | 💆 ${esc(servicio)} | 📅 ${esc(fecha)} ${esc(hora)}</p>
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <div>
                     <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto cobrado ($)</label>
@@ -2882,7 +2901,7 @@ async function cargarListaProfesionalesAdmin() {
                             style="background:#f39c12;color:white;padding:7px 13px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">
                         ✏️ Editar
                     </button>
-                    <button onclick="eliminarProfesional(${p.id},'${p.nombre.replace(/'/g,"\\'")}')"
+                    <button onclick="eliminarProfesional(event, ${p.id})" data-nombre="${esc(p.nombre)}"
                             style="background:#dc3545;color:white;padding:7px 13px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">
                         🗑️ Eliminar
                     </button>
@@ -2977,7 +2996,8 @@ async function guardarProfesional(id) {
     }
 }
 
-async function eliminarProfesional(id, nombre) {
+async function eliminarProfesional(event, id) {
+    const nombre = event.currentTarget.dataset.nombre || '';
     if (!confirm(`¿Eliminar a "${nombre}"?\nEsto eliminará también sus horarios y disponibilidad.`)) return;
     try {
         const res = await fetch(`${API_BASE}/usuarios/${id}`, { method: 'DELETE' });
@@ -3247,7 +3267,6 @@ async function cargarRetiros() {
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                 ${pendientes.map(s => {
                     const montoMax = (parseFloat(s.cobrado_hoy) * (parseFloat(s.porcentaje_retiro)||70) / 100).toFixed(2);
-                    const safeNom = (s.profesional_nombre||'').replace(/'/g,"\\'");
                     return `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff8e1;border-left:3px solid #ffc107;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
@@ -3259,7 +3278,7 @@ async function cargarRetiros() {
                                 <option value="efectivo">💵 Efectivo</option>
                                 <option value="transferencia">🏦 Transferencia</option>
                             </select>
-                            <button onclick="registrarRetiro(${s.profesional_id},'${safeNom}',document.getElementById('metodo-retiro-${s.profesional_id}').value)" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">💸 Registrar retiro</button>
+                            <button onclick="registrarRetiro(event, ${s.profesional_id})" data-nombre="${esc(s.profesional_nombre||'')}" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">💸 Registrar retiro</button>
                         </div>
                     </div>`;
                 }).join('')}
@@ -3276,11 +3295,13 @@ async function cargarRetiros() {
     }
 }
 
-async function registrarRetiro(profesionalId, nombre, metodo) {
+async function registrarRetiro(event, profesionalId) {
+    const nombre = event.currentTarget.dataset.nombre || '';
+    const metodo = document.getElementById('metodo-retiro-'+profesionalId)?.value || 'efectivo';
     if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${metodo === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'}.\nSe descontará de la caja de hoy y NO podrá anularse.`)) return;
-    const btn = event?.target;
-    const btnText = btn?.textContent;
-    if (btn) { btn.disabled = true; btn.textContent = 'Registrando...'; }
+    event.currentTarget.disabled = true;
+    const btnText = event.currentTarget.textContent;
+    event.currentTarget.textContent = 'Registrando...';
     try {
         const res = await fetch(`${API_BASE}/caja/retiros`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3297,7 +3318,8 @@ async function registrarRetiro(profesionalId, nombre, metodo) {
     } catch (e) {
         mostrarNotificacion('❌ Error de conexión', 'error');
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = btnText; }
+        event.currentTarget.disabled = false;
+        event.currentTarget.textContent = btnText;
     }
 }
 
@@ -3573,7 +3595,7 @@ function mostrarResumenCierre(r) {
                 </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;">
-                <button onclick="abrirModalPlanillaCierre('${JSON.stringify(r).replace(/'/g, "\\'")}')" style="flex:1;background:#C06C84;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🖨️ Imprimir Planilla</button>
+                <button onclick="abrirModalPlanillaCierre(event)" data-json="${esc(JSON.stringify(r))}" style="flex:1;background:#C06C84;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🖨️ Imprimir Planilla</button>
                 <button onclick="document.getElementById('modal-resumen-cierre').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cerrar</button>
             </div>
         </div>`;
@@ -3582,9 +3604,9 @@ function mostrarResumenCierre(r) {
 }
 
 // Imprime una planilla de cierre (formato térmico 80mm)
-function abrirModalPlanillaCierre(json) {
+function abrirModalPlanillaCierre(event) {
     let r;
-    try { r = JSON.parse(json); } catch(e) { return; }
+    try { r = JSON.parse(event.currentTarget.dataset.json); } catch(e) { return; }
     const win = window.open('', '_blank', 'width=360,height=640');
     win.document.write(`<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><title>Planilla de Cierre</title>
@@ -3657,7 +3679,7 @@ async function cargarTurnosCaja() {
                     <strong style="color:#28a745;font-size:1.15rem;">$${parseFloat(t.precio || 0).toFixed(2)}</strong>
                     ${esCobrado
                         ? '<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">✔ Cobrado</span>'
-                        : `<button onclick="abrirModalCobro(${t.id},'${(t.cliente_nombre||'').replace(/'/g,"\\'")}','${(t.servicio||'').replace(/'/g,"\\'")}',${t.precio||0})" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">💳 Cobrar</button>
+                        : `<button onclick="abrirModalCobro(event, ${t.id})" data-cliente="${esc(t.cliente_nombre||'')}" data-precio="${t.precio||0}" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">💳 Cobrar</button>
                         <button onclick="cancelarTurno(${t.id})" style="background:#dc3545;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">❌ Cancelar</button>`}
                 </div>
             </div>`;
@@ -4141,7 +4163,10 @@ async function verDetalleCaja(cajaId) {
 let _turnoItemsActivos = [];
 
 // Modal de cobro: lista items multi-servicio y permite agregar/quitar servicios
-async function abrirModalCobro(turnoId, cliente, servicio, precio) {
+async function abrirModalCobro(event, turnoId) {
+    const btn = event.currentTarget;
+    const cliente = btn.dataset.cliente || '';
+    const precio = parseFloat(btn.dataset.precio) || 0;
     document.getElementById('modal-cobro')?.remove();
     const precioBase = (parseFloat(precio) || 0).toFixed(2);
     const modal = document.createElement('div');
@@ -4150,7 +4175,7 @@ async function abrirModalCobro(turnoId, cliente, servicio, precio) {
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:28px;max-width:440px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">
             <h3 style="color:#C06C84;margin:0 0 6px 0;">💵 Cobrar Turno #${turnoId}</h3>
-            <p style="color:#888;margin:0 0 14px 0;font-size:0.88rem;">👤 ${cliente}</p>
+            <p style="color:#888;margin:0 0 14px 0;font-size:0.88rem;">👤 ${esc(cliente)}</p>
             <div style="margin-bottom:10px;">
                 <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">🗂️ Servicios del turno</label>
                 <div id="cobro-items" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
@@ -4621,7 +4646,7 @@ async function cargarSobreturnos() {
                         <small style="display:block;color:#888;">Libre desde <strong>${h.desde}</strong> hasta <strong>${h.hasta}</strong> → <strong style="color:#6C3483;">${h.minutos} min</strong></small>
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button onclick="abrirModalSobreturno(${h.profesional_id},'${h.profesional.replace(/'/g,"\\'")}','${h.desde}','${fechaReserva.replace(/'/g,"\\'")}',${h.minutos})" style="background:#8E44AD;color:white;padding:10px 16px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.85rem;">➕ Agregar cliente en hueco</button>
+                        <button onclick="abrirModalSobreturno(event, ${h.profesional_id})" data-profnombre="${esc(h.profesional)}" data-desde="${esc(h.desde)}" data-fecha="${esc(fechaReserva)}" data-minutos="${h.minutos}" style="background:#8E44AD;color:white;padding:10px 16px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.85rem;">➕ Agregar cliente en hueco</button>
                     </div>
                 </div>`;
         }).join('');
@@ -4630,7 +4655,12 @@ async function cargarSobreturnos() {
     }
 }
 
-async function abrirModalSobreturno(profId, profNombre, desde, fecha, minutos) {
+async function abrirModalSobreturno(event, profId) {
+    const b = event.currentTarget.dataset;
+    const profNombre = b.profNombre || '';
+    const desde = b.desde || '';
+    const fecha = b.fecha || '';
+    const minutos = parseInt(b.minutos, 10) || 0;
     document.getElementById('modal-sobreturno')?.remove();
     _sobreturnoHuecoActivo = { profId, profNombre, desde, fecha, minutos };
     const modal = document.createElement('div');
@@ -4639,10 +4669,10 @@ async function abrirModalSobreturno(profId, profNombre, desde, fecha, minutos) {
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:30px;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:92vh;overflow-y:auto;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <h3 style="color:#6C3483;margin:0;">⏱️ Sobreturno — ${profNombre}</h3>
+                <h3 style="color:#6C3483;margin:0;">⏱️ Sobreturno — ${esc(profNombre)}</h3>
                 <button onclick="document.getElementById('modal-sobreturno').remove();" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">✖</button>
             </div>
-            <p style="color:#888;margin:0 0 16px;font-size:0.9rem;">Hueco de <strong>${desde}</strong> a <strong>${_horaFinSobreturno(desde, minutos)}</strong> (${minutos} min). Elegí servicios que quepan en ese tiempo.</p>
+            <p style="color:#888;margin:0 0 16px;font-size:0.9rem;">Hueco de <strong>${esc(desde)}</strong> a <strong>${_horaFinSobreturno(desde, minutos)}</strong> (${minutos} min). Elegí servicios que quepan en ese tiempo.</p>
             <div style="margin-bottom:12px;">
                 <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">👤 Nombre del cliente</label>
                 <input type="text" id="sob-nombre" placeholder="Ej: María González" style="width:100%;padding:10px 12px;border:2px solid #8E44AD;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
