@@ -825,15 +825,17 @@ app.get('/api/disponibilidad_completa/:id', async (req, res) => {
             return res.json([]); // Retornar array vacÃ­o si no existe la tabla
         }
 
-        // Obtener los datos
+        // Obtener los datos (servicio_id opcional para filtrar por servicio)
+        const servicioId = req.query.servicio_id;
         const [rows] = await pool.query(
             `SELECT 
                 DATE_FORMAT(fecha, '%Y-%m-%d') as fecha,
-                TIME_FORMAT(hora_inicio, '%H:%i:%s') as hora_inicio
+                TIME_FORMAT(hora_inicio, '%H:%i:%s') as hora_inicio,
+                servicio_id
              FROM disponibilidad_fechas
-             WHERE profesional_id = ? AND fecha >= CURDATE()
+             WHERE profesional_id = ? AND fecha >= CURDATE()${servicioId !== undefined ? ' AND servicio_id = ?' : ''}
              ORDER BY fecha, hora_inicio`,
-            [profesionalId]
+            servicioId !== undefined ? [profesionalId, parseInt(servicioId) || 0] : [profesionalId]
         );
 
         console.log('âœ… Disponibilidad cargada:', rows?.length || 0, 'registros');
@@ -848,7 +850,7 @@ app.get('/api/disponibilidad_completa/:id', async (req, res) => {
 // Fechas disponibles en un rango (para marcar el calendario del cliente)
 app.get('/api/disponibilidad/rango/:profesionalId', async (req, res) => {
     const { profesionalId } = req.params;
-    const { desde, hasta } = req.query;
+    const { desde, hasta, servicio_id } = req.query;
     try {
         const [rows] = await pool.query(
             `SELECT DISTINCT df.fecha
@@ -857,6 +859,7 @@ app.get('/api/disponibilidad/rango/:profesionalId', async (req, res) => {
                AND df.fecha >= COALESCE(?, CURDATE())
                AND df.fecha <= COALESCE(?, DATE_ADD(CURDATE(), INTERVAL 6 MONTH))
                AND df.fecha >= CURDATE()
+               AND df.servicio_id = COALESCE(?, 0)
                AND NOT EXISTS (
                    SELECT 1 FROM turnos t
                    WHERE t.profesional_id = df.profesional_id
@@ -864,7 +867,7 @@ app.get('/api/disponibilidad/rango/:profesionalId', async (req, res) => {
                      AND t.hora_inicio = df.hora_inicio
                )
              ORDER BY df.fecha`,
-            [profesionalId, desde || null, hasta || null]
+            [profesionalId, desde || null, hasta || null, servicio_id !== undefined ? (parseInt(servicio_id) || 0) : 0]
         );
         // Devolver array de strings "YYYY-MM-DD"
         res.json(rows.map(r => {
@@ -880,12 +883,14 @@ app.get('/api/disponibilidad/rango/:profesionalId', async (req, res) => {
 // Horas disponibles para un profesional en una fecha exacta
 app.get('/api/disponibilidad/:profesionalId/:fecha', async (req, res) => {
     const { profesionalId, fecha } = req.params;
+    const servicioId = req.query.servicio_id !== undefined ? (parseInt(req.query.servicio_id) || 0) : 0;
     try {
         const [rows] = await pool.query(
             `SELECT df.hora_inicio
              FROM disponibilidad_fechas df
              WHERE df.profesional_id = ?
                AND df.fecha = ?
+               AND df.servicio_id = ?
                AND NOT EXISTS (
                    SELECT 1 FROM turnos t
                    WHERE t.profesional_id = df.profesional_id
@@ -893,7 +898,7 @@ app.get('/api/disponibilidad/:profesionalId/:fecha', async (req, res) => {
                      AND t.hora_inicio = df.hora_inicio
                )
              ORDER BY df.hora_inicio`,
-            [profesionalId, fecha]
+            [profesionalId, fecha, servicioId]
         );
         res.json(rows);
     } catch (error) {
@@ -905,7 +910,8 @@ app.get('/api/disponibilidad/:profesionalId/:fecha', async (req, res) => {
 // Guardar disponibilidad: recibe rango + plantilla de dÃ­as/horas
 // y genera los slots concretos en disponibilidad_fechas
 app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
-    const { profesional_id, desde, hasta, horarios } = req.body;
+    const { profesional_id, desde, hasta, horarios, servicio_id } = req.body;
+    const servId = servicio_id !== undefined ? (parseInt(servicio_id) || 0) : 0;
     // horarios: [{ dia: "Lunes", inicio: "09:00" }, ...]
     // desde / hasta: "YYYY-MM-DD"
 
@@ -921,10 +927,10 @@ app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','re
     const mapDia = { 'Lunes':1,'Martes':2,'MiÃ©rcoles':3,'Jueves':4,'Viernes':5,'SÃ¡bado':6,'Domingo':0 };
 
     try {
-        // Borrar slots existentes en ese rango para ese profesional
+        // Borrar slots existentes en ese rango para ese profesional y servicio
         await pool.query(
-            'DELETE FROM disponibilidad_fechas WHERE profesional_id = ? AND fecha BETWEEN ? AND ?',
-            [profesional_id, desde, hasta]
+            'DELETE FROM disponibilidad_fechas WHERE profesional_id = ? AND fecha BETWEEN ? AND ? AND servicio_id = ?',
+            [profesional_id, desde, hasta, servId]
         );
 
         if (horarios.length === 0) {
@@ -944,14 +950,14 @@ app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','re
             horasDelDia.forEach(h => {
                 const fechaStr = cursor.toISOString().split('T')[0];
                 const horaStr  = h.inicio.length === 5 ? h.inicio + ':00' : h.inicio;
-                slots.push([profesional_id, fechaStr, horaStr]);
+                slots.push([profesional_id, fechaStr, horaStr, servId]);
             });
             cursor.setDate(cursor.getDate() + 1);
         }
 
         if (slots.length > 0) {
             await pool.query(
-                'INSERT IGNORE INTO disponibilidad_fechas (profesional_id, fecha, hora_inicio) VALUES ?',
+                'INSERT IGNORE INTO disponibilidad_fechas (profesional_id, fecha, hora_inicio, servicio_id) VALUES ?',
                 [slots]
             );
         }
@@ -970,7 +976,8 @@ app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','re
 
 // POST: Guardar horarios directamente (fechas especÃ­ficas)
 app.post('/api/disponibilidad/guardar-directas', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
-    const { profesional_id, horarios } = req.body;
+    const { profesional_id, horarios, servicio_id } = req.body;
+    const servId = servicio_id !== undefined ? (parseInt(servicio_id) || 0) : 0;
 
     if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista' && profesional_id !== req.usuario.id) {
         return res.status(403).json({ success: false, message: 'No podÃ©s modificar horarios de otro profesional' });
@@ -989,14 +996,14 @@ app.post('/api/disponibilidad/guardar-directas', autenticar, autorizar(['admin',
 
             // Verificar si ya existe
             const [existe] = await pool.query(
-                'SELECT id FROM disponibilidad_fechas WHERE profesional_id = ? AND fecha = ? AND hora_inicio = ?',
-                [profesional_id, fecha, hora_inicio]
+                'SELECT id FROM disponibilidad_fechas WHERE profesional_id = ? AND fecha = ? AND hora_inicio = ? AND servicio_id = ?',
+                [profesional_id, fecha, hora_inicio, servId]
             );
 
             if (existe.length === 0) {
                 await pool.query(
-                    'INSERT INTO disponibilidad_fechas (profesional_id, fecha, hora_inicio) VALUES (?, ?, ?)',
-                    [profesional_id, fecha, hora_inicio]
+                    'INSERT INTO disponibilidad_fechas (profesional_id, fecha, hora_inicio, servicio_id) VALUES (?, ?, ?, ?)',
+                    [profesional_id, fecha, hora_inicio, servId]
                 );
                 insertados++;
             }
@@ -1012,7 +1019,8 @@ app.post('/api/disponibilidad/guardar-directas', autenticar, autorizar(['admin',
 
 // POST: Eliminar todos los horarios de una fecha especÃ­fica
 app.post('/api/disponibilidad/eliminar-fecha', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
-    const { profesional_id, fecha } = req.body;
+    const { profesional_id, fecha, servicio_id } = req.body;
+    const servId = servicio_id !== undefined ? (parseInt(servicio_id) || 0) : 0;
 
     if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista' && profesional_id !== req.usuario.id) {
         return res.status(403).json({ success: false, message: 'No podÃ©s modificar horarios de otro profesional' });
@@ -1024,8 +1032,8 @@ app.post('/api/disponibilidad/eliminar-fecha', autenticar, autorizar(['admin','p
 
     try {
         const [result] = await pool.query(
-            'DELETE FROM disponibilidad_fechas WHERE profesional_id = ? AND fecha = ?',
-            [profesional_id, fecha]
+            'DELETE FROM disponibilidad_fechas WHERE profesional_id = ? AND fecha = ? AND servicio_id = ?',
+            [profesional_id, fecha, servId]
         );
 
         res.json({ success: true, message: `${result.affectedRows} registros eliminados`, deletedCount: result.affectedRows });
@@ -1405,6 +1413,38 @@ app.get('/api/cumpleanos', autenticar, autorizar(['admin','recepcionista']), asy
     } catch (e) {
         console.error('âŒ Error cumpleaÃ±os:', e.message);
         res.status(500).json({ error: 'Error al obtener cumpleaÃ±os' });
+    }
+});
+
+// ðŸ“Š Clientes habituales: registro mensual por cantidad de visitas
+app.get('/api/clientes/habituales', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const mes = req.query.mes || new Date().toISOString().slice(0, 7); // YYYY-MM
+    if (!/^\d{4}-\d{2}$/.test(mes)) {
+        return res.status(400).json({ error: 'Mes invÃ¡lido. UsÃ¡ formato YYYY-MM' });
+    }
+    try {
+        const [rows] = await pool.query(
+            `SELECT
+                t.cliente_id,
+                IFNULL(t.cliente_nombre, '(Sin nombre)') as nombre,
+                IFNULL(NULLIF(MAX(t.cliente_telefono), ''), MAX(c.telefono)) as telefono,
+                IFNULL(NULLIF(MAX(t.cliente_email), ''), MAX(c.email)) as email,
+                MAX(c.fecha_nacimiento) as fecha_nacimiento,
+                COUNT(*) as visitas,
+                GROUP_CONCAT(DISTINCT s.nombre ORDER BY s.nombre SEPARATOR ', ') as servicios
+             FROM turnos t
+             LEFT JOIN servicios s ON s.id = t.servicio_id
+             LEFT JOIN clientes c ON c.id = t.cliente_id
+             WHERE DATE_FORMAT(t.fecha, '%Y-%m') = ? AND t.estado <> 'cancelado'
+             GROUP BY t.cliente_id, t.cliente_nombre
+             ORDER BY visitas DESC, nombre ASC
+             LIMIT 200`,
+            [mes]
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('âŒ Error clientes habituales:', e.message);
+        res.status(500).json({ error: 'Error al obtener clientes habituales' });
     }
 });
 
@@ -2330,7 +2370,7 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
 // Registra el pago en la caja del dÃ­a si hay una caja abierta.
 app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { id } = req.params;
-    const { monto, metodo_pago, adicionales } = req.body;
+    const { monto, metodo_pago, adicionales, descuento_porcentaje } = req.body;
     try {
         const [turno] = await pool.query('SELECT * FROM turnos WHERE id = ?', [id]);
         if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
@@ -2372,8 +2412,14 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
             });
         }
 
+        // Subtotal = suma de los items; el monto ingresado es el total final cobrado
+        // (puede incluir descuento % aplicado en el frontend o ajuste manual).
+        const subtotal = itemsTicket.reduce((s, it) => s + parseFloat(it.importe || 0), 0);
+        const totalFinal = montoFinal;
+        const descuentoMonto = subtotal > totalFinal ? subtotal - totalFinal : 0;
+
         // Marcar turno como cobrado y registrar el fin real (para sobreturnos)
-        await pool.query('UPDATE turnos SET estado = ?, precio = ?, fin_real = CURTIME() WHERE id = ?', ['cobrado', montoFinal, id]);
+        await pool.query('UPDATE turnos SET estado = ?, precio = ?, fin_real = CURTIME() WHERE id = ?', ['cobrado', totalFinal, id]);
 
         // Datos del turno para el ticket
         const [d] = await pool.query(
@@ -2402,7 +2448,7 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
             }[metodo] || 'total_efectivo';
             await pool.query(
                 `UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ?`,
-                [montoFinal, cajaId]
+                [totalFinal, cajaId]
             );
         }
 
@@ -2419,7 +2465,7 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
                                   cajero_id, cajero_nombre, tipo_comprobante, caja_id)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ticket', ?)`,
             [numero, id, dato.cliente_nombre || null, dato.cliente_telefono || null, dato.cliente_email || null,
-             dato.profesional || null, items, montoFinal, 0, montoFinal, metodo,
+             dato.profesional || null, items, subtotal, descuentoMonto, totalFinal, metodo,
              req.usuario.id, req.usuario.nombre || null, cajaId]
         );
 
@@ -2445,9 +2491,9 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
                 cliente_email: dato.cliente_email,
                 profesional: dato.profesional,
                 items: itemsTicket,
-                subtotal: montoFinal,
-                descuento: 0,
-                total: montoFinal,
+                subtotal: subtotal,
+                descuento: descuentoMonto,
+                total: totalFinal,
                 metodo_pago: metodo
             }
         });

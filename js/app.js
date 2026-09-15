@@ -7,11 +7,17 @@
 const API_BASE = window.API_BASE; 
 const URL_BASE = window.API_BASE;
 
+// 1b. DEBUG LOG (logs de desarrollo desactivados por defecto)
+const DEBUG = false;
+function debugLog(...args) { if (DEBUG) console.log(...args); }
+
 // 2. VARIABLES GLOBALES
 let servicios = [];
 let _calendario_mes_actual = new Date();
 let _calendario_dias_seleccionados = {};
 let _calendario_paso_actual = 60;
+let _calendario_modo = 'general'; // 'general' | 'depilacion'
+const SERVICIO_DEPILACION = 240001; // Depilacion Definitiva
 
 // Escapa texto para insertarlo seguro en innerHTML (previene XSS almacenado)
 function esc(str) {
@@ -25,7 +31,7 @@ function esc(str) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log("🚀 Aplicación iniciada conectando a:", URL_BASE);
+    debugLog("🚀 Aplicación iniciada conectando a:", URL_BASE);
     const usuario = obtenerUsuarioActual();
     
     if (usuario) {
@@ -59,14 +65,14 @@ function obtenerUsuarioActual() {
 // --- CARGAR SERVICIOS DESDE EL BACKEND (CORREGIDO) ---
 async function cargarDatosDesdeAPI() {
     try {
-        console.log("📡 Intentando cargar servicios desde:", `${URL_BASE}/servicios`);
+        debugLog("📡 Intentando cargar servicios desde:", `${URL_BASE}/servicios`);
         const res = await fetch(`${URL_BASE}/servicios`);
         const data = await res.json();
 
         // Si data es un array directo lo usamos, si viene en .data también
         servicios = Array.isArray(data) ? data : (data.data || []);
 
-        console.log("✅ Servicios cargados:", servicios.length);
+        debugLog("✅ Servicios cargados:", servicios.length);
 
         renderizarServicios();
         
@@ -99,7 +105,7 @@ function llenarSelectServicios(select) {
             select.appendChild(option);
         }
     });
-    console.log("🎯 Desplegable de servicios actualizado con éxito");
+    debugLog("🎯 Desplegable de servicios actualizado con éxito");
 }
 
 // --- REGISTRO DE PROFESIONALES / CAJA (ADMIN) ---
@@ -316,7 +322,7 @@ function abrirModalCambiarFoto(servicioId) {
             <h3 style="color:#C06C84;margin:0 0 5px 0;">🖼️ Cambiar foto — ${s.nombre}</h3>
             <p style="color:#888;font-size:0.86rem;margin:0 0 16px 0;">Pegá la URL o ruta de la nueva imagen</p>
             <div style="text-align:center;margin-bottom:14px;">
-                <img id="modal-foto-prev" src="${s.imagen||''}" style="width:190px;height:140px;object-fit:cover;border-radius:10px;border:3px solid #e8d0da;" onerror="this.style.display='none'">
+                <img id="modal-foto-prev" src="${s.imagen||''}" alt="Vista previa de ${s.nombre}" style="width:190px;height:140px;object-fit:cover;border-radius:10px;border:3px solid #e8d0da;" onerror="this.style.display='none'">
             </div>
             <input type="text" id="modal-foto-url" value="${s.imagen||''}" placeholder="https://... ó img/nombre.jpg"
                    oninput="let v=this.value.trim();if(v&&!v.startsWith('http')&&!v.startsWith('img/')&&!v.startsWith('/'))v='img/'+v;const p=document.getElementById('modal-foto-prev');p.src=v;p.style.display='block';"
@@ -381,7 +387,7 @@ function abrirModalNuevoServicio() {
                     <small style="color:#888;font-size:0.78rem;display:block;margin-top:3px;">Solo se podrá agendar en esos días del mes. Dejalo vacío para ofrecerlo siempre.</small>
                 </div>
                 <div style="text-align:center;">
-                    <img id="nuevo-img-prev" style="display:none;width:160px;height:120px;object-fit:cover;border-radius:10px;border:3px solid #e0e0e0;">
+                    <img id="nuevo-img-prev" alt="Vista previa del nuevo servicio" style="display:none;width:160px;height:120px;object-fit:cover;border-radius:10px;border:3px solid #e0e0e0;">
                 </div>
                 <div style="display:flex;gap:12px;margin-top:4px;">
                     <button onclick="confirmarNuevoServicio()"
@@ -592,10 +598,12 @@ async function _renderCalendarioInteractivo(profesionalId, nombreProfesional) {
 
     _calendario_mes_actual = new Date();
     _calendario_dias_seleccionados = {};
+    _calendario_modo = 'general';
 
     // Cargar horarios ya guardados
     try {
-        const res = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}`);
+        const qs = _calendario_modo === 'depilacion' ? `?servicio_id=${SERVICIO_DEPILACION}` : '';
+        const res = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}${qs}`);
         const disponibilidad = await res.json();
         
         if (Array.isArray(disponibilidad)) {
@@ -632,7 +640,13 @@ async function _renderCalendarioInteractivo(profesionalId, nombreProfesional) {
             <!-- COLUMNA IZQUIERDA: CALENDARIO -->
             <div>
                 <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-                    <h3 style="color:#C06C84;margin:0 0 15px 0;">👨‍💼 ${nombreProfesional}</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px;">
+                        <h3 style="color:#C06C84;margin:0;">👨‍💼 ${nombreProfesional}</h3>
+                        <div style="display:flex;gap:8px;">
+                            <button id="btn-modo-general" onclick="_cambiarModoCalendario('general', ${profesionalId})" class="btn-reset" style="padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:700;border:2px solid #C06C84;background:#C06C84;color:white;">📋 Horarios generales</button>
+                            <button id="btn-modo-depilacion" onclick="_cambiarModoCalendario('depilacion', ${profesionalId})" class="btn-reset" style="padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:700;border:2px solid #C06C84;background:white;color:#C06C84;">⚡ Depilación Definitiva</button>
+                        </div>
+                    </div>
                     <div id="calendario-navegacion" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
                         <button onclick="_mesAnterior()" class="btn-reset" style="padding:8px 14px;">◄ Anterior</button>
                         <h4 id="mes-nombre" style="margin:0;color:#555;min-width:150px;text-align:center;"></h4>
@@ -667,8 +681,66 @@ async function _renderCalendarioInteractivo(profesionalId, nombreProfesional) {
     `;
 
     panel.innerHTML = html;
+    await _actualizarCalendarioYGuardados(profesionalId, nombreProfesional);
+}
+
+async function _actualizarCalendarioYGuardados(profesionalId, nombreProfesional) {
+    _calendario_dias_seleccionados = {};
+
+    try {
+        const qs = _calendario_modo === 'depilacion' ? `?servicio_id=${SERVICIO_DEPILACION}` : '';
+        const res = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}${qs}`);
+        const disponibilidad = await res.json();
+
+        if (Array.isArray(disponibilidad)) {
+            disponibilidad.forEach(slot => {
+                if (!slot || !slot.fecha) return;
+
+                let fecha = slot.fecha;
+                if (typeof fecha === 'string' && fecha.includes('T')) {
+                    fecha = fecha.split('T')[0];
+                }
+
+                if (!_calendario_dias_seleccionados[fecha]) {
+                    _calendario_dias_seleccionados[fecha] = [];
+                }
+
+                if (slot.hora_inicio) {
+                    const hora = typeof slot.hora_inicio === 'string'
+                        ? slot.hora_inicio.substring(0, 5)
+                        : slot.hora_inicio;
+                    if (!_calendario_dias_seleccionados[fecha].includes(hora)) {
+                        _calendario_dias_seleccionados[fecha].push(hora);
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error cargando disponibilidad:', error);
+    }
+
+    _actualizarBotonesModo();
     _actualizarCalendario();
     await _actualizarHorariosGuardados(profesionalId);
+}
+
+function _cambiarModoCalendario(modo, profesionalId) {
+    _calendario_modo = modo;
+    _actualizarCalendarioYGuardados(profesionalId, '');
+}
+
+function _actualizarBotonesModo() {
+    const esDepilacion = _calendario_modo === 'depilacion';
+    const btnGeneral = document.getElementById('btn-modo-general');
+    const btnDepilacion = document.getElementById('btn-modo-depilacion');
+    if (btnGeneral) {
+        btnGeneral.style.background = esDepilacion ? 'white' : '#C06C84';
+        btnGeneral.style.color = esDepilacion ? '#C06C84' : 'white';
+    }
+    if (btnDepilacion) {
+        btnDepilacion.style.background = esDepilacion ? '#C06C84' : 'white';
+        btnDepilacion.style.color = esDepilacion ? 'white' : '#C06C84';
+    }
 }
 
 // ==========================================
@@ -690,12 +762,14 @@ function _actualizarCalendario() {
     const grid = document.getElementById('calendario-grid');
     grid.innerHTML = '';
 
+    const colorPrincipal = _calendario_modo === 'depilacion' ? '#B8860B' : '#C06C84';
+
     // Encabezados de días
     const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     diasSemana.forEach(d => {
         const header = document.createElement('div');
         header.textContent = d;
-        header.style.cssText = 'font-weight:bold;text-align:center;padding:8px;color:#C06C84;';
+        header.style.cssText = `font-weight:bold;text-align:center;padding:8px;color:${colorPrincipal};`;
         grid.appendChild(header);
     });
 
@@ -717,7 +791,7 @@ function _actualizarCalendario() {
             padding:8px;
             border:2px solid #ddd;
             border-radius:6px;
-            background:${tieneHorarios ? '#C06C84' : 'white'};
+            background:${tieneHorarios ? colorPrincipal : 'white'};
             color:${tieneHorarios ? 'white' : '#555'};
             cursor:pointer;
             font-weight:${tieneHorarios ? 'bold' : 'normal'};
@@ -749,14 +823,18 @@ function _seleccionarDia(fecha) {
     const nombreDia = diasSemana[fechaObj.getDay()];
     const [año, mes, dia] = fecha.split('-');
     const fechaFormato = `${nombreDia} ${dia}/${mes}/${año}`;
+    const colorPrincipal = _calendario_modo === 'depilacion' ? '#B8860B' : '#C06C84';
+    const textoModo = _calendario_modo === 'depilacion' ? '⚡ Depilación Definitiva' : '📋 Horarios generales';
 
     horasContainer.innerHTML = `
-        <h4 style="color:#555;margin:0 0 15px 0;">📅 ${fechaFormato}</h4>
+        <h4 style="color:#555;margin:0 0 10px 0;">📅 ${fechaFormato}</h4>
+        <p style="color:${colorPrincipal};margin:0 0 12px 0;font-size:0.88rem;font-weight:600;">Modo: ${textoModo}</p>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
             <span style="color:#777;font-weight:600;">⏱️ Cada:</span>
-            <button onclick="_cambiarPasoHoras(60,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 60 ? '#C06C84' : '#ddd'};background:${_calendario_paso_actual === 60 ? '#C06C84' : 'white'};color:${_calendario_paso_actual === 60 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">1 hora</button>
-            <button onclick="_cambiarPasoHoras(30,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 30 ? '#C06C84' : '#ddd'};background:${_calendario_paso_actual === 30 ? '#C06C84' : 'white'};color:${_calendario_paso_actual === 30 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">30 min</button>
-            <button onclick="_cambiarPasoHoras(20,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 20 ? '#C06C84' : '#ddd'};background:${_calendario_paso_actual === 20 ? '#C06C84' : 'white'};color:${_calendario_paso_actual === 20 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">20 min</button>
+            <button onclick="_cambiarPasoHoras(90,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 90 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 90 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 90 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">1:30 h</button>
+            <button onclick="_cambiarPasoHoras(60,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 60 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 60 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 60 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">1 hora</button>
+            <button onclick="_cambiarPasoHoras(30,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 30 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 30 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 30 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">30 min</button>
+            <button onclick="_cambiarPasoHoras(20,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 20 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 20 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 20 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">20 min</button>
             <span style="color:#999;font-size:12px;">Los turnos se agendan en este intervalo en el día elegido.</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:15px;">
@@ -766,7 +844,7 @@ function _seleccionarDia(fecha) {
                     data-hora="${h}"
                     data-fecha="${fecha}"
                     onclick="toggleHora(this)"
-                    style="padding:10px;border:2px solid #C06C84;border-radius:6px;background:${horasSeleccionadas.includes(h) ? '#C06C84' : 'white'};color:${horasSeleccionadas.includes(h) ? 'white' : '#C06C84'};cursor:pointer;font-weight:600;transition:all 0.2s;">
+                    style="padding:10px;border:2px solid ${colorPrincipal};border-radius:6px;background:${horasSeleccionadas.includes(h) ? colorPrincipal : 'white'};color:${horasSeleccionadas.includes(h) ? 'white' : colorPrincipal};cursor:pointer;font-weight:600;transition:all 0.2s;">
                     ${h}
                 </button>
             `).join('')}
@@ -796,6 +874,7 @@ function _cambiarPasoHoras(paso, fecha) {
 function toggleHora(btn) {
     const fecha = btn.dataset.fecha;
     const hora = btn.dataset.hora;
+    const colorPrincipal = _calendario_modo === 'depilacion' ? '#B8860B' : '#C06C84';
 
     if (!_calendario_dias_seleccionados[fecha]) {
         _calendario_dias_seleccionados[fecha] = [];
@@ -804,11 +883,11 @@ function toggleHora(btn) {
     if (btn.classList.contains('seleccionado')) {
         btn.classList.remove('seleccionado');
         btn.style.background = 'white';
-        btn.style.color = '#C06C84';
+        btn.style.color = colorPrincipal;
         _calendario_dias_seleccionados[fecha] = _calendario_dias_seleccionados[fecha].filter(h => h !== hora);
     } else {
         btn.classList.add('seleccionado');
-        btn.style.background = '#C06C84';
+        btn.style.background = colorPrincipal;
         btn.style.color = 'white';
         if (!_calendario_dias_seleccionados[fecha].includes(hora)) {
             _calendario_dias_seleccionados[fecha].push(hora);
@@ -819,21 +898,23 @@ function toggleHora(btn) {
 function _seleccionarTodasLasHoras(fecha) {
     const horas = _generarHorasPorPaso(_calendario_paso_actual);
     _calendario_dias_seleccionados[fecha] = [...horas];
+    const colorPrincipal = _calendario_modo === 'depilacion' ? '#B8860B' : '#C06C84';
     const btns = document.querySelectorAll(`[data-fecha="${fecha}"]`);
     btns.forEach(btn => {
         btn.classList.add('seleccionado');
-        btn.style.background = '#C06C84';
+        btn.style.background = colorPrincipal;
         btn.style.color = 'white';
     });
 }
 
 function _limpiarHoras(fecha) {
     _calendario_dias_seleccionados[fecha] = [];
+    const colorPrincipal = _calendario_modo === 'depilacion' ? '#B8860B' : '#C06C84';
     const btns = document.querySelectorAll(`[data-fecha="${fecha}"]`);
     btns.forEach(btn => {
         btn.classList.remove('seleccionado');
         btn.style.background = 'white';
-        btn.style.color = '#C06C84';
+        btn.style.color = colorPrincipal;
     });
 }
 
@@ -879,7 +960,8 @@ async function _guardarHorariosSeleccionados(profesionalId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 profesional_id: profesionalId,
-                horarios: horariosParaGuardar
+                horarios: horariosParaGuardar,
+                servicio_id: _calendario_modo === 'depilacion' ? SERVICIO_DEPILACION : 0
             })
         });
 
@@ -905,7 +987,8 @@ async function _actualizarHorariosGuardados(profesionalId) {
     if (!container) return;
 
     try {
-        const res = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}`);
+        const qs = _calendario_modo === 'depilacion' ? `?servicio_id=${SERVICIO_DEPILACION}` : '';
+        const res = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}${qs}`);
         const disponibilidad = await res.json();
 
         if (!disponibilidad || disponibilidad.length === 0) {
@@ -985,7 +1068,8 @@ async function eliminarDiaCompleto(fecha, profesionalId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 profesional_id: profesionalId,
-                fecha: fecha
+                fecha: fecha,
+                servicio_id: _calendario_modo === 'depilacion' ? SERVICIO_DEPILACION : 0
             })
         });
 
@@ -1868,6 +1952,14 @@ async function cargarProfesionalesPorServicios(servicioIds) {
     }
 }
 
+// Devuelve el servicio_id a consultar según los servicios elegidos en el form
+function _servicioIdDisponibilidadForm() {
+    const selectServ = document.getElementById('servicio-select');
+    if (!selectServ) return 0;
+    const ids = Array.from(selectServ.selectedOptions).map(o => o.value).filter(v => v);
+    return ids.includes(String(SERVICIO_DEPILACION)) ? SERVICIO_DEPILACION : 0;
+}
+
 async function cargarHorariosDisponibles() {
     const profesionalId = document.getElementById('profesional-select').value;
     const fecha         = document.getElementById('turno-fecha').value;
@@ -1877,9 +1969,11 @@ async function cargarHorariosDisponibles() {
     selectHora.innerHTML = '<option value="">Cargando...</option>';
     selectHora.disabled = true;
 
+    const servicioId = _servicioIdDisponibilidadForm();
+
     try {
         // Nueva ruta: devuelve solo horas libres para esa fecha exacta
-        const res = await fetch(`${API_BASE}/disponibilidad/${profesionalId}/${fecha}`);
+        const res = await fetch(`${API_BASE}/disponibilidad/${profesionalId}/${fecha}?servicio_id=${servicioId}`);
         const horas = await res.json();
 
         if (!Array.isArray(horas) || horas.length === 0) {
@@ -1913,35 +2007,24 @@ async function marcarFechasDisponibles(profesionalId) {
     document.getElementById('turno-hora').innerHTML = '<option value="">Primero seleccioná una fecha...</option>';
 
     // Días del mes del servicio elegido (si está restringido por "días puntuales")
+    // NOTA: Depilación Definitiva SOLO se agenda en los días marcados con su
+    // botón en "Gestionar Mis Horarios" (servicio_id 240001). El resto de los
+    // servicios se agenda con la disponibilidad general del profesional.
     const selectServ = document.getElementById('servicio-select');
     const idsServicios = selectServ ? Array.from(selectServ.selectedOptions).map(o => o.value).filter(v => v) : [];
-    let diasRestringidos = null;
-    if (idsServicios.length === 1 && Array.isArray(servicios)) {
-        const sv = servicios.find(s => String(s.id) === String(idsServicios[0]));
-        if (sv && sv.dias_disponibles) {
-            diasRestringidos = String(sv.dias_disponibles).split(',').map(d => parseInt(d, 10)).filter(n => !isNaN(n));
-        }
-    }
+    const servicioId = _servicioIdDisponibilidadForm();
 
     try {
-        const res = await fetch(`${API_BASE}/disponibilidad/rango/${profesionalId}`);
+        const res = await fetch(`${API_BASE}/disponibilidad/rango/${profesionalId}?servicio_id=${servicioId}`);
         const fechasDisp = await res.json(); // array de "YYYY-MM-DD"
 
-        // Filtrar por días puntuales del mes si aplica
+        // Todas las fechas disponibles del profesional
         let fechasFiltradas = fechasDisp;
-        if (diasRestringidos && diasRestringidos.length) {
-            fechasFiltradas = fechasDisp.filter(f => {
-                const dia = parseInt(f.split('-')[2], 10);
-                return diasRestringidos.includes(dia);
-            });
-        }
 
         if (fechasFiltradas.length === 0) {
             inputFecha.disabled = true;
             if (infoFechas) {
-                infoFechas.textContent = diasRestringidos
-                    ? `⚠️ Este servicio solo se ofrece los días ${diasRestringidos.join(' y ')} del mes, y el profesional no tiene disponibilidad esos días`
-                    : '⚠️ Este profesional no tiene fechas disponibles';
+                infoFechas.textContent = '⚠️ Este profesional no tiene fechas disponibles';
             }
             return;
         }
@@ -1953,9 +2036,7 @@ async function marcarFechasDisponibles(profesionalId) {
         inputFecha.disabled = false;
 
         if (infoFechas) {
-            const restriccion = diasRestringidos && diasRestringidos.length
-                ? ` (este servicio solo se agenda los días ${diasRestringidos.join(', ')} del mes)` : '';
-            infoFechas.textContent = `📅 ${fechasFiltradas.length} fechas disponibles entre ${fechasFiltradas[0]} y ${fechasFiltradas[fechasFiltradas.length-1]}${restriccion}`;
+            infoFechas.textContent = `📅 ${fechasFiltradas.length} fechas disponibles entre ${fechasFiltradas[0]} y ${fechasFiltradas[fechasFiltradas.length-1]}`;
         }
 
         // Validar fecha elegida contra las disponibles
@@ -2194,27 +2275,13 @@ async function asistenteElegirProfesional(id) {
     _asistenteBurbuja('bot', '¿Para qué día? Elegí una fecha disponible:');
     document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando fechas...</p>';
     try {
-        const rango = await fetch(`${API_BASE}/disponibilidad/rango/${id}`);
+        const servId = _asistenteEstado.servicio && String(_asistenteEstado.servicio.id) === String(SERVICIO_DEPILACION) ? SERVICIO_DEPILACION : 0;
+        const rango = await fetch(`${API_BASE}/disponibilidad/rango/${id}?servicio_id=${servId}`);
         let fechas = await rango.json(); // array YYYY-MM-DD
         document.getElementById('asistente-input').innerHTML = '';
 
-        // Servicios de días puntuales del mes (ej: Depilación Definitiva → días 5 y 20)
-        const srv = _asistenteEstado.servicio;
-        if (srv && srv.dias_disponibles) {
-            const dias = String(srv.dias_disponibles).split(',').map(d => parseInt(d, 10)).filter(n => !isNaN(n));
-            if (dias.length) {
-                fechas = fechas.filter(f => {
-                    const dia = parseInt(String(f).split('-')[2], 10);
-                    return dias.includes(dia);
-                });
-            }
-        }
-
         if (!fechas.length) {
-            const restriccion = srv && srv.dias_disponibles
-                ? ` (este servicio solo se agenda los días ${String(srv.dias_disponibles).split(',').map(d => parseInt(d, 10)).filter(n => !isNaN(n)).join(' y ')} del mes)`
-                : '';
-            _asistenteBurbuja('bot', '😕 No hay fechas disponibles para esta profesional en esos días. Probá con otra.' + restriccion);
+            _asistenteBurbuja('bot', '😕 No hay fechas disponibles para esta profesional. Probá con otra.');
             return;
         }
         _asistenteBurbuja('opciones', fechas.slice(0, 10).map(f => {
@@ -2235,7 +2302,8 @@ async function asistenteElegirFecha(fecha) {
     _asistenteBurbuja('bot', '¿A qué hora?');
     document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando horarios...</p>';
     try {
-        const res = await fetch(`${API_BASE}/disponibilidad/${_asistenteEstado.profesional.id}/${fecha}`);
+        const servId = _asistenteEstado.servicio && String(_asistenteEstado.servicio.id) === String(SERVICIO_DEPILACION) ? SERVICIO_DEPILACION : 0;
+        const res = await fetch(`${API_BASE}/disponibilidad/${_asistenteEstado.profesional.id}/${fecha}?servicio_id=${servId}`);
         const horas = await res.json(); // array de horas "HH:MM" o {hora}
         document.getElementById('asistente-input').innerHTML = '';
         let lista = (Array.isArray(horas) ? horas : []).map(h => {
@@ -2246,9 +2314,7 @@ async function asistenteElegirFecha(fecha) {
         // Servicios con horarios cada X minutos (ej: Depilación Definitiva → cada 20 min)
         const srv = _asistenteEstado.servicio;
         let pasoMin = null;
-        if (srv && srv.dias_disponibles) {
-            pasoMin = 20;
-        } else if (srv && Number(srv.duracion) > 0 && Number(srv.duracion) < 60) {
+        if (srv && Number(srv.duracion) > 0 && Number(srv.duracion) < 60) {
             pasoMin = Number(srv.duracion);
         }
 
@@ -2465,6 +2531,7 @@ function showSection(sectionId) {
         cargarReporteCaja();
         cargarGastosAdmin();
         cargarHistorialCajas();
+        cargarClientesHabituales();
     }
     if (sectionId === 'gestionar-horarios')      cargarGestionHorarios();
 
@@ -3043,7 +3110,7 @@ async function actualizarHorariosEnTarjeta(profesionalId, fecha) {
     if (contenedor) {
         contenedor.innerHTML = '<option value="">Seleccionar hora...</option>' + 
             disponibles.map(h => `<option value="${h}">${h}</option>`).join('');
-        console.log(`✅ Se cargaron ${disponibles.length} horarios libres para la fecha ${fecha}`);
+        debugLog(`✅ Se cargaron ${disponibles.length} horarios libres para la fecha ${fecha}`);
     }
 }
 
@@ -3062,7 +3129,7 @@ function conectarFiltrosDeTurnos() {
             const fecha = inputFecha.value;
 
             if (profesionalId && fecha) {
-                console.log(`🔍 Filtrando horas para Profe: ${profesionalId} en Fecha: ${fecha}`);
+                debugLog(`🔍 Filtrando horas para Profe: ${profesionalId} en Fecha: ${fecha}`);
                 
                 // Llamamos a la función que ya agregaste antes
                 // Pero corregimos el ID del contenedor a 'servicio-turno-hora'
@@ -3102,7 +3169,7 @@ async function filtrarHorariosOcupados() {
     const fecha = inputFecha.value;
 
     if (profeId && fecha) {
-        console.log(`🔍 Filtrando para: Profe ${profeId} - Fecha ${fecha}`);
+        debugLog(`🔍 Filtrando para: Profe ${profeId} - Fecha ${fecha}`);
         
         // 1. Pedimos los turnos que ya existen
         const ocupados = await obtenerHorasOcupadasAPI(profeId, fecha);
@@ -3117,7 +3184,7 @@ async function filtrarHorariosOcupados() {
         selectHora.innerHTML = '<option value="">Seleccionar hora...</option>' + 
             disponibles.map(h => `<option value="${h}">${h}</option>`).join('');
         
-        console.log("✅ Horarios libres cargados:", disponibles);
+        debugLog("✅ Horarios libres cargados:", disponibles);
     }
 }
 
@@ -4207,6 +4274,13 @@ async function abrirModalCobro(event, turnoId) {
                     </div>
                 </div>
                 <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Descuento (%) — opcional</label>
+                    <input type="number" id="cobro-descuento" value="0" min="0" max="100" step="0.5" placeholder="0"
+                           oninput="recalcularTotalModalCobro()"
+                           style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                    <small style="color:#888;font-size:0.78rem;display:block;margin-top:3px;">Aplicá % de descuento solo cuando corresponda (no todos los clientes lo tienen).</small>
+                </div>
+                <div>
                     <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto a cobrar ($)</label>
                     <input type="number" id="cobro-monto" value="${precioBase}" step="0.01" min="0"
                            style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
@@ -4243,7 +4317,7 @@ async function abrirModalCobro(event, turnoId) {
     setTimeout(() => document.getElementById('cobro-monto')?.focus(), 80);
 }
 
-// Recalcula el total del modal sumando servicios + adicionales (piedrería/diseños)
+// Recalcula el total del modal sumando servicios + adicionales (piedrería/diseños) y aplicando descuento %
 function recalcularTotalModalCobro() {
     const base = (_turnoItemsActivos || []).reduce((s, it) => s + parseFloat(it.precio || 0), 0);
     const cantPiedreria = parseInt(document.getElementById('adicional-piedreria')?.value || 0) || 0;
@@ -4254,8 +4328,13 @@ function recalcularTotalModalCobro() {
     const spD = document.getElementById('subtotal-disenos');
     if (spP) spP.textContent = '$' + subPiedreria.toFixed(2);
     if (spD) spD.textContent = '$' + subDisenos.toFixed(2);
+    const descuentoPct = parseFloat(document.getElementById('cobro-descuento')?.value || 0) || 0;
+    let total = base + subPiedreria + subDisenos;
+    if (descuentoPct > 0 && total > 0) {
+        total = total * (1 - descuentoPct / 100);
+    }
     const monto = document.getElementById('cobro-monto');
-    if (monto) monto.value = (base + subPiedreria + subDisenos).toFixed(2);
+    if (monto) monto.value = total.toFixed(2);
 }
 
 // Carga los items (servicios) del turno dentro del modal
@@ -4347,6 +4426,7 @@ async function confirmarCobro(turnoId) {
     const monto = document.getElementById('cobro-monto')?.value;
     const metodo = document.getElementById('cobro-metodo')?.value || 'efectivo';
     const imprimir = !!document.getElementById('cobro-print')?.checked;
+    const descuentoPct = parseFloat(document.getElementById('cobro-descuento')?.value || 0) || 0;
     if (!monto || parseFloat(monto) <= 0) {
         mostrarNotificacion('⚠️ Ingresá el monto a cobrar', 'error');
         return;
@@ -4360,7 +4440,7 @@ async function confirmarCobro(turnoId) {
         const res = await fetch(`${API_BASE}/caja/turnos/${turnoId}/cerrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ monto: parseFloat(monto), metodo_pago: metodo, adicionales })
+            body: JSON.stringify({ monto: parseFloat(monto), metodo_pago: metodo, adicionales, descuento_porcentaje: descuentoPct })
         });
         const data = await res.json();
         if (data.success) {
@@ -4483,6 +4563,51 @@ function autocompletarClienteFrecuente() {
     if (cliente.email && emailEl && !emailEl.value)  emailEl.value  = cliente.email;
     if (cliente.telefono && telEl && !telEl.value)    telEl.value    = cliente.telefono;
     if (cliente.fecha_nacimiento && fechaEl && !fechaEl.value) fechaEl.value = String(cliente.fecha_nacimiento).split('T')[0];
+}
+
+async function cargarClientesHabituales() {
+    const cont = document.getElementById('habituales-lista');
+    if (!cont) return;
+    cont.innerHTML = '<p style="color:#888;">⏳ Cargando ranking...</p>';
+    try {
+        const inputMes = document.getElementById('habituales-mes');
+        const hoy = new Date();
+        let mes = inputMes && inputMes.value ? inputMes.value : `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+        if (inputMes && !inputMes.value) inputMes.value = mes;
+
+        const res = await fetch(`${API_BASE}/clientes/habituales?mes=${mes}`);
+        const datos = await res.json();
+        if (!Array.isArray(datos)) throw new Error('Respuesta inválida');
+        if (!datos.length) {
+            cont.innerHTML = '<p style="color:#888;">📭 No hay visitas registradas en este mes.</p>';
+            return;
+        }
+        const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+        const [yy, mm] = mes.split('-');
+        const mesLabel = `${meses[parseInt(mm) - 1]} ${yy}`;
+
+        const medallas = ['🥇','🥈','🥉'];
+        cont.innerHTML = `
+            <p style="color:#555;font-weight:600;margin:0 0 12px 0;">📅 Ranking de ${mesLabel} · ${datos.length} clientes</p>
+            ${datos.map((c, i) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:${i < 3 ? '14px' : '10px'} 12px;border-radius:10px;margin-bottom:8px;flex-wrap:wrap;
+                    ${i === 0 ? 'background:linear-gradient(90deg,#FFF9C4,#FFECB3);border:2px solid #E6B800;' :
+                      i === 1 ? 'background:linear-gradient(90deg,#F5F5F5,#E0E0E0);border:2px solid #9E9E9E;' :
+                      i === 2 ? 'background:linear-gradient(90deg,#FFECB3,#FFE0B2);border:2px solid #CE7114;' :
+                      'background:#f9f9f9;border:1px solid #eee;'}">
+                    <div style="flex:1;min-width:180px;">
+                        <strong style="color:#333;">${medallas[i] || (i + 1)}. ${esc(c.nombre || 'Sin nombre')}</strong>
+                        <span style="display:inline-block;margin-left:8px;background:#8E44AD;color:white;font-size:0.8rem;font-weight:700;padding:3px 9px;border-radius:12px;">${c.visitas} visita${c.visitas == 1 ? '' : 's'}</span>
+                        <small style="display:block;color:#888;margin-top:4px;">📞 ${esc(c.telefono || 'Sin teléfono')}${c.email ? ' · ✉️ ' + esc(c.email) : ''}</small>
+                        ${c.servicios ? `<small style="display:block;color:#666;margin-top:3px;">💆 ${esc(c.servicios)}</small>` : ''}
+                    </div>
+                </div>
+            `).join('')}
+        `;
+    } catch (e) {
+        console.error('❌ Error cargando clientes habituales:', e.message);
+        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar el ranking.</p>';
+    }
 }
 
 async function cargarCumpleanos() {

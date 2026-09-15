@@ -12,3 +12,6 @@ node_modules/
 *credentials*
 *diagnostico*.js
 *migracion*.js
+backup-datos-prueba-*.sql
+backup-disponibilidad-*.sql
+backup-caja-*.sql

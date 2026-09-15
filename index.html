@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="img/logo original.webp" type="image/webp">
+    <link rel="icon" href="img/logo-original.webp" type="image/webp">
     <title>CHAMAS - Sistema de Turnos</title>
     
     <link rel="stylesheet" href="css/styles.css?v=20260907">
@@ -28,13 +28,13 @@
             <div id="tab-login">
                 <form id="form-login">
                     <div class="form-group">
-                        <label>📧📞 Email o Teléfono</label>
+                        <label for="login-identificador">📧📞 Email o Teléfono</label>
                         <input type="text" id="login-identificador" required
                                placeholder="tu@email.com  ó  3865123456"
                                autocomplete="username">
                     </div>
                     <div class="form-group">
-                        <label>🔒 Contraseña</label>
+                        <label for="login-password">🔒 Contraseña</label>
                         <input type="password" id="login-password" required placeholder="********" autocomplete="current-password">
                     </div>
                     <button type="submit" class="btn-login">Ingresar</button>
@@ -151,26 +151,26 @@
                 <form id="form-turno" class="form-card" style="margin-top:25px;border-top:3px solid #C06C84;">
                     <h3 style="color:#C06C84;margin-top:0;">➕ Agendar Nuevo Turno</h3>
                     <div class="form-group">
-                        <label>👤 Nombre Completo</label>
+                        <label for="cliente-nombre">👤 Nombre Completo</label>
                         <input type="text" id="cliente-nombre" required placeholder="Ej: Maria Gonzalez" list="datalist-clientes-frecuentes" oninput="autocompletarClienteFrecuente()">
                         <datalist id="datalist-clientes-frecuentes"></datalist>
                         <small style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">💡 Si el cliente ya vino antes, escribí su nombre y se completan los datos.</small>
                     </div>
                     <div class="form-group">
-                        <label>📧 Email</label>
+                        <label for="cliente-email">📧 Email</label>
                         <input type="email" id="cliente-email" placeholder="tu-email@ejemplo.com">
                     </div>
                     <div class="form-group">
-                        <label>📞 Teléfono</label>
+                        <label for="cliente-telefono">📞 Teléfono</label>
                         <input type="tel" id="cliente-telefono" required placeholder="+54 9 11 1234-5678">
                     </div>
                     <div class="form-group">
-                        <label>🎂 Fecha de Cumpleaños (opcional)</label>
+                        <label for="cliente-fecha-nacimiento">🎂 Fecha de Cumpleaños (opcional)</label>
                         <input type="date" id="cliente-fecha-nacimiento">
                         <small style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">🎁 Para felicitarlos y regalarles cupones en su mes de cumpleaños.</small>
                     </div>
                     <div class="form-group">
-                        <label>💆 Servicios (podés elegir varios)</label>
+                        <label for="servicio-select">💆 Servicios (podés elegir varios)</label>
                         <select id="servicio-select" multiple style="min-height: 130px;" required>
                             <option value="">Seleccionar servicio(s)...</option>
                         </select>
@@ -179,13 +179,13 @@
                         </small>
                     </div>
                     <div class="form-group">
-                        <label>👨‍💼 Profesional</label>
+                        <label for="profesional-select">👨‍💼 Profesional</label>
                         <select id="profesional-select" disabled>
                             <option value="">Primero selecciona un servicio...</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>📅 Fecha</label>
+                        <label for="turno-fecha">📅 Fecha</label>
                         <input type="date" id="turno-fecha" required disabled>
                         <small id="info-fechas-disponibles"
                                style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">
@@ -193,7 +193,7 @@
                         </small>
                     </div>
                     <div class="form-group">
-                        <label>🕐 Hora</label>
+                        <label for="turno-hora">🕐 Hora</label>
                         <select id="turno-hora" required>
                             <option value="">Seleccionar hora...</option>
                         </select>
@@ -209,17 +209,17 @@
                         <h3>🔍 Filtrar Turnos</h3>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
                             <div>
-                                <label>Profesional:</label>
+                                <label for="filtro-profesional">Profesional:</label>
                                 <select id="filtro-profesional" onchange="cargarTodosLosTurnos()">
                                     <option value="">Todos</option>
                                 </select>
                             </div>
                             <div>
-                                <label>Fecha desde:</label>
+                                <label for="filtro-fecha-desde">Fecha desde:</label>
                                 <input type="date" id="filtro-fecha-desde" onchange="cargarTodosLosTurnos()">
                             </div>
                             <div>
-                                <label>Fecha hasta:</label>
+                                <label for="filtro-fecha-hasta">Fecha hasta:</label>
                                 <input type="date" id="filtro-fecha-hasta" onchange="cargarTodosLosTurnos()">
                             </div>
                             <div style="display: flex; align-items: flex-end;">
@@ -308,15 +308,15 @@
                         </div>
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:15px;">
                             <div>
-                                <label style="font-size:0.9rem;color:#555;">Desde:</label>
+                                <label for="gastos-filtro-desde" style="font-size:0.9rem;color:#555;">Desde:</label>
                                 <input type="date" id="gastos-filtro-desde" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
                             </div>
                             <div>
-                                <label style="font-size:0.9rem;color:#555;">Hasta:</label>
+                                <label for="gastos-filtro-hasta" style="font-size:0.9rem;color:#555;">Hasta:</label>
                                 <input type="date" id="gastos-filtro-hasta" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
                             </div>
                             <div>
-                                <label style="font-size:0.9rem;color:#555;">Tipo:</label>
+                                <label for="gastos-filtro-tipo" style="font-size:0.9rem;color:#555;">Tipo:</label>
                                 <select id="gastos-filtro-tipo" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
                                     <option value="">Todos</option>
                                     <option value="fijo">📌 Fijos</option>
@@ -334,30 +334,30 @@
                     </div>
                     <form id="form-registro-profesional" class="form-card">
                     <div class="form-group">
-                        <label>👤 Nombre Completo</label>
+                        <label for="prof-nombre">👤 Nombre Completo</label>
                         <input type="text" id="prof-nombre" required placeholder="Ej: Laura García">
                     </div>
                     <div class="form-group">
-                        <label>📧 Email</label>
+                        <label for="prof-email">📧 Email</label>
                         <input type="email" id="prof-email" required placeholder="ejemplo@chamas.com">
                     </div>
                     <div class="form-group">
-                        <label>📞 Teléfono</label>
+                        <label for="prof-telefono">📞 Teléfono</label>
                         <input type="tel" id="prof-telefono" required placeholder="+54 9 11 1234-5678">
                     </div>
                     <div class="form-group">
-                        <label>🎭 Tipo de Usuario</label>
+                        <label for="prof-rol">🎭 Tipo de Usuario</label>
                         <select id="prof-rol" onchange="toggleRolUsuario()">
                             <option value="profesional">👩‍💼 Profesional</option>
                             <option value="recepcionista">💵 Recepcionista</option>
                         </select>
                     </div>
                     <div class="form-group" id="prof-password-grupo" style="display:none;">
-                        <label>🔒 Contraseña de acceso</label>
+                        <label for="prof-password-recepcionista">🔒 Contraseña de acceso</label>
                         <input type="password" id="prof-password-recepcionista" placeholder="Mínimo 6 caracteres" minlength="6">
                     </div>
                     <div class="form-group" id="prof-servicios-grupo">
-                        <label>💆 Servicios Asignados (opcional — Ctrl/Cmd para seleccionar varios)</label>
+                        <label for="prof-servicios">💆 Servicios Asignados (opcional — Ctrl/Cmd para seleccionar varios)</label>
                         <select id="prof-servicios" multiple style="min-height: 150px;">
                             <!-- Se llena dinámicamente desde JS -->
                         </select>
@@ -366,7 +366,7 @@
                         </small>
                     </div>
                     <div class="form-group" id="prof-porcentaje-grupo">
-                        <label>💸 Porcentaje de retiro de la profesional (%)</label>
+                        <label for="prof-porcentaje">💸 Porcentaje de retiro de la profesional (%)</label>
                         <input type="number" id="prof-porcentaje" value="70" min="0" max="100" step="1">
                         <small style="color: #888; display: block; margin-top: 5px;">
                             💡 Lo que retira la profesional de lo cobrado por sus servicios (ej: 70%). El resto queda en la estética.
@@ -377,6 +377,21 @@
 
                 <!-- Lista de profesionales registradas -->
                 <div id="lista-profesionales-admin" style="margin-top:28px;"></div>
+                </div>
+            </div>
+
+            <div style="margin-top:35px;">
+                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #8E44AD;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+                        <h3 style="margin:0;color:#8E44AD;">📊 Registro Mensual de Clientes Habituales</h3>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <label for="habituales-mes" style="color:#888;font-size:0.9rem;">Mes:</label>
+                            <input type="month" id="habituales-mes" style="padding:9px 12px;border:2px solid #8E44AD;border-radius:9px;font-weight:600;color:#8E44AD;">
+                            <button onclick="cargarClientesHabituales()" class="btn-guardar" style="padding:9px 14px;width:auto;">🔄 Ver ranking</button>
+                        </div>
+                    </div>
+                    <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">Clientes del mes ordenados por cantidad de visitas. Los más habituales aparecen destacados arriba.</p>
+                    <div id="habituales-lista"><p style="color:#aaa;">Seleccioná el mes y pulsá "Ver ranking".</p></div>
                 </div>
             </div>
             </section>
@@ -400,11 +415,11 @@
                         <h3 style="margin:0 0 12px;color:#e65100;">🎁 Autorizar Cupón de Servicio Gratis (Admin)</h3>
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;">
                             <div>
-                                <label style="font-size:0.9rem;color:#555;">Cliente (cumpleañero)</label>
+                                <label for="cupon-cliente-select" style="font-size:0.9rem;color:#555;">Cliente (cumpleañero)</label>
                                 <select id="cupon-cliente-select" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:9px;"></select>
                             </div>
                             <div>
-                                <label style="font-size:0.9rem;color:#555;">Servicio a regalar</label>
+                                <label for="cupon-servicio-select" style="font-size:0.9rem;color:#555;">Servicio a regalar</label>
                                 <select id="cupon-servicio-select" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:9px;"></select>
                             </div>
                             <div style="display:flex;align-items:flex-end;">
@@ -449,23 +464,23 @@
                 <form id="form-editar-turno">
                     <input type="hidden" id="edit-turno-id">
                     <div class="form-group">
-                        <label>👤 Cliente</label>
+                        <label for="edit-cliente-nombre">👤 Cliente</label>
                         <input type="text" id="edit-cliente-nombre" readonly style="background: #f0f0f0;">
                     </div>
                     <div class="form-group">
-                        <label>💆 Servicio</label>
+                        <label for="edit-servicio-select">💆 Servicio</label>
                         <select id="edit-servicio-select" required></select>
                     </div>
                     <div class="form-group">
-                        <label>👨‍💼 Profesional</label>
+                        <label for="edit-profesional-select">👨‍💼 Profesional</label>
                         <select id="edit-profesional-select" required></select>
                     </div>
                     <div class="form-group">
-                        <label>📅 Fecha</label>
+                        <label for="edit-turno-fecha">📅 Fecha</label>
                         <input type="date" id="edit-turno-fecha" required>
                     </div>
                     <div class="form-group">
-                        <label>🕐 Hora</label>
+                        <label for="edit-turno-hora">🕐 Hora</label>
                         <select id="edit-turno-hora" required>
                             <option value="">Seleccionar hora...</option>
                         </select>

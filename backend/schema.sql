@@ -40,7 +40,10 @@ CREATE TABLE IF NOT EXISTS disponibilidad_fechas (
     profesional_id BIGINT NOT NULL,
     fecha DATE NOT NULL,
     hora_inicio TIME NOT NULL,
-    UNIQUE KEY uq_prof_fecha_hora (profesional_id, fecha, hora_inicio)
+    servicio_id BIGINT NOT NULL DEFAULT 0,
+    estado VARCHAR(20) NOT NULL DEFAULT 'disponible',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_prof_fecha_hora_serv (profesional_id, fecha, hora_inicio, servicio_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS turnos (
