@@ -87,7 +87,7 @@ function puedeGestionarTurno(req, profesionalId) { const r=req.usuario.rol; if(r
         await pool.query(`CREATE TABLE IF NOT EXISTS arqueo_caja (id BIGINT AUTO_INCREMENT PRIMARY KEY, caja_id BIGINT NOT NULL, denominacion VARCHAR(30) NOT NULL, tipo VARCHAR(10) NOT NULL DEFAULT 'billete', cantidad INT NOT NULL DEFAULT 0, subtotal DECIMAL(10,2) NOT NULL DEFAULT 0, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
         await pool.query(`CREATE TABLE IF NOT EXISTS gastos (id BIGINT AUTO_INCREMENT PRIMARY KEY, fecha DATE NOT NULL, tipo VARCHAR(20) NOT NULL DEFAULT 'compra', descripcion VARCHAR(255) NOT NULL, monto DECIMAL(10,2) NOT NULL, metodo_pago VARCHAR(20) NOT NULL DEFAULT 'efectivo', caja_id BIGINT NULL, registrado_por BIGINT NULL, registrado_por_nombre VARCHAR(100) NULL, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
         await pool.query(`CREATE TABLE IF NOT EXISTS permisos_roles (id BIGINT AUTO_INCREMENT PRIMARY KEY, rol VARCHAR(20) NOT NULL, permiso VARCHAR(50) NOT NULL, descripcion VARCHAR(200) NULL, UNIQUE KEY uq_rol_permiso (rol, permiso)) ENGINE=InnoDB`);
-        await pool.query(`CREATE TABLE IF NOT EXISTS horarios_config (id BIGINT AUTO_INCREMENT PRIMARY KEY, profesional_id BIGINT NOT NULL, desde_manana TIME NOT NULL DEFAULT '10:00:00', desde_tarde TIME NOT NULL DEFAULT '15:00:00', dias_laborables VARCHAR(100) NULL DEFAULT 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado', paso_tiempo INT NOT NULL DEFAULT 90, INDEX idx_horarios_profesional (profesional_id)) ENGINE=InnoDB`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS horarios_config (id BIGINT AUTO_INCREMENT PRIMARY KEY, profesional_id BIGINT NOT NULL, desde_manana TIME NOT NULL DEFAULT '10:00:00', hasta_manana TIME NOT NULL DEFAULT '12:30:00', desde_tarde TIME NOT NULL DEFAULT '15:00:00', hasta_tarde TIME NOT NULL DEFAULT '19:00:00', tipo_turno VARCHAR(20) NOT NULL DEFAULT 'ambos', dias_laborables VARCHAR(100) NULL DEFAULT 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado', paso_tiempo INT NOT NULL DEFAULT 90, INDEX idx_horarios_profesional (profesional_id)) ENGINE=InnoDB`);
         await pool.query(`CREATE TABLE IF NOT EXISTS cajas_semanal (id BIGINT AUTO_INCREMENT PRIMARY KEY, caja_id BIGINT NOT NULL, profesional_id BIGINT NOT NULL, profesional_nombre VARCHAR(100) NOT NULL, semana_inicio DATE NOT NULL, semana_fin DATE NOT NULL, monto_inicial DECIMAL(10,2) NOT NULL DEFAULT 0, monto_final DECIMAL(10,2) NULL, total_ventas DECIMAL(10,2) NOT NULL DEFAULT 0, total_gastos DECIMAL(10,2) NOT NULL DEFAULT 0, total_retiros DECIMAL(10,2) NOT NULL DEFAULT 0, comision_profesional DECIMAL(10,2) NOT NULL DEFAULT 0, estado VARCHAR(20) NOT NULL DEFAULT 'abierta', cerrada_at DATETIME NULL) ENGINE=InnoDB`);
         console.log('🧾 Tablas auxiliares y RBAC verificadas');
     } catch (e) { console.error('❌ Error creando tablas:', e.message); }
@@ -2690,7 +2690,7 @@ app.get('/api/horarios/config/:profesionalId', autenticar, async (req, res) => {
         if (rows.length) {
             res.json(rows[0]);
         } else {
-            res.json({ profesional_id: profesionalId, desde_manana: '10:00:00', desde_tarde: '15:00:00', dias_laborables: 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado', paso_tiempo: 90 });
+            res.json({ profesional_id: profesionalId, desde_manana: '10:00:00', hasta_manana: '12:30:00', desde_tarde: '15:00:00', hasta_tarde: '19:00:00', tipo_turno: 'ambos', dias_laborables: 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado', paso_tiempo: 90 });
         }
     } catch (e) { res.status(500).json({ error: 'Error al obtener configuración de horarios' }); }
 });
@@ -2702,12 +2702,12 @@ app.put('/api/horarios/config/:profesionalId', autenticar, async (req, res) => {
         if (!puedeGestionarTurno(req, profesionalId)) {
             return res.status(403).json({ success: false, message: 'No tenés permiso' });
         }
-        const { desde_manana, desde_tarde, dias_laborables, paso_tiempo } = req.body;
+        const { desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo } = req.body;
         const [existe] = await pool.query('SELECT id FROM horarios_config WHERE profesional_id = ?', [profesionalId]);
         if (existe.length) {
-            await pool.query('UPDATE horarios_config SET desde_manana = ?, desde_tarde = ?, dias_laborables = ?, paso_tiempo = ? WHERE profesional_id = ?', [desde_manana, desde_tarde, dias_laborables, paso_tiempo, profesionalId]);
+            await pool.query('UPDATE horarios_config SET desde_manana = ?, hasta_manana = ?, desde_tarde = ?, hasta_tarde = ?, tipo_turno = ?, dias_laborables = ?, paso_tiempo = ? WHERE profesional_id = ?', [desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo, profesionalId]);
         } else {
-            await pool.query('INSERT INTO horarios_config (profesional_id, desde_manana, desde_tarde, dias_laborables, paso_tiempo) VALUES (?, ?, ?, ?, ?)', [profesionalId, desde_manana, desde_tarde, dias_laborables, paso_tiempo]);
+            await pool.query('INSERT INTO horarios_config (profesional_id, desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [profesionalId, desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo]);
         }
         res.json({ success: true, message: 'Configuración de horarios guardada' });
     } catch (e) { res.status(500).json({ error: 'Error al guardar configuración de horarios' }); }
