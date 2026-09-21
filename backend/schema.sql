@@ -221,6 +221,7 @@ CREATE TABLE IF NOT EXISTS horarios_config (
     desde_manana TIME NOT NULL DEFAULT '10:00:00',
     desde_tarde TIME NOT NULL DEFAULT '15:00:00',
     dias_laborables VARCHAR(100) NULL DEFAULT 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado',
+    paso_tiempo INT NOT NULL DEFAULT 90,
     INDEX idx_horarios_profesional (profesional_id)
 ) ENGINE=InnoDB;
 

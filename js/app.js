@@ -40,7 +40,7 @@ function debugLog(...args) { if (DEBUG) console.log(...args); }
 let servicios = [];
 let _calendario_mes_actual = new Date();
 let _calendario_dias_seleccionados = {};
-let _calendario_paso_actual = 60;
+let _calendario_paso_actual = 90;
 let _calendario_modo = 'general';
 const SERVICIO_DEPILACION = 240001;
 

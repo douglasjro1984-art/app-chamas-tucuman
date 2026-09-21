@@ -39,15 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'none');
-    // Mostrar solo el botón de servicios en el nav
-    document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
-    const navServicios = document.querySelector('[onclick*="servicios"]');
-    if (navServicios) navServicios.style.display = 'inline-block';
-    const navLogin = document.getElementById('nav-login-btn');
-    if (navLogin) navLogin.style.display = 'inline-block';
+    if (typeof cargarDatosDesdeAPI === 'function') { cargarDatosDesdeAPI(); }
     const userStatus = document.querySelector('.user-status-card');
     if (userStatus) userStatus.style.display = 'none';
-    if (typeof cargarDatosDesdeAPI === 'function') { cargarDatosDesdeAPI(); }
 });
 
 // ==========================================
@@ -428,11 +422,6 @@ function mostrarLoginVisitante() {
 
 function mostrarAppVisitante() {
     mostrarApp();
-    document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
-    const navServ = document.querySelector('[onclick*="servicios"]');
-    if (navServ) navServ.style.display = 'inline-block';
-    const navLogin = document.getElementById('nav-login-btn');
-    if (navLogin) navLogin.style.display = 'inline-block';
     showSection('servicios');
 }
 
@@ -445,8 +434,6 @@ function mostrarApp() {
     }
     // Restaurar nav completo para usuario logueado
     document.querySelectorAll('.nav-links button').forEach(b => b.style.display = '');
-    const navLogin = document.getElementById('nav-login-btn');
-    if (navLogin) navLogin.style.display = 'none';
     const userStatus = document.querySelector('.user-status-card');
     if (userStatus) userStatus.style.display = '';
 }
@@ -540,8 +527,6 @@ function configurarInterfazPorRol(rol) {
         if (navHorarios) navHorarios.style.display = 'inline-block';
         const navServicios = document.querySelector('[onclick*="servicios"]');
         if (navServicios) navServicios.style.display = 'inline-block';
-        const navLogin = document.getElementById('nav-login-btn');
-        if (navLogin) navLogin.style.display = 'none';
     } else if (rol === 'especialista') {
         // Carmen: turnos propios + horarios + gestión de masajes + cierre semanal
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
@@ -567,8 +552,6 @@ function configurarInterfazPorRol(rol) {
         document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
         const navServicios = document.querySelector('[onclick*="servicios"]');
         if (navServicios) navServicios.style.display = 'inline-block';
-        const navLogin = document.getElementById('nav-login-btn');
-        if (navLogin) navLogin.style.display = 'inline-block';
     }
     
     console.log('✅ Interfaz de', rol.toUpperCase(), 'activada');
