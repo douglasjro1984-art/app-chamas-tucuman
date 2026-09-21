@@ -3340,14 +3340,16 @@ async function cargarRetiros() {
                 <strong style="color:#555;">✅ Retiros registrados hoy:</strong>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                 ${retiros.map(r => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fdf5f8;border-left:3px solid #C06C84;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:${r.deshecho ? '#f0f0f0' : '#fdf5f8'};border-left:3px solid ${r.deshecho ? '#999' : '#C06C84'};border-radius:8px;padding:10px 12px;flex-wrap:wrap;${r.deshecho ? 'opacity:0.75;' : ''}">
                         <div>
                             <strong>${esc(r.profesional_nombre)}</strong>
                             <small style="display:block;color:#888;">${r.metodo_retiro === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'} · Bruto del día: $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: $${parseFloat(r.monto_estetica).toFixed(2)}</small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</strong>
-                            <button onclick="deshacerRetiro(${r.id})" style="background:#f0f0f0;color:#C06C84;padding:4px 10px;border:1px solid #C06C84;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;">↩ Deshacer</button>
+                            ${r.deshecho
+                                ? '<span style="background:#999;color:white;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:700;">↩ DESHECHO</span>'
+                                : (esAdmin() ? '<button onclick="deshacerRetiro(' + r.id + ')" style="background:#f0f0f0;color:#C06C84;padding:4px 10px;border:1px solid #C06C84;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;">↩ Deshacer</button>' : '')}
                         </div>
                     </div>`).join('')}
                 </div>
@@ -3419,11 +3421,12 @@ async function registrarRetiro(event, profesionalId) {
 }
 
 async function deshacerRetiro(retiroId) {
-    if (!confirm('¿Deshacer este retiro? Se restaurará el monto a la caja de hoy.')) return;
+    if (!esAdmin()) { mostrarNotificacion('⛔ Solo el admin puede deshacer retiros', 'error'); return; }
+    if (!confirm('¿Deshacer este retiro? Se restaurará el monto a la caja de hoy. El registro se conserva.')) return;
     try {
-        const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}`, { method: 'DELETE' });
+        const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}/deshacer`, { method: 'POST' });
         const data = await res.json();
-        if (data.success) { mostrarNotificacion('✅ Retiro deshecho'); cargarRetiros(); }
+        if (data.success) { mostrarNotificacion('✅ Retiro deshecho y dinero restaurado'); cargarRetiros(); }
         else { mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error'); }
     } catch (e) { mostrarNotificacion('❌ Error de conexión', 'error'); }
 }

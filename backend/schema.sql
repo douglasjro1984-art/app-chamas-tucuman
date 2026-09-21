@@ -172,6 +172,9 @@ CREATE TABLE IF NOT EXISTS retiros (
     monto_estetica DECIMAL(10,2) NOT NULL DEFAULT 0,
     creado_por BIGINT NULL,
     metodo_retiro VARCHAR(20) NOT NULL DEFAULT 'efectivo',
+    deshecho TINYINT(1) NOT NULL DEFAULT 0,
+    deshecho_por BIGINT NULL,
+    deshecho_at DATETIME NULL,
     creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_retiros_caja (caja_id),
     INDEX idx_retiros_profesional (profesional_id)

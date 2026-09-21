@@ -89,6 +89,9 @@ function puedeGestionarTurno(req, profesionalId) { const r=req.usuario.rol; if(r
         await pool.query(`CREATE TABLE IF NOT EXISTS permisos_roles (id BIGINT AUTO_INCREMENT PRIMARY KEY, rol VARCHAR(20) NOT NULL, permiso VARCHAR(50) NOT NULL, descripcion VARCHAR(200) NULL, UNIQUE KEY uq_rol_permiso (rol, permiso)) ENGINE=InnoDB`);
         await pool.query(`CREATE TABLE IF NOT EXISTS horarios_config (id BIGINT AUTO_INCREMENT PRIMARY KEY, profesional_id BIGINT NOT NULL, desde_manana TIME NOT NULL DEFAULT '10:00:00', hasta_manana TIME NOT NULL DEFAULT '12:30:00', desde_tarde TIME NOT NULL DEFAULT '15:00:00', hasta_tarde TIME NOT NULL DEFAULT '19:00:00', tipo_turno VARCHAR(20) NOT NULL DEFAULT 'ambos', dias_laborables VARCHAR(100) NULL DEFAULT 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado', paso_tiempo INT NOT NULL DEFAULT 90, INDEX idx_horarios_profesional (profesional_id)) ENGINE=InnoDB`);
         await pool.query(`CREATE TABLE IF NOT EXISTS cajas_semanal (id BIGINT AUTO_INCREMENT PRIMARY KEY, caja_id BIGINT NOT NULL, profesional_id BIGINT NOT NULL, profesional_nombre VARCHAR(100) NOT NULL, semana_inicio DATE NOT NULL, semana_fin DATE NOT NULL, monto_inicial DECIMAL(10,2) NOT NULL DEFAULT 0, monto_final DECIMAL(10,2) NULL, total_ventas DECIMAL(10,2) NOT NULL DEFAULT 0, total_gastos DECIMAL(10,2) NOT NULL DEFAULT 0, total_retiros DECIMAL(10,2) NOT NULL DEFAULT 0, comision_profesional DECIMAL(10,2) NOT NULL DEFAULT 0, estado VARCHAR(20) NOT NULL DEFAULT 'abierta', cerrada_at DATETIME NULL) ENGINE=InnoDB`);
+        await pool.query(`ALTER TABLE retiros ADD COLUMN IF NOT EXISTS deshecho TINYINT(1) NOT NULL DEFAULT 0`);
+        await pool.query(`ALTER TABLE retiros ADD COLUMN IF NOT EXISTS deshecho_por BIGINT NULL`);
+        await pool.query(`ALTER TABLE retiros ADD COLUMN IF NOT EXISTS deshecho_at DATETIME NULL`);
         console.log('🧾 Tablas auxiliares y RBAC verificadas');
     } catch (e) { console.error('❌ Error creando tablas:', e.message); }
 })();
@@ -2563,7 +2566,7 @@ app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), a
         );
         const [retiros] = await pool.query(
             `SELECT r.id, r.profesional_id, r.profesional_nombre, r.monto_bruto,
-                    r.porcentaje_retiro, r.monto_retirado, r.monto_estetica, r.metodo_retiro, r.creado_at
+                    r.porcentaje_retiro, r.monto_retirado, r.monto_estetica, r.metodo_retiro, r.deshecho, r.creado_at
              FROM retiros r WHERE r.fecha = CURDATE() ORDER BY r.id`
         );
         res.json({ sugerencias, retiros });
@@ -2576,7 +2579,7 @@ app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), a
 // Registrar el retiro de una profesional (calcula lo que le corresponde
 // segÃºn sus turnos cobrados del dÃ­a y su porcentaje). El retiro saca dinero
 // de la caja del dÃ­a: descuenta del efectivo o de la transferencia segÃºn el
-// mÃ©todo indicado. NO se puede eliminar un retiro ya registrado.
+// mÃ©todo indicado. Se puede deshacer (solo admin) pero el registro se conserva.
 app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { profesional_id, monto_retirar, metodo } = req.body;
     if (!profesional_id) return res.status(400).json({ success: false, message: 'IndicÃ¡ la profesional' });
@@ -2648,13 +2651,14 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
     }
 });
 
-// Eliminar/deshacer un retiro
-app.delete('/api/caja/retiros/:id', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+// Deshacer un retiro: restaura el dinero a la caja y marca el retiro como deshecho (NO se borra)
+app.post('/api/caja/retiros/:id/deshacer', autenticar, autorizar(['admin','super_admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const [row] = await pool.query('SELECT * FROM retiros WHERE id = ?', [id]);
         if (!row.length) return res.status(404).json({ success: false, message: 'Retiro no encontrado' });
         const r = row[0];
+        if (r.deshecho) return res.status(400).json({ success: false, message: 'Este retiro ya fue deshecho' });
         // Restaurar el monto a la caja del día
         const [caja] = await pool.query("SELECT id FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1");
         if (caja.length) {
@@ -2662,8 +2666,8 @@ app.delete('/api/caja/retiros/:id', autenticar, autorizar(['admin','recepcionist
             const colMetodo = (r.metodo_retiro === 'transferencia') ? 'total_transferencia' : 'total_efectivo';
             await pool.query(`UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ?`, [parseFloat(r.monto_retirado), cajaId]);
         }
-        await pool.query('DELETE FROM retiros WHERE id = ?', [id]);
-        res.json({ success: true, message: 'Retiro deshecho correctamente' });
+        await pool.query('UPDATE retiros SET deshecho = 1, deshecho_por = ?, deshecho_at = NOW() WHERE id = ?', [req.usuario.id, id]);
+        res.json({ success: true, message: 'Retiro deshecho y dinero restaurado a la caja (el registro se conserva)' });
     } catch (e) {
         console.error('Error deshacer retiro:', e.message);
         res.status(500).json({ success: false, message: 'Error al deshacer el retiro' });
@@ -3000,7 +3004,7 @@ console.log('   ðŸ” POST   /api/auth/login');
     console.log('   ðŸ§¾ POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
     console.log('   ðŸ’¸ GET    /api/caja/retiros (sugerencias + registrados)');
 console.log('   ðŸ’¸ POST   /api/caja/retiros (registrar retiro de profesional)');
-     console.log('   â¡¸ DELETE /api/caja/retiros/:id (deshacer retiro)');
+     console.log('   â¡¸ POST   /api/caja/retiros/:id/deshacer (deshacer retiro, solo admin)');
      console.log('   ðŸ”€ GET    /api/turnos/cancelados (historial de cancelados)');
     console.log('   ðŸ”€ GET    /api/sobreturnos/disponibles (sobreturnos)');
     console.log('   ðŸ”€ POST   /api/sobreturnos (crear sobreturno)');
