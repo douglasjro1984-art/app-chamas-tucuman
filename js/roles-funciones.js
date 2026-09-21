@@ -1,34 +1,6 @@
 // roles-funciones.js - FUNCIONES AUXILIARES POR ROL
 // Sistema RBAC actualizado con roles: super_admin, admin, profesional, especialista, recepcionista, cliente
-
-// ==========================================
-// PERMISOS POR ROL (RBAC)
-// ==========================================
-const PERMISOS_ROL = {
-    'super_admin': ['gestion_total','gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','asignar_roles','gestionar_horarios_todos','gestionar_sobreturnos','cierre_semanal'],
-    'admin': ['gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','gestionar_horarios_todos','gestionar_sobreturnos'],
-    'profesional': ['gestionar_propios_turnos','gestionar_propios_horarios'],
-    'especialista': ['gestionar_propios_turnos','gestionar_propios_horarios','gestionar_servicios_categoria','gestionar_precios_propios','cierre_semanal'],
-    'recepcionista': ['gestionar_turnos_todos','admin_contable','gestionar_sobreturnos'],
-    'cliente': []
-};
-
-const NOMBRES_PERMISOS = {
-    'gestion_total': 'Gestión Total del Sistema',
-    'gestionar_turnos_todos': 'Gestionar Turnos de Todos',
-    'gestionar_turnos_propios': 'Gestionar Propios Turnos',
-    'gestionar_servicios': 'Gestionar Servicios (TODOS)',
-    'gestionar_servicios_categoria': 'Gestionar Servicios por Categoría',
-    'gestionar_precios': 'Gestionar Precios (TODOS)',
-    'gestionar_precios_propios': 'Gestionar Precios Propios',
-    'admin_contable': 'Administración Contable',
-    'acceso_clientes': 'Acceso a Base de Clientas',
-    'asignar_roles': 'Asignar Roles y Permisos',
-    'gestionar_horarios_todos': 'Gestionar Horarios de Todos',
-    'gestionar_propios_horarios': 'Gestionar Propios Horarios',
-    'gestionar_sobreturnos': 'Gestionar Sobreturnos',
-    'cierre_semanal': 'Cierre de Caja Semanal'
-};
+// PERMISOS_ROL y NOMBRES_PERMISOS se definen en app.js
 
 // ==========================================
 // UTILIDADES DE FECHA
@@ -100,30 +72,25 @@ function getPermisosUsuario() {
 // ==========================================
 function exportarDatos() {
     if (!tienePermiso('gestion_total') && !tienePermiso('admin_contable')) {
-        mostrarNotificacion('❌ No tienes permiso para exportar datos', 'error');
+        mostrarNotificacion('No tienes permiso para exportar datos', 'error');
         return;
     }
-    mostrarNotificacion('📥 Exportando datos... (función en desarrollo)');
+    mostrarNotificacion('Exportando datos... (función en desarrollo)');
 }
 
 function limpiarDatos() {
     if (!esSuperAdmin()) {
-        mostrarNotificacion('❌ Solo el Super Admin puede limpiar datos', 'error');
+        mostrarNotificacion('Solo el Super Admin puede limpiar datos', 'error');
         return;
     }
-    const confirmar = confirm('⚠️ ¿Estás seguro de que deseas limpiar TODOS los datos? Esta acción no se puede deshacer.');
-    if (confirmar) {
-        mostrarNotificacion('🗑️ Limpieza de datos... (función en desarrollo)');
-    }
+    const confirmar = confirm('Estás seguro de limpiar TODOS los datos? Esta acción no se puede deshacer.');
+    if (confirmar) mostrarNotificacion('Limpieza de datos... (función en desarrollo)');
 }
 
 // ==========================================
 // ASIGNACIÓN DE ROLLES
 // ==========================================
-function puedeAsignarRoles() {
-    const usuario = obtenerUsuarioActual();
-    return usuario?.rol === 'super_admin';
-}
+function puedeAsignarRoles() { return esSuperAdmin(); }
 
 function obtenerRolesDisponibles() {
     return [
@@ -137,11 +104,9 @@ function obtenerRolesDisponibles() {
 }
 
 // ==========================================
-// CHATBOT (si decides implementarlo)
+// CHATBOT
 // ==========================================
 function toggleChat() {
     const chatWindow = document.getElementById('chat-window');
-    if (chatWindow) {
-        chatWindow.classList.toggle('hidden');
-    }
+    if (chatWindow) chatWindow.classList.toggle('hidden');
 }

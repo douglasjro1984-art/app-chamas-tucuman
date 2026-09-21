@@ -575,22 +575,9 @@ function configurarInterfazPorRol(rol) {
 }
 
 // ==========================================
-// 9. PERMISOS
+// 9. PERMISOS (REFERENCIA A app.js)
 // ==========================================
-const PERMISOS_ROL = {
-    'super_admin': ['gestion_total','gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','asignar_roles','gestionar_horarios_todos','gestionar_sobreturnos','cierre_semanal'],
-    'admin': ['gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','gestionar_horarios_todos','gestionar_sobreturnos'],
-    'profesional': ['gestionar_propios_turnos','gestionar_propios_horarios'],
-    'especialista': ['gestionar_propios_turnos','gestionar_propios_horarios','gestionar_servicios_categoria','gestionar_precios_propios','cierre_semanal'],
-    'recepcionista': ['gestionar_turnos_todos','admin_contable','gestionar_sobreturnos'],
-    'cliente': []
-};
-
-function tienePermiso(accion) {
-    const usuario = obtenerUsuarioActual();
-    if (!usuario) return false;
-    return (PERMISOS_ROL[usuario.rol] || []).includes(accion);
-}
+// PERMISOS_ROL se define en app.js - se reutiliza aquí sin redeclaración
 
 function tienePermisoRBAC(permiso) {
     const usuario = obtenerUsuarioActual();
