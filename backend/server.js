@@ -2648,6 +2648,28 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
     }
 });
 
+// Eliminar/deshacer un retiro
+app.delete('/api/caja/retiros/:id', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [row] = await pool.query('SELECT * FROM retiros WHERE id = ?', [id]);
+        if (!row.length) return res.status(404).json({ success: false, message: 'Retiro no encontrado' });
+        const r = row[0];
+        // Restaurar el monto a la caja del día
+        const [caja] = await pool.query("SELECT id FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1");
+        if (caja.length) {
+            const cajaId = caja[0].id;
+            const colMetodo = (r.metodo_retiro === 'transferencia') ? 'total_transferencia' : 'total_efectivo';
+            await pool.query(`UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ?`, [parseFloat(r.monto_retirado), cajaId]);
+        }
+        await pool.query('DELETE FROM retiros WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Retiro deshecho correctamente' });
+    } catch (e) {
+        console.error('Error deshacer retiro:', e.message);
+        res.status(500).json({ success: false, message: 'Error al deshacer el retiro' });
+    }
+});
+
 // ============================================
 //  NUEVOS ENDPOINTS - RBAC, SOBRETURNOS, CANCELADOS, COMISIONES
 // ============================================
@@ -2977,8 +2999,9 @@ console.log('   ðŸ” POST   /api/auth/login');
     console.log('   ðŸ’µ GET    /api/caja/historial (cierres previos)');
     console.log('   ðŸ§¾ POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
     console.log('   ðŸ’¸ GET    /api/caja/retiros (sugerencias + registrados)');
-    console.log('   ðŸ’¸ POST   /api/caja/retiros (registrar retiro de profesional)');
-    console.log('   ðŸ”€ GET    /api/turnos/cancelados (historial de cancelados)');
+console.log('   ðŸ’¸ POST   /api/caja/retiros (registrar retiro de profesional)');
+     console.log('   â¡¸ DELETE /api/caja/retiros/:id (deshacer retiro)');
+     console.log('   ðŸ”€ GET    /api/turnos/cancelados (historial de cancelados)');
     console.log('   ðŸ”€ GET    /api/sobreturnos/disponibles (sobreturnos)');
     console.log('   ðŸ”€ POST   /api/sobreturnos (crear sobreturno)');
     console.log('   ðŸ”€ GET    /api/servicios/categorias (categorías)');

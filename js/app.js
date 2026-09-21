@@ -3347,7 +3347,7 @@ async function cargarRetiros() {
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</strong>
-                            <span style="background:#C06C84;color:white;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:700;">NO ANULABLE</span>
+                            <button onclick="deshacerRetiro(${r.id})" style="background:#f0f0f0;color:#C06C84;padding:4px 10px;border:1px solid #C06C84;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;">↩ Deshacer</button>
                         </div>
                     </div>`).join('')}
                 </div>
@@ -3393,7 +3393,7 @@ async function cargarRetiros() {
 async function registrarRetiro(event, profesionalId) {
     const nombre = event.currentTarget.dataset.nombre || '';
     const metodo = document.getElementById('metodo-retiro-'+profesionalId)?.value || 'efectivo';
-    if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${metodo === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'}.\nSe descontará de la caja de hoy y NO podrá anularse.`)) return;
+    if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${metodo === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'}\nSe descontará de la caja de hoy.`)) return;
     event.currentTarget.disabled = true;
     const btnText = event.currentTarget.textContent;
     event.currentTarget.textContent = 'Registrando...';
@@ -3416,6 +3416,16 @@ async function registrarRetiro(event, profesionalId) {
         event.currentTarget.disabled = false;
         event.currentTarget.textContent = btnText;
     }
+}
+
+async function deshacerRetiro(retiroId) {
+    if (!confirm('¿Deshacer este retiro? Se restaurará el monto a la caja de hoy.')) return;
+    try {
+        const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) { mostrarNotificacion('✅ Retiro deshecho'); cargarRetiros(); }
+        else { mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error'); }
+    } catch (e) { mostrarNotificacion('❌ Error de conexión', 'error'); }
 }
 
 // Carga los turnos del día para el panel de caja
