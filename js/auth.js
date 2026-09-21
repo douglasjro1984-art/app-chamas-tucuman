@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ocultarLogin();
                 mostrarApp();
                 configurarInterfazPorRol(data.usuario.rol);
+                // Obtener permisos del backend
+                obtenerPermisos();
                 return;
             }
         } catch (e) {
@@ -227,7 +229,24 @@ async function loginAPI(emailOTelefono, password) {
 }
 
 // ==========================================
-// 5b. RECUPERACIÓN DE CONTRASEÑA
+// 5b. OBTENER PERMISOS DEL ROL
+// ==========================================
+async function obtenerPermisos() {
+    try {
+        const res = await fetch(`${window.API_BASE}/roles/permisos`, {
+            headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+        });
+        const data = await res.json();
+        if (data.success) {
+            console.log('🔐 Permisos de', data.rol, ':', data.permisos);
+            return data.permisos;
+        }
+    } catch (e) { console.error('Error obteniendo permisos:', e); }
+    return [];
+}
+
+// ==========================================
+// 5c. RECUPERACIÓN DE CONTRASEÑA
 // ==========================================
 let _recuperarIdentifier = null;
 
@@ -469,12 +488,15 @@ function cerrarSesion() {
 function configurarInterfazPorRol(rol) {
     console.log('🎭 Configurando interfaz para rol:', rol);
     
+    // Ocultar todo primero
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.admrecep-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.super-admin-only').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.especialista-only').forEach(el => el.style.display = 'none');
     
     const usuario = obtenerUsuarioActual();
     if (usuario) {
@@ -482,23 +504,71 @@ function configurarInterfazPorRol(rol) {
         if (userNameEl) userNameEl.textContent = usuario.nombre;
     }
     
-    if (rol === 'admin') {
+    if (rol === 'super_admin') {
+        // Laura: acceso TOTAL
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.admrecep-only').forEach(el => el.style.display = 'block');
-    } else if (rol === 'profesional') {
+        document.querySelectorAll('.super-admin-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.especialista-only').forEach(el => el.style.display = 'block');
+        // Mostrar todos los botones del nav
+        document.querySelectorAll('.nav-links button').forEach(b => b.style.display = '');
+    } else if (rol === 'admin') {
+        // Anahí: acceso completo excepto asignar roles
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
-    } else if (rol === 'cliente') {
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.admrecep-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.especialista-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.nav-links button').forEach(b => b.style.display = '');
+        // Ocultar el botón de asignar roles
+        const navAsignar = document.querySelector('[onclick*="asignar"]');
+        if (navAsignar) navAsignar.style.display = 'none';
+    } else if (rol === 'profesional') {
+        // Belén: solo sus turnos y horarios
+        document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
+        // Mostrar botón de turnos y horarios
+        const navTurnos = document.querySelector('[onclick*="mis-turnos-cliente"]');
+        if (navTurnos) navTurnos.style.display = 'inline-block';
+        const navHorarios = document.querySelector('.horarios-gestion');
+        if (navHorarios) navHorarios.style.display = 'inline-block';
+        const navServicios = document.querySelector('[onclick*="servicios"]');
+        if (navServicios) navServicios.style.display = 'inline-block';
+        const navLogin = document.getElementById('nav-login-btn');
+        if (navLogin) navLogin.style.display = 'none';
+    } else if (rol === 'especialista') {
+        // Carmen: turnos propios + horarios + gestión de masajes + cierre semanal
+        document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.especialista-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
+        const navTurnos = document.querySelector('[onclick*="mis-turnos-cliente"]');
+        if (navTurnos) navTurnos.style.display = 'inline-block';
+        const navHorarios = document.querySelector('.horarios-gestion');
+        if (navHorarios) navHorarios.style.display = 'inline-block';
+        const navServicios = document.querySelector('[onclick*="servicios"]');
+        if (navServicios) navServicios.style.display = 'inline-block';
     } else if (rol === 'recepcionista') {
         document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.horarios-gestion').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.admrecep-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.nav-links button').forEach(b => b.style.display = '');
+    } else if (rol === 'cliente') {
+        document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
+        const navServicios = document.querySelector('[onclick*="servicios"]');
+        if (navServicios) navServicios.style.display = 'inline-block';
+        const navLogin = document.getElementById('nav-login-btn');
+        if (navLogin) navLogin.style.display = 'inline-block';
     }
     
     console.log('✅ Interfaz de', rol.toUpperCase(), 'activada');
@@ -507,19 +577,40 @@ function configurarInterfazPorRol(rol) {
 // ==========================================
 // 9. PERMISOS
 // ==========================================
+const PERMISOS_ROL = {
+    'super_admin': ['gestion_total','gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','asignar_roles','gestionar_horarios_todos','gestionar_sobreturnos','cierre_semanal'],
+    'admin': ['gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','gestionar_horarios_todos','gestionar_sobreturnos'],
+    'profesional': ['gestionar_propios_turnos','gestionar_propios_horarios'],
+    'especialista': ['gestionar_propios_turnos','gestionar_propios_horarios','gestionar_servicios_categoria','gestionar_precios_propios','cierre_semanal'],
+    'recepcionista': ['gestionar_turnos_todos','admin_contable','gestionar_sobreturnos'],
+    'cliente': []
+};
+
 function tienePermiso(accion) {
     const usuario = obtenerUsuarioActual();
     if (!usuario) return false;
-    
-    const permisos = {
-        'editar_servicios':    ['admin'],
-        'ver_estadisticas':    ['admin'],
-        'gestionar_horarios':  ['admin', 'profesional'],
-        'agendar_turno':       ['admin', 'profesional', 'cliente', 'recepcionista'],
-        'ver_catalogo':        ['admin', 'profesional', 'cliente', 'recepcionista']
-    };
-    
-    return permisos[accion]?.includes(usuario.rol) || false;
+    return (PERMISOS_ROL[usuario.rol] || []).includes(accion);
+}
+
+function tienePermisoRBAC(permiso) {
+    const usuario = obtenerUsuarioActual();
+    if (!usuario) return false;
+    return (PERMISOS_ROL[usuario.rol] || []).includes(permiso);
+}
+
+function esSuperAdmin() {
+    const usuario = obtenerUsuarioActual();
+    return usuario?.rol === 'super_admin';
+}
+
+function esAdmin() {
+    const usuario = obtenerUsuarioActual();
+    return usuario?.rol === 'admin' || usuario?.rol === 'super_admin';
+}
+
+function esEspecialista() {
+    const usuario = obtenerUsuarioActual();
+    return usuario?.rol === 'especialista';
 }
 
 // ==========================================

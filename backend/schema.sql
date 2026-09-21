@@ -14,7 +14,12 @@ CREATE TABLE IF NOT EXISTS usuarios (
     telefono VARCHAR(30) NULL,
     porcentaje_retiro DECIMAL(5,2) NULL DEFAULT 70,
     activo TINYINT(1) NOT NULL DEFAULT 1,
-    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- Nuevos campos para RBAC extendido
+    desde_manana TIME NULL DEFAULT '10:00:00',
+    desde_tarde TIME NULL DEFAULT '15:00:00',
+    permisos_especiales JSON NULL,
+    INDEX idx_usuarios_rol (rol)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS servicios (
@@ -26,7 +31,10 @@ CREATE TABLE IF NOT EXISTS servicios (
     duracion INT NOT NULL DEFAULT 60,
     dias_disponibles VARCHAR(100) NULL,
     activo TINYINT(1) NOT NULL DEFAULT 1,
-    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    categoria VARCHAR(30) NOT NULL DEFAULT 'general',
+    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_servicios_categoria (categoria),
+    INDEX idx_servicios_activo (activo)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS profesional_servicios (
@@ -62,7 +70,11 @@ CREATE TABLE IF NOT EXISTS turnos (
     notas TEXT NULL,
     recordatorio_enviado TINYINT(1) NOT NULL DEFAULT 0,
     fin_real TIME NULL,
-    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_turnos_estado (estado),
+    INDEX idx_turnos_prof_fecha (profesional_id, fecha),
+    INDEX idx_turnos_cliente (cliente_id),
+    INDEX idx_turnos_fecha (fecha)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS turno_items (
@@ -109,7 +121,9 @@ CREATE TABLE IF NOT EXISTS cajas (
     total_debito DECIMAL(10,2) NOT NULL DEFAULT 0,
     total_credito DECIMAL(10,2) NOT NULL DEFAULT 0,
     abierta_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    cerrada_at DATETIME NULL
+    cerrada_at DATETIME NULL,
+    INDEX idx_cajas_fecha (fecha),
+    INDEX idx_cajas_estado (estado)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS tickets (
@@ -158,7 +172,9 @@ CREATE TABLE IF NOT EXISTS retiros (
     monto_estetica DECIMAL(10,2) NOT NULL DEFAULT 0,
     creado_por BIGINT NULL,
     metodo_retiro VARCHAR(20) NOT NULL DEFAULT 'efectivo',
-    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_retiros_caja (caja_id),
+    INDEX idx_retiros_profesional (profesional_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS arqueo_caja (
@@ -186,16 +202,88 @@ CREATE TABLE IF NOT EXISTS configuracion (
 ) ENGINE=InnoDB;
 
 -- ============================================================
--- ÍNDICES SUGERIDOS (consultas más frecuentes del backend)
+-- NUEVAS TABLAS PARA RBAC Y CONFIGURACIÓN
 -- ============================================================
 
-CREATE INDEX idx_turnos_prof_fecha ON turnos (profesional_id, fecha);
-CREATE INDEX idx_turnos_cliente    ON turnos (cliente_id);
-CREATE INDEX idx_turnos_fecha      ON turnos (fecha);
-CREATE INDEX idx_usuarios_email    ON usuarios (email);
-CREATE INDEX idx_usuarios_telefono ON usuarios (telefono);
-CREATE INDEX idx_cupones_cliente   ON cupones (cliente_id);
-CREATE INDEX idx_tickets_caja      ON tickets (caja_id);
-CREATE INDEX idx_gastos_caja       ON gastos (caja_id);
-CREATE INDEX idx_retiros_caja      ON retiros (caja_id);
-CREATE INDEX idx_arqueo_caja       ON arqueo_caja (caja_id);
+-- Tabla de permisos por rol
+CREATE TABLE IF NOT EXISTS permisos_roles (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    rol VARCHAR(20) NOT NULL,
+    permiso VARCHAR(50) NOT NULL,
+    descripcion VARCHAR(200) NULL,
+    UNIQUE KEY uq_rol_permiso (rol, permiso)
+) ENGINE=InnoDB;
+
+-- Configuración de horarios por profesional
+CREATE TABLE IF NOT EXISTS horarios_config (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    profesional_id BIGINT NOT NULL,
+    desde_manana TIME NOT NULL DEFAULT '10:00:00',
+    desde_tarde TIME NOT NULL DEFAULT '15:00:00',
+    dias_laborables VARCHAR(100) NULL DEFAULT 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado',
+    INDEX idx_horarios_profesional (profesional_id)
+) ENGINE=InnoDB;
+
+-- Cierre semanal de caja (para especialistas como Carmen)
+CREATE TABLE IF NOT EXISTS cajas_semanal (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    caja_id BIGINT NOT NULL,
+    profesional_id BIGINT NOT NULL,
+    profesional_nombre VARCHAR(100) NOT NULL,
+    semana_inicio DATE NOT NULL,
+    semana_fin DATE NOT NULL,
+    monto_inicial DECIMAL(10,2) NOT NULL DEFAULT 0,
+    monto_final DECIMAL(10,2) NULL,
+    total_ventas DECIMAL(10,2) NOT NULL DEFAULT 0,
+    total_gastos DECIMAL(10,2) NOT NULL DEFAULT 0,
+    total_retiros DECIMAL(10,2) NOT NULL DEFAULT 0,
+    comision_profesional DECIMAL(10,2) NOT NULL DEFAULT 0,
+    estado VARCHAR(20) NOT NULL DEFAULT 'abierta',
+    cerrada_at DATETIME NULL,
+    INDEX idx_cajas_sem_profesional (profesional_id, semana_inicio),
+    INDEX idx_cajas_sem_estado (estado)
+) ENGINE=InnoDB;
+
+-- Índices adicionales
+CREATE INDEX idx_servicios_categoria ON servicios (categoria);
+CREATE INDEX idx_usuarios_rol ON usuarios (rol);
+CREATE INDEX idx_turnos_estado ON turnos (estado);
+CREATE INDEX idx_horarios_profesional ON horarios_config (profesional_id);
+
+-- ============================================================
+-- INSERCIÓN DE ROLLES Y PERMISOS INICIALES
+-- ============================================================
+
+-- Roles y permisos por defecto
+INSERT IGNORE INTO permisos_roles (rol, permiso, descripcion) VALUES
+    ('super_admin', 'gestion_total', 'Acceso total al sistema: usuarios, roles, permisos'),
+    ('super_admin', 'gestionar_turnos_todos', 'Agendar y gestionar turnos de todos los profesionales'),
+    ('super_admin', 'gestionar_servicios', 'Agregar, editar y eliminar servicios'),
+    ('super_admin', 'gestionar_precios', 'Actualizar precios de todos los servicios'),
+    ('super_admin', 'admin_contable', 'Acceso al módulo de administración contable y financiera'),
+    ('super_admin', 'acceso_clientes', 'Acceso total a la base de datos de clientas'),
+    ('super_admin', 'asignar_roles', 'Asignar tareas, funciones y permisos a otros usuarios'),
+    ('super_admin', 'gestionar_horarios_todos', 'Gestionar horarios de todos los profesionales'),
+
+    ('admin', 'gestionar_turnos_todos', 'Agendar y gestionar turnos de todos los profesionales'),
+    ('admin', 'gestionar_servicios', 'Agregar, editar y eliminar servicios'),
+    ('admin', 'gestionar_precios', 'Actualizar precios de todos los servicios'),
+    ('admin', 'admin_contable', 'Acceso al módulo de administración contable'),
+    ('admin', 'acceso_clientes', 'Acceso total a la base de datos de clientas'),
+    ('admin', 'gestionar_horarios_todos', 'Gestionar horarios de todos los profesionales'),
+    ('admin', 'gestionar_sobreturnos', 'Crear y gestionar sobreturnos'),
+
+    ('profesional', 'gestionar_propios_turnos', 'Agendar y editar exclusivamente sus propios turnos'),
+    ('profesional', 'gestionar_propios_horarios', 'Configurar únicamente sus propios horarios de atención'),
+
+    ('especialista', 'gestionar_propios_turnos', 'Agendar y editar exclusivamente sus propios turnos'),
+    ('especialista', 'gestionar_propios_horarios', 'Configurar únicamente sus propios horarios de atención'),
+    ('especialista', 'gestionar_servicios_categoria', 'Agregar, editar y eliminar servicios de su categoría'),
+    ('especialista', 'gestionar_precios_propios', 'Editar y actualizar precios de sus servicios'),
+    ('especialista', 'cierre_semanal', 'Realizar cierre de caja con frecuencia semanal');
+
+-- Insertar categorías de servicios por defecto
+INSERT IGNORE INTO configuracion (clave, valor) VALUES
+    ('categoria_masajes', 'Masajes'),
+    ('categoria_general', 'General'),
+    ('categoria_depilacion', 'Depilación');

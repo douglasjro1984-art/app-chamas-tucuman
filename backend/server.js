@@ -58,6 +58,47 @@ const pool = require('./database');
 
 const app = express();
 
+// ============================================
+//  DEFINICIÓN DE ROLES Y PERMISOS (RBAC)
+// ============================================
+const ROLES = {
+    SUPER_ADMIN: 'super_admin',
+    ADMIN: 'admin',
+    PROFESIONAL: 'profesional',
+    ESPECIALISTA: 'especialista',
+    RECEPCIONISTA: 'recepcionista',
+    CLIENTE: 'cliente'
+};
+const PERMISOS = {
+    SUPER_ADMIN: ['gestion_total','gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','asignar_roles','gestionar_horarios_todos','gestionar_sobreturnos'],
+    ADMIN: ['gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','gestionar_horarios_todos','gestionar_sobreturnos'],
+    PROFESIONAL: ['gestionar_propios_turnos','gestionar_propios_horarios'],
+    ESPECIALISTA: ['gestionar_propios_turnos','gestionar_propios_horarios','gestionar_servicios_categoria','gestionar_precios_propios','cierre_semanal'],
+    RECEPCIONISTA: ['gestionar_turnos_todos','admin_contable','gestionar_sobreturnos'],
+    CLIENTE: []
+};
+const NOMBRES_PERMISOS = {'gestion_total':'Gestión Total','gestionar_turnos_todos':'Gestionar Turnos de Todos','gestionar_turnos_propios':'Gestionar Propios Turnos','gestionar_servicios':'Gestionar Servicios (TODOS)','gestionar_servicios_categoria':'Gestionar Servicios por Categoría','gestionar_precios':'Gestionar Precios (TODOS)','gestionar_precios_propios':'Gestionar Precios Propios','admin_contable':'Administración Contable','acceso_clientes':'Acceso a Base de Clientas','asignar_roles':'Asignar Roles','gestionar_horarios_todos':'Gestionar Horarios de Todos','gestionar_propios_horarios':'Gestionar Propios Horarios','gestionar_sobreturnos':'Gestionar Sobreturnos','cierre_semanal':'Cierre de Caja Semanal'};
+function rolTienePermiso(rol, permiso) { return (PERMISOS[rol] || []).includes(permiso); }
+function puedeGestionarTurno(req, profesionalId) { const r=req.usuario.rol; if(r==='super_admin'||r==='admin'||r==='recepcionista') return true; if(r==='profesional'||r==='especialista') return req.usuario.id===profesionalId; return false; }
+
+// Crear tablas auxiliares de caja si no existen (TiDB Cloud) + tablas RBAC
+(async () => {
+    try {
+        await pool.query(`CREATE TABLE IF NOT EXISTS arqueo_caja (id BIGINT AUTO_INCREMENT PRIMARY KEY, caja_id BIGINT NOT NULL, denominacion VARCHAR(30) NOT NULL, tipo VARCHAR(10) NOT NULL DEFAULT 'billete', cantidad INT NOT NULL DEFAULT 0, subtotal DECIMAL(10,2) NOT NULL DEFAULT 0, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS gastos (id BIGINT AUTO_INCREMENT PRIMARY KEY, fecha DATE NOT NULL, tipo VARCHAR(20) NOT NULL DEFAULT 'compra', descripcion VARCHAR(255) NOT NULL, monto DECIMAL(10,2) NOT NULL, metodo_pago VARCHAR(20) NOT NULL DEFAULT 'efectivo', caja_id BIGINT NULL, registrado_por BIGINT NULL, registrado_por_nombre VARCHAR(100) NULL, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS permisos_roles (id BIGINT AUTO_INCREMENT PRIMARY KEY, rol VARCHAR(20) NOT NULL, permiso VARCHAR(50) NOT NULL, descripcion VARCHAR(200) NULL, UNIQUE KEY uq_rol_permiso (rol, permiso)) ENGINE=InnoDB`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS horarios_config (id BIGINT AUTO_INCREMENT PRIMARY KEY, profesional_id BIGINT NOT NULL, desde_manana TIME NOT NULL DEFAULT '10:00:00', desde_tarde TIME NOT NULL DEFAULT '15:00:00', dias_laborables VARCHAR(100) NULL DEFAULT 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado', INDEX idx_horarios_profesional (profesional_id)) ENGINE=InnoDB`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS cajas_semanal (id BIGINT AUTO_INCREMENT PRIMARY KEY, caja_id BIGINT NOT NULL, profesional_id BIGINT NOT NULL, profesional_nombre VARCHAR(100) NOT NULL, semana_inicio DATE NOT NULL, semana_fin DATE NOT NULL, monto_inicial DECIMAL(10,2) NOT NULL DEFAULT 0, monto_final DECIMAL(10,2) NULL, total_ventas DECIMAL(10,2) NOT NULL DEFAULT 0, total_gastos DECIMAL(10,2) NOT NULL DEFAULT 0, total_retiros DECIMAL(10,2) NOT NULL DEFAULT 0, comision_profesional DECIMAL(10,2) NOT NULL DEFAULT 0, estado VARCHAR(20) NOT NULL DEFAULT 'abierta', cerrada_at DATETIME NULL) ENGINE=InnoDB`);
+        console.log('🧾 Tablas auxiliares y RBAC verificadas');
+    } catch (e) { console.error('❌ Error creando tablas:', e.message); }
+})();
+
+// Middleware para agregar permisos a res.locals
+app.use((req, res, next) => { res.locals.usuario = req.usuario || null; res.locals.rol = req.usuario?.rol || null; res.locals.permisos = PERMISOS[req.usuario?.rol] || []; next(); });
+
+// Middleware de permisos específicos
+function requerirPermiso(permiso) { return (req, res, next) => { if (!req.usuario) return res.status(401).json({ success: false, message: 'No autenticado' }); if (!rolTienePermiso(req.usuario.rol, permiso)) return res.status(403).json({ success: false, message: `No tenés permiso para: ${NOMBRES_PERMISOS[permiso] || permiso}` }); next(); }; }
+
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -219,9 +260,8 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         const passwordMatch = await bcrypt.compare(password, usuario.password);
         const usuarioSinPassword = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, telefono: usuario.telefono };
 
-        // Solo permiten ingresar los roles operativos: admin y recepcionista.
-        // clientes/profesionales/caja antiguos ya no pueden entrar.
-        const rolesPermitidos = ['admin', 'recepcionista'];
+        // Roles operativos que pueden ingresar al sistema
+        const rolesPermitidos = ['super_admin','admin','recepcionista','profesional','especialista'];
         if (passwordMatch && !rolesPermitidos.includes(usuario.rol)) {
             return res.json({ success: false, message: 'Esta cuenta no tiene acceso al sistema. ContactÃ¡ al administrador.' });
         }
@@ -2609,8 +2649,274 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
 });
 
 // ============================================
-// ðŸ¥ HEALTH CHECK
+//  NUEVOS ENDPOINTS - RBAC, SOBRETURNOS, CANCELADOS, COMISIONES
 // ============================================
+
+// Obtener categorías de servicios
+app.get('/api/servicios/categorias', autenticar, async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT DISTINCT categoria FROM servicios ORDER BY categoria');
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: 'Error al obtener categorías' }); }
+});
+
+// Obtener servicios por categoría (para especialistas)
+app.get('/api/servicios/categoria/:categoria', autenticar, async (req, res) => {
+    try {
+        const { categoria } = req.params;
+        const rol = req.usuario.rol;
+        // Solo super_admin, admin o especialista pueden ver/gestionar servicios
+        if (rol === 'especialista' && categoria !== 'masajes') {
+            return res.status(403).json({ success: false, message: 'Sólo podés gestionar servicios de masajes' });
+        }
+        const [rows] = await pool.query('SELECT * FROM servicios WHERE categoria = ? ORDER BY activo DESC, id', [categoria]);
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: 'Error al obtener servicios por categoría' }); }
+});
+
+// Obtener permisos del rol actual
+app.get('/api/roles/permisos', autenticar, async (req, res) => {
+    res.json({ rol: req.usuario.rol, permisos: PERMISOS[req.usuario.rol] || [], nombres: NOMBRES_PERMISOS });
+});
+
+// Obtener configuración de horarios del profesional
+app.get('/api/horarios/config/:profesionalId', autenticar, async (req, res) => {
+    try {
+        const { profesionalId } = req.params;
+        if (!puedeGestionarTurno(req, profesionalId)) {
+            return res.status(403).json({ success: false, message: 'No tenés permiso' });
+        }
+        const [rows] = await pool.query('SELECT * FROM horarios_config WHERE profesional_id = ?', [profesionalId]);
+        if (rows.length) {
+            res.json(rows[0]);
+        } else {
+            // Devolver defaults
+            res.json({ profesional_id: profesionalId, desde_manana: '10:00:00', desde_tarde: '15:00:00', dias_laborables: 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado' });
+        }
+    } catch (e) { res.status(500).json({ error: 'Error al obtener configuración de horarios' }); }
+});
+
+// Guardar configuración de horarios del profesional
+app.put('/api/horarios/config/:profesionalId', autenticar, async (req, res) => {
+    try {
+        const { profesionalId } = req.params;
+        if (!puedeGestionarTurno(req, profesionalId)) {
+            return res.status(403).json({ success: false, message: 'No tenés permiso' });
+        }
+        const { desde_manana, desde_tarde, dias_laborables } = req.body;
+        const [existe] = await pool.query('SELECT id FROM horarios_config WHERE profesional_id = ?', [profesionalId]);
+        if (existe.length) {
+            await pool.query('UPDATE horarios_config SET desde_manana = ?, desde_tarde = ?, dias_laborables = ? WHERE profesional_id = ?', [desde_manana, desde_tarde, dias_laborables, profesionalId]);
+        } else {
+            await pool.query('INSERT INTO horarios_config (profesional_id, desde_manana, desde_tarde, dias_laborables) VALUES (?, ?, ?, ?)', [profesionalId, desde_manana, desde_tarde, dias_laborables]);
+        }
+        res.json({ success: true, message: 'Configuración de horarios guardada' });
+    } catch (e) { res.status(500).json({ error: 'Error al guardar configuración de horarios' }); }
+});
+
+// Obtener historial de turnos cancelados
+app.get('/api/turnos/cancelados', autenticar, autorizar(['admin','recepcionista','super_admin']), async (req, res) => {
+    try {
+        const { profesional_id, fecha_desde, fecha_hasta } = req.query;
+        let query = `SELECT t.id, t.fecha, DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio, t.estado, t.tipo,
+                            COALESCE(t.cliente_nombre, c.nombre) as cliente_nombre,
+                            COALESCE(t.cliente_telefono, c.telefono) as telefono,
+                            p.nombre as profesional, s.nombre as servicio,
+                            t.precio, t.notas, t.creado_at
+                     FROM turnos t
+                     LEFT JOIN usuarios p ON t.profesional_id = p.id
+                     LEFT JOIN usuarios c ON t.cliente_id = c.id
+                     LEFT JOIN servicios s ON t.servicio_id = s.id
+                     WHERE t.estado = 'cancelado'`;
+        const params = [];
+        if (profesional_id) { query += ' AND t.profesional_id = ?'; params.push(profesional_id); }
+        if (fecha_desde) { query += ' AND t.fecha >= ?'; params.push(fecha_desde); }
+        if (fecha_hasta) { query += ' AND t.fecha <= ?'; params.push(fecha_hasta); }
+        query += ' ORDER BY t.fecha DESC, t.hora_inicio DESC LIMIT 500';
+        const [rows] = await pool.query(query, params);
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: 'Error al obtener turnos cancelados' }); }
+});
+
+// Obtener sobreturnos disponibles
+app.get('/api/sobreturnos/disponibles', autenticar, requerirPermiso('gestionar_sobreturnos'), async (req, res) => {
+    const { fecha } = req.query;
+    const dia = fecha || new Date().toISOString().slice(0, 10);
+    try {
+        const [rows] = await pool.query(
+            `SELECT t.id, t.fecha, DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio,
+                    DATE_FORMAT(t.fin_real, '%H:%i') as fin_real, t.estado, t.tipo,
+                    t.profesional_id, p.nombre as profesional
+             FROM turnos t
+             LEFT JOIN usuarios p ON t.profesional_id = p.id
+             WHERE t.fecha = ? AND t.estado <> 'cancelado' AND t.estado = 'cobrado'
+             ORDER BY t.profesional_id, t.hora_inicio, t.id`, [dia]
+        );
+        const porProf = {};
+        rows.forEach(t => {
+            const key = t.profesional_id || 0;
+            if (!porProf[key]) porProf[key] = { profesional_id: key, profesional: t.profesional || 'Sin asignar', turnos: [] };
+            porProf[key].turnos.push(t);
+        });
+        const huecos = [];
+        Object.values(porProf).forEach(g => {
+            g.turnos.forEach(t => {
+                const finMin = t.fin_real ? (parseInt(t.fin_real.slice(0,2))*60 + parseInt(t.fin_real.slice(3,5))) : null;
+                if (!finMin) return;
+                const siguiente = g.turnos.find(n => {
+                    const h = parseInt(n.hora_inicio.slice(0,2))*60 + parseInt(n.hora_inicio.slice(3,5));
+                    return h > finMin;
+                });
+                if (!siguiente) return;
+                const sigMin = parseInt(siguiente.hora_inicio.slice(0,2))*60 + parseInt(siguiente.hora_inicio.slice(3,5));
+                const libres = sigMin - finMin;
+                if (libres <= 0) return;
+                huecos.push({
+                    turno_origen: t.id, profesional_id: g.profesional_id, profesional: g.profesional,
+                    desde: t.fin_real, hasta: siguiente.hora_inicio, minutos: libres
+                });
+            });
+        });
+        res.json(huecos);
+    } catch (e) { res.status(500).json({ error: 'Error al obtener sobreturnos' }); }
+});
+
+// Crear sobreturno
+app.post('/api/sobreturnos', autenticar, requerirPermiso('gestionar_sobreturnos'), async (req, res) => {
+    const { profesional_id, fecha, desde, cliente_nombre, cliente_telefono, servicios = [] } = req.body;
+    if (!profesional_id || !fecha || !desde || !Array.isArray(servicios) || !servicios.length) {
+        return res.status(400).json({ success: false, message: 'Faltan datos para el sobreturno' });
+    }
+    try {
+        const [proximos] = await pool.query(
+            `SELECT DATE_FORMAT(t.hora_inicio, '%H:%i') as hora_inicio FROM turnos t
+             WHERE t.profesional_id = ? AND t.fecha = ? AND t.estado <> 'cancelado' AND t.hora_inicio > ?
+             ORDER BY t.hora_inicio ASC LIMIT 1`, [profesional_id, fecha, desde + ':00']
+        );
+        let minutosLibres = null;
+        if (proximos.length) {
+            minutosLibres = (parseInt(proximos[0].hora_inicio.slice(0,2))*60 + parseInt(proximos[0].hora_inicio.slice(3,5))) - (parseInt(desde.split(':')[0])*60 + parseInt(desde.split(':')[1]));
+        }
+        if (minutosLibres === null) minutosLibres = 22*60 - (parseInt(desde.split(':')[0])*60 + parseInt(desde.split(':')[1]));
+        if (minutosLibres < 30) return res.status(400).json({ success: false, message: 'No hay suficiente tiempo libre para un sobreturno (mín. 30 min)' });
+        const duracion = Math.min(minutosLibres, 40);
+        const [sv] = await pool.query(`SELECT id, nombre, precio FROM servicios WHERE id IN (?) AND activo = TRUE`, [servicios]);
+        if (!sv.length) return res.status(400).json({ success: false, message: 'Servicios inválidos' });
+        const precioTotal = sv.reduce((s, x) => s + parseFloat(x.precio || 0), 0);
+        const [r] = await pool.query(
+            `INSERT INTO turnos (cliente_id, cliente_nombre, cliente_telefono, profesional_id, servicio_id, fecha, hora_inicio, precio, estado, tipo, notas)
+             VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'confirmado', 'sobreturno', 'Sobreturno — ${duracion} min')`,
+            [cliente_nombre, cliente_telefono, profesional_id, sv[0].id, fecha, desde + ':00', precioTotal]
+        );
+        const items = sv.map(s => [r.insertId, s.id, s.nombre, parseFloat(s.precio || 0)]);
+        await pool.query('INSERT INTO turno_items (turno_id, servicio_id, nombre, precio) VALUES ?', [items]);
+        res.json({ success: true, id: r.insertId, message: 'Sobreturno agendado', duracion_min: duracion });
+    } catch (e) { res.status(500).json({ success: false, error: 'Error al crear sobreturno' }); }
+});
+
+// Cierre de caja con comisiones por profesional (DIARIO) - MODIFICADO
+app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista','super_admin']), async (req, res) => {
+    const { monto_real, arqueo } = req.body;
+    try {
+        const [caja] = await pool.query("SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1");
+        if (!caja.length) return res.status(400).json({ success: false, message: 'No hay caja abierta para cerrar' });
+        const c = caja[0];
+        const total = parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0);
+        const [retiros] = await pool.query('SELECT id, profesional_nombre, monto_retirado, metodo_retiro FROM retiros WHERE caja_id = ?', [c.id]);
+        const [gastos] = await pool.query('SELECT id, tipo, descripcion, monto, metodo_pago FROM gastos WHERE caja_id = ?', [c.id]);
+        const totalRetiros = retiros.reduce((s, r) => s + parseFloat(r.monto_retirado || 0), 0);
+        const totalGastos = gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+
+        // COMISIONES POR PROFESIONAL
+        const [comisiones] = await pool.query(
+            `SELECT u.id as profesional_id, u.nombre as profesional_nombre, u.porcentaje_retiro,
+                    COALESCE(SUM(t.precio), 0) AS cobrado_hoy,
+                    ROUND(COALESCE(SUM(t.precio), 0) * u.porcentaje_retiro / 100, 2) AS comision,
+                    ROUND(COALESCE(SUM(t.precio), 0) * (100 - u.porcentaje_retiro) / 100, 2) AS retencion_estetica
+             FROM usuarios u
+             LEFT JOIN turnos t ON t.profesional_id = u.id AND t.estado = 'cobrado' AND DATE(t.fecha) = CURDATE()
+             WHERE u.rol = 'profesional' OR u.rol = 'especialista'
+             GROUP BY u.id, u.nombre, u.porcentaje_retiro
+             HAVING cobrado_hoy > 0
+             ORDER BY u.nombre`
+        );
+
+        let real;
+        const detalleArqueo = [];
+        if (Array.isArray(arqueo) && arqueo.length) {
+            real = arqueo.reduce((s, a) => s + (parseFloat(a.subtotal) || 0), 0);
+            for (const a of arqueo) {
+                const denominacion = (a.denominacion || '').trim();
+                const cantidad = parseInt(a.cantidad) || 0;
+                const subtotal = parseFloat(a.subtotal) || 0;
+                if (!denominacion && subtotal === 0) continue;
+                detalleArqueo.push({ denominacion: denominacion || 'Otros', tipo: a.tipo === 'moneda' ? 'moneda' : 'billete', cantidad, subtotal });
+                await pool.query('INSERT INTO arqueo_caja (caja_id, denominacion, tipo, cantidad, subtotal) VALUES (?, ?, ?, ?, ?)', [c.id, denominacion || 'Otros', a.tipo === 'moneda' ? 'moneda' : 'billete', cantidad, subtotal]);
+            }
+        } else { real = parseFloat(monto_real) || 0; }
+
+        const esperado = Math.round((parseFloat(c.monto_inicial || 0) + total) * 100) / 100;
+        const diferencia = Math.round((real - esperado) * 100) / 100;
+
+        await pool.query(`UPDATE cajas SET estado = 'cerrada', monto_final = ?, cerrada_at = NOW() WHERE id = ?`, [real, c.id]);
+
+        res.json({
+            success: true, message: 'Caja cerrada correctamente',
+            resumen: {
+                monto_inicial: parseFloat(c.monto_inicial || 0), total_efectivo: parseFloat(c.total_efectivo || 0),
+                total_transferencia: parseFloat(c.total_transferencia || 0), total_debito: parseFloat(c.total_debito || 0),
+                total_ventas: total, retiros, total_retiros: Math.round(totalRetiros * 100) / 100,
+                gastos, total_gastos: Math.round(totalGastos * 100) / 100, arqueo: detalleArqueo,
+                dinero_en_caja_esperado: esperado, dinero_contado: real, diferencia,
+                // NUEVO: Comisiones por profesional
+                comisiones: comisiones.map(cmp => ({
+                    ...cmp,
+                    porcentaje: cmp.porcentaje_retiro,
+                    monto_comision: cmp.comision,
+                    monto_estetica: cmp.retencion_estetica
+                })),
+                total_comisiones: comisiones.reduce((s, c) => s + parseFloat(c.comision || 0), 0),
+                total_retencion: comisiones.reduce((s, c) => s + parseFloat(c.retencion_estetica || 0), 0)
+            }
+        });
+    } catch (e) { console.error('❌ Error cerrar caja:', e.message); res.status(500).json({ success: false, message: 'Error al cerrar la caja' }); }
+});
+
+// Cierre de caja SEMANAL (para especialistas como Carmen)
+app.post('/api/caja/cerrar/semanal', autenticar, requerirPermiso('cierre_semanal'), async (req, res) => {
+    const { profesional_id, semana_inicio, semana_fin } = req.body;
+    const pid = profesional_id || req.usuario.id;
+    const hoy = new Date();
+    const si = semana_inicio || new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - hoy.getDay() + 1).toISOString().slice(0, 10);
+    const sf = semana_fin || new Date(new Date(si).getTime() + 6 * 86400000).toISOString().slice(0, 10);
+    try {
+        const [cajas] = await pool.query(
+            `SELECT c.id, c.monto_inicial, c.estado FROM cajas c
+             WHERE c.fecha BETWEEN ? AND ? AND c.estado = 'cerrada' AND c.cajero_id = ?`, [si, sf, pid]
+        );
+        const totalVentas = cajas.reduce((s, c) => s + parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0), 0);
+        const [gastos] = await pool.query('SELECT COALESCE(SUM(monto), 0) AS total FROM gastos WHERE caja_id IN (?) AND fecha BETWEEN ? AND ?', [cajas.map(c => c.id), si, sf]);
+        const [retiros] = await pool.query('SELECT COALESCE(SUM(monto_retirado), 0) AS total FROM retiros WHERE profesional_id = ? AND fecha BETWEEN ? AND ?', [pid, si, sf]);
+        const [prof] = await pool.query('SELECT nombre, porcentaje_retiro FROM usuarios WHERE id = ?', [pid]);
+        const pct = prof[0]?.porcentaje_retiro || 70;
+        const comision = Math.round(totalVentas * pct / 100 * 100) / 100;
+        const retencion = Math.round((totalVentas - retiros[0]?.total - gastos[0]?.total) * (100 - pct) / 100 * 100) / 100;
+
+        const [existing] = await pool.query('SELECT id FROM cajas_semanal WHERE profesional_id = ? AND semana_inicio = ?', [pid, si]);
+        if (existing.length) {
+            await pool.query('UPDATE cajas_semanal SET total_ventas = ?, total_gastos = ?, total_retiros = ?, comision_profesional = ?, monto_final = ?, estado = \'cerrada\', cerrada_at = NOW() WHERE id = ?', [totalVentas, gastos[0]?.total || 0, retiros[0]?.total || 0, comision, totalVentas, existing[0].id]);
+        } else {
+            await pool.query('INSERT INTO cajas_semanal (caja_id, profesional_id, profesional_nombre, semana_inicio, semana_fin, monto_inicial, total_ventas, total_gastos, total_retiros, comision_profesional, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'cerrada\')', [cajas[0]?.id || 0, pid, prof[0]?.nombre, si, sf, cajas[0]?.monto_inicial || 0, totalVentas, gastos[0]?.total || 0, retiros[0]?.total || 0, comision]);
+        }
+        res.json({ success: true, message: 'Cierre semanal completado', semana: { inicio: si, fin: sf }, resumen: { total_ventas: totalVentas, total_gastos: gastos[0]?.total || 0, total_retiros: retiros[0]?.total || 0, comision_profesional: comision, retencion_estetica: retencion, porcentaje: pct } });
+    } catch (e) { res.status(500).json({ success: false, error: 'Error al cerrar caja semanal' }); }
+});
+
+// ============================================
+//  ACTUALIZAR RUTAS EXISTENTES CON NUEVOS PERMISOS
+// ============================================
+
+// Health Check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -2641,7 +2947,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`â°  Hora: ${new Date().toLocaleString()}`);
     console.log('='.repeat(70));
     console.log('\nðŸ“‹  RUTAS DISPONIBLES:\n');
-    console.log('   ðŸ” POST   /api/auth/login');
+console.log('   ðŸ” POST   /api/auth/login');
     console.log('   ðŸ‘¤ POST   /api/usuarios (registrar profesional)');
     console.log('   ðŸ“¦ GET    /api/servicios');
     console.log('   âœï¸  PUT    /api/servicios/:id');
@@ -2667,11 +2973,18 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('   ðŸ—‘ï¸  DELETE /api/turnos/:id (eliminar)');
     console.log('   ðŸ’µ GET    /api/caja/estado (abierta/cerrada + totales)');
     console.log('   ðŸ’µ POST   /api/caja/abrir (abrir caja del dÃ­a)');
-    console.log('   ðŸ’µ POST   /api/caja/cerrar (cerrar y resumen)');
+    console.log('   ðŸ’µ POST   /api/caja/cerrar (cerrar + resumen + COMISIONES)');
+    console.log('   ðŸ’µ POST   /api/caja/cerrar/semanal (cierre semanal para especialistas)');
     console.log('   ðŸ’µ GET    /api/caja/historial (cierres previos)');
     console.log('   ðŸ§¾ POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
     console.log('   ðŸ’¸ GET    /api/caja/retiros (sugerencias + registrados)');
     console.log('   ðŸ’¸ POST   /api/caja/retiros (registrar retiro de profesional)');
+    console.log('   ðŸ”€ GET    /api/turnos/cancelados (historial de cancelados)');
+    console.log('   ðŸ”€ GET    /api/sobreturnos/disponibles (sobreturnos)');
+    console.log('   ðŸ”€ POST   /api/sobreturnos (crear sobreturno)');
+    console.log('   ðŸ”€ GET    /api/servicios/categorias (categorías)');
+    console.log('   ðŸ”€ GET    /api/roles/permisos (permisos del rol)');
+    console.log('   ðŸ”€ PUT    /api/horarios/config/:id (configurar horarios)');
     console.log('   ðŸ“Š GET    /api/estadisticas');
     console.log('   ðŸ” POST   /api/auth/recuperar (solicitar cÃ³digo)');
     console.log('   ðŸ” POST   /api/auth/recuperar/confirmar (verificar cÃ³digo + nueva contraseÃ±a)');

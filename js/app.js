@@ -7,7 +7,32 @@
 const API_BASE = window.API_BASE; 
 const URL_BASE = window.API_BASE;
 
-// 1b. DEBUG LOG (logs de desarrollo desactivados por defecto)
+// ==========================================
+// SISTEMA RBAC - PERMISOS POR ROL
+// ==========================================
+const PERMISOS_ROL = {
+    'super_admin': ['gestion_total','gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','asignar_roles','gestionar_horarios_todos','gestionar_sobreturnos','cierre_semanal'],
+    'admin': ['gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','gestionar_horarios_todos','gestionar_sobreturnos'],
+    'profesional': ['gestionar_propios_turnos','gestionar_propios_horarios'],
+    'especialista': ['gestionar_propios_turnos','gestionar_propios_horarios','gestionar_servicios_categoria','gestionar_precios_propios','cierre_semanal'],
+    'recepcionista': ['gestionar_turnos_todos','admin_contable','gestionar_sobreturnos'],
+    'cliente': []
+};
+const NOMBRES_PERMISOS = {'gestion_total':'Gestión Total','gestionar_turnos_todos':'Gestionar Turnos de Todos','gestionar_turnos_propios':'Gestionar Propios Turnos','gestionar_servicios':'Gestionar Servicios (TODOS)','gestionar_servicios_categoria':'Gestionar Servicios por Categoría','gestionar_precios':'Gestionar Precios (TODOS)','gestionar_precios_propios':'Gestionar Precios Propios','admin_contable':'Administración Contable','acceso_clientes':'Acceso a Base de Clientas','asignar_roles':'Asignar Roles','gestionar_horarios_todos':'Gestionar Horarios de Todos','gestionar_propios_horarios':'Gestionar Propios Horarios','gestionar_sobreturnos':'Gestionar Sobreturnos','cierre_semanal':'Cierre de Caja Semanal'};
+
+function tienePermiso(permiso) {
+    const usuario = obtenerUsuarioActual();
+    if (!usuario) return false;
+    return (PERMISOS_ROL[usuario.rol] || []).includes(permiso);
+}
+function esSuperAdmin() { const u = obtenerUsuarioActual(); return u?.rol === 'super_admin'; }
+function esAdmin() { const u = obtenerUsuarioActual(); return u?.rol === 'admin' || u?.rol === 'super_admin'; }
+function esEspecialista() { const u = obtenerUsuarioActual(); return u?.rol === 'especialista'; }
+function esProfesional() { const u = obtenerUsuarioActual(); return u?.rol === 'profesional' || u?.rol === 'especialista'; }
+
+// ==========================================
+// 1b. DEBUG LOG
+// ==========================================
 const DEBUG = false;
 function debugLog(...args) { if (DEBUG) console.log(...args); }
 
@@ -16,8 +41,12 @@ let servicios = [];
 let _calendario_mes_actual = new Date();
 let _calendario_dias_seleccionados = {};
 let _calendario_paso_actual = 60;
-let _calendario_modo = 'general'; // 'general' | 'depilacion'
-const SERVICIO_DEPILACION = 240001; // Depilacion Definitiva
+let _calendario_modo = 'general';
+const SERVICIO_DEPILACION = 240001;
+
+// Nuevas variables para features
+let sobreturnosDisponibles = [];
+let turnosCancelados = [];
 
 // Escapa texto para insertarlo seguro en innerHTML (previene XSS almacenado)
 function esc(str) {
@@ -61,7 +90,6 @@ function obtenerUsuarioActual() {
     }
 }
 
-// --- CARGAR SERVICIOS DESDE EL BACKEND (CORREGIDO) ---
 // --- CARGAR SERVICIOS DESDE EL BACKEND (CORREGIDO) ---
 async function cargarDatosDesdeAPI() {
     try {
