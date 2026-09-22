@@ -189,7 +189,7 @@ app.use((req, res, next) => {
     }
     next();
 });
-app.use(express.static(path.join(__dirname, '../')));
+app.use(express.static(path.join(__dirname, '../'), { maxAge: 0, etag: false }));
 app.use('/img', express.static(path.join(__dirname, '../img')));
 
 // Helper: registra peticiones solo en desarrollo (evita loguear datos en producciÃ³n)
