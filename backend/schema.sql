@@ -254,6 +254,22 @@ CREATE TABLE IF NOT EXISTS cajas_semanal (
     INDEX idx_cajas_sem_estado (estado)
 ) ENGINE=InnoDB;
 
+-- Configuración de horarios por día de la semana
+CREATE TABLE IF NOT EXISTS horarios_dia (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    profesional_id BIGINT NOT NULL,
+    dia_semana VARCHAR(15) NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    manana_desde TIME NULL DEFAULT '10:00:00',
+    manana_hasta TIME NULL DEFAULT '12:30:00',
+    manana_paso INT NOT NULL DEFAULT 90,
+    tarde_desde TIME NULL DEFAULT '15:00:00',
+    tarde_hasta TIME NULL DEFAULT '19:00:00',
+    tarde_paso INT NOT NULL DEFAULT 90,
+    UNIQUE KEY uq_prof_dia (profesional_id, dia_semana),
+    INDEX idx_horarios_dia_prof (profesional_id)
+) ENGINE=InnoDB;
+
 -- Índices adicionales
 CREATE INDEX idx_servicios_categoria ON servicios (categoria);
 CREATE INDEX idx_usuarios_rol ON usuarios (rol);

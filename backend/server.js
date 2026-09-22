@@ -101,6 +101,8 @@ function puedeGestionarTurno(req, profesionalId) { const r=req.usuario.rol; if(r
         const [horariosCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'horarios_config' AND COLUMN_NAME = 'sobreturno_duracion'`);
         const existentesHorarios = new Set(horariosCols.map(c => c.COLUMN_NAME));
         if (!existentesHorarios.has('sobreturno_duracion')) await pool.query(`ALTER TABLE horarios_config ADD COLUMN sobreturno_duracion INT NOT NULL DEFAULT 30`);
+        // Tabla horarios_dia: configuración por día de la semana
+        await pool.query(`CREATE TABLE IF NOT EXISTS horarios_dia (id BIGINT AUTO_INCREMENT PRIMARY KEY, profesional_id BIGINT NOT NULL, dia_semana VARCHAR(15) NOT NULL, activo TINYINT(1) NOT NULL DEFAULT 1, manana_desde TIME NULL DEFAULT '10:00:00', manana_hasta TIME NULL DEFAULT '12:30:00', manana_paso INT NOT NULL DEFAULT 90, tarde_desde TIME NULL DEFAULT '15:00:00', tarde_hasta TIME NULL DEFAULT '19:00:00', tarde_paso INT NOT NULL DEFAULT 90, UNIQUE KEY uq_prof_dia (profesional_id, dia_semana), INDEX idx_horarios_dia_prof (profesional_id)) ENGINE=InnoDB`);
         console.log('🧾 Tablas auxiliares y RBAC verificadas');
     } catch (e) { console.error('❌ Error creando tablas:', e.message); }
 })();
@@ -990,22 +992,31 @@ app.post('/api/disponibilidad', autenticar, autorizar(['admin','profesional','re
             return res.json({ success: true, count: 0 });
         }
 
-
-        // Generar todas las fechas del rango
+        // Soportar dos formatos: { dia, inicio } o { fecha, hora }
         const slots = [];
-        const fechaInicio = new Date(desde + 'T00:00:00');
-        const fechaFin    = new Date(hasta  + 'T00:00:00');
-        const cursor = new Date(fechaInicio);
+        const esFormatoDirecto = horarios[0] && horarios[0].fecha && horarios[0].hora;
 
-        while (cursor <= fechaFin) {
-            const diaCursor = cursor.getDay(); // 0=Dom, 1=Lun ...
-            const horasDelDia = horarios.filter(h => mapDia[h.dia] === diaCursor);
-            horasDelDia.forEach(h => {
-                const fechaStr = cursor.toISOString().split('T')[0];
-                const horaStr  = h.inicio.length === 5 ? h.inicio + ':00' : h.inicio;
-                slots.push([profesional_id, fechaStr, horaStr, servId]);
+        if (esFormatoDirecto) {
+            // Formato directo: [{ fecha: "2026-09-22", hora: "10:00" }]
+            horarios.forEach(h => {
+                const horaStr = h.hora.length === 5 ? h.hora + ':00' : h.hora;
+                slots.push([profesional_id, h.fecha, horaStr, servId]);
             });
-            cursor.setDate(cursor.getDate() + 1);
+        } else {
+            // Formato plantilla: [{ dia: "Lunes", inicio: "09:00" }] + rango desde/hasta
+            const fechaInicio = new Date(desde + 'T00:00:00');
+            const fechaFin    = new Date(hasta  + 'T00:00:00');
+            const cursor = new Date(fechaInicio);
+            while (cursor <= fechaFin) {
+                const diaCursor = cursor.getDay();
+                const horasDelDia = horarios.filter(h => mapDia[h.dia] === diaCursor);
+                horasDelDia.forEach(h => {
+                    const fechaStr = cursor.toISOString().split('T')[0];
+                    const horaStr  = h.inicio.length === 5 ? h.inicio + ':00' : h.inicio;
+                    slots.push([profesional_id, fechaStr, horaStr, servId]);
+                });
+                cursor.setDate(cursor.getDate() + 1);
+            }
         }
 
         if (slots.length > 0) {
@@ -2788,6 +2799,40 @@ app.put('/api/horarios/config/:profesionalId', autenticar, async (req, res) => {
         }
         res.json({ success: true, message: 'Configuración de horarios guardada' });
     } catch (e) { res.status(500).json({ error: 'Error al guardar configuración de horarios' }); }
+});
+
+// Obtener horarios por día de la semana para un profesional
+app.get('/api/horarios/dia/:profesionalId', autenticar, async (req, res) => {
+    try {
+        const { profesionalId } = req.params;
+        if (!puedeGestionarTurno(req, profesionalId)) {
+            return res.status(403).json({ success: false, message: 'No tenés permiso' });
+        }
+        const [rows] = await pool.query('SELECT * FROM horarios_dia WHERE profesional_id = ? ORDER BY FIELD(dia_semana, "Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo")', [profesionalId]);
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: 'Error al obtener horarios por día' }); }
+});
+
+// Guardar horarios por día de la semana (bulk)
+app.put('/api/horarios/dia/:profesionalId', autenticar, async (req, res) => {
+    try {
+        const { profesionalId } = req.params;
+        if (!puedeGestionarTurno(req, profesionalId)) {
+            return res.status(403).json({ success: false, message: 'No tenés permiso' });
+        }
+        const { dias } = req.body; // [{ dia_semana, activo, manana_desde, manana_hasta, manana_paso, tarde_desde, tarde_hasta, tarde_paso }]
+        if (!Array.isArray(dias)) {
+            return res.status(400).json({ success: false, message: 'Formato inválido' });
+        }
+        for (const d of dias) {
+            await pool.query(`INSERT INTO horarios_dia (profesional_id, dia_semana, activo, manana_desde, manana_hasta, manana_paso, tarde_desde, tarde_hasta, tarde_paso)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE activo=?, manana_desde=?, manana_hasta=?, manana_paso=?, tarde_desde=?, tarde_hasta=?, tarde_paso=?`,
+                [profesionalId, d.dia_semana, d.activo ? 1 : 0, d.manana_desde, d.manana_hasta, d.manana_paso, d.tarde_desde, d.tarde_hasta, d.tarde_paso,
+                 d.activo ? 1 : 0, d.manana_desde, d.manana_hasta, d.manana_paso, d.tarde_desde, d.tarde_hasta, d.tarde_paso]);
+        }
+        res.json({ success: true, message: 'Horarios por día guardados' });
+    } catch (e) { console.error('Error guardando horarios_dia:', e.message); res.status(500).json({ error: 'Error al guardar horarios por día' }); }
 });
 
 // Obtener historial de turnos cancelados
