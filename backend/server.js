@@ -138,6 +138,7 @@ const allowedOrigins = [
     'http://127.0.0.1:5500',
     'https://chamas-spa.onrender.com'
 ];
+app.set('trust proxy', 1);
 
 // Limitador de peticiones general: mÃ¡x 300 por IP cada 15 min
 const generalLimiter = rateLimit({
