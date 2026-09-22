@@ -31,18 +31,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     console.log('⚠️ No hay sesión activa');
-    mostrarApp();
-    ocultarLogin();
-    showSection('servicios');
-    // Ocultar todo contenido restringido por rol
+    mostrarLogin();
+    // Ocultar todo contenido restringido por rol hasta que inicie sesión
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'none');
-    if (typeof cargarDatosDesdeAPI === 'function') { cargarDatosDesdeAPI(); }
     const userStatus = document.querySelector('.user-status-card');
     if (userStatus) userStatus.style.display = 'none';
-});
+    if (typeof cargarDatosDesdeAPI === 'function') { cargarDatosDesdeAPI(); }
+    });
 
 // ==========================================
 // 2. TABS: CAMBIAR ENTRE LOGIN Y REGISTRO
