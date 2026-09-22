@@ -1226,7 +1226,7 @@ app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), a
             FROM turnos t 
             JOIN servicios s ON t.servicio_id = s.id 
             JOIN usuarios p ON t.profesional_id = p.id
-            JOIN usuarios c ON t.cliente_id = c.id
+            LEFT JOIN usuarios c ON t.cliente_id = c.id
             WHERE 1=1
         `;
         
