@@ -1706,7 +1706,7 @@ app.patch('/api/turnos/:id/cancelar', autenticar, autorizar(['admin','recepcioni
     }
     try {
         // Verificar que el turno existe y no está ya cancelado
-        const [turno] = await pool.query('SELECT id, estado FROM turnos WHERE id = ?', [id]);
+        const [turno] = await pool.query('SELECT id, estado, profesional_id, fecha, hora_inicio, servicio_id FROM turnos WHERE id = ?', [id]);
         if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
         if (turno[0].estado === 'cancelado') return res.status(400).json({ success: false, message: 'El turno ya está cancelado' });
         
@@ -1716,9 +1716,19 @@ app.patch('/api/turnos/:id/cancelar', autenticar, autorizar(['admin','recepcioni
             ['cancelado', motivo.trim(), req.usuario.id, id]
         );
         
+        // Restaurar el slot de disponibilidad (reinsertar si no existe)
+        const t = turno[0];
+        if (t.profesional_id && t.fecha && t.hora_inicio) {
+            await pool.query(
+                'INSERT IGNORE INTO disponibilidad_fechas (profesional_id, fecha, hora_inicio, servicio_id) VALUES (?, ?, ?, ?)',
+                [t.profesional_id, t.fecha, t.hora_inicio, t.servicio_id || 0]
+            );
+            console.log(`♻️ Slot restaurado: prof=${t.profesional_id} fecha=${t.fecha} hora=${t.hora_inicio}`);
+        }
+        
         res.json({ success: true, message: 'Turno cancelado correctamente. El horario queda disponible nuevamente.' });
     } catch (error) {
-        console.error('âŒ Error al cancelar turno:', error.message);
+        console.error('❌ Error al cancelar turno:', error.message);
         res.status(500).json({ success: false, error: 'Error al cancelar el turno' });
     }
 });

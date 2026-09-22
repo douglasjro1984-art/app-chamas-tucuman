@@ -1372,13 +1372,21 @@ async function cargarTurnosCliente() {
     const usuario = obtenerUsuarioActual();
     if (!container || !usuario) return;
 
+    // LEER fecha ANTES de destruir el HTML
+    const inputFechaFiltro = document.getElementById('filtro-citas-fecha');
+    const fechaExistente = (inputFechaFiltro && inputFechaFiltro.value) ? inputFechaFiltro.value : null;
+
     try {
         // Obtener turnos del cliente
-        const resTurnos = await fetch(`${API_BASE}/turnos/cliente/${usuario.id}`);
+        const resTurnos = await fetch(`${API_BASE}/turnos/cliente/${usuario.id}`, {
+            headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+        });
         const turnos = await resTurnos.json();
 
         // Obtener horarios disponibles de todos los profesionales
-        const resProfs = await fetch(`${API_BASE}/usuarios/profesionales`);
+        const resProfs = await fetch(`${API_BASE}/usuarios/profesionales`, {
+            headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+        });
         const profesionales = await resProfs.json();
 
         let html = '';
@@ -1388,14 +1396,15 @@ async function cargarTurnosCliente() {
 
         if (esGestor) {
             // Admin y recepcionista: todas las citas de los clientes
-            const resTodos = await fetch(`${API_BASE}/turnos/todos`);
+            const resTodos = await fetch(`${API_BASE}/turnos/todos`, {
+                headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+            });
             const turnosTodos = await resTodos.json();
 
             // Filtro por día: por defecto solo las citas del día de hoy, con opción de ver desde otro día
-            const inputFechaFiltro = document.getElementById('filtro-citas-fecha');
             const hoy = new Date();
             const hoyLocal = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
-            const fechaFiltro = (inputFechaFiltro && inputFechaFiltro.value) ? inputFechaFiltro.value : hoyLocal;
+            const fechaFiltro = fechaExistente || hoyLocal;
 
             html += `
                 <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;margin-bottom:25px;">
@@ -1429,21 +1438,41 @@ async function cargarTurnosCliente() {
                     return String(b.hora_inicio || b.hora || '').localeCompare(String(a.hora_inicio || a.hora || ''));
                 });
 
-                const tarjetaCita = (t) => `
-                    <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
+                const tarjetaCita = (t) => {
+                    const tel = (t.telefono || '').replace(/\D/g, '');
+                    const telWa = tel.startsWith('54') ? tel : tel ? '54' + tel : '';
+                    const nombre = esc(t.cliente_nombre||t.cliente||'N/A');
+                    const srv = esc(t.servicio||'N/A');
+                    const fecha = new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'});
+                    const hora = (t.hora_inicio||t.hora||'').substring(0,5);
+                    const prof = esc(t.profesional||'');
+                    const msj = encodeURIComponent(`Hola ${nombre}! Te recordamos tu turno de ${srv} el ${fecha} a las ${hora} con ${prof}. ¡Te esperamos!`);
+                    const waLink = telWa ? `https://wa.me/${telWa}?text=${msj}` : '#';
+                    const cancelarBtn = esGestor && (t.estado || '') !== 'cancelado' ? `<button onclick="cancelarTurnoDesdeCitas(${t.id})" style="background:#e53935;color:white;padding:6px 12px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">✖ Cancelar</button>` : '';
+                    const waBtn = telWa ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;padding:6px 12px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.82rem;white-space:nowrap;">📲 WhatsApp</a>` : '';
+                    const estadoBadge = (t.estado || '') === 'cancelado'
+                        ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">❌ Cancelado</span>'
+                        : (t.estado || '') === 'cobrado'
+                            ? '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">✔ Cobrado</span>' : '';
+                    return `
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid ${(t.estado||'')==='cancelado'?'#dc3545':(t.estado||'')==='cobrado'?'#28a745':'#4CAF50'};flex-wrap:wrap;gap:8px;">
                         <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
                             <span style="font-size:1.3rem;">👤</span>
                             <div>
-                                <strong style="color:#333;display:block;">${esc(t.cliente_nombre||t.cliente||'N/A')}</strong>
+                                <strong style="color:#333;display:block;">${nombre}</strong>
                                 <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${esc(t.servicio||'N/A')}</span>
-                            <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
-                            <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
+                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${srv}</span>
+                            <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${fecha}</span>
+                            <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${hora}</span>
+                            ${waBtn}
+                            ${cancelarBtn}
+                            ${estadoBadge}
                         </div>
                     </div>`;
+                };
 
                 if (activos.length) {
                     const porProf = {};
@@ -1660,30 +1689,38 @@ async function cargarTurnosProfesional() {
     const container = document.getElementById('turnos-profesional-lista');
     const usuario = obtenerUsuarioActual();
     if (!container || !usuario) return;
-    container.innerHTML = '<p style="text-align:center;color:#C06C84;padding:30px;">⏳ Cargando...</p>';
+
     const esAdmin = usuario.rol === 'admin';
     const esRecep = usuario.rol === 'recepcionista';
     const esAdminORecep = esAdmin || esRecep;
 
+    // LEER fecha ANTES de destruir el HTML (para que el filtro persista)
+    const inputFechaFiltro = document.getElementById('filtro-citas-fecha-prof');
+    const fechaExistente = (inputFechaFiltro && inputFechaFiltro.value) ? inputFechaFiltro.value : null;
+
+    container.innerHTML = '<p style="text-align:center;color:#C06C84;padding:30px;">⏳ Cargando...</p>';
+
     try {
-        // Turnos: admin/recepcionista ven todos, profesional ve los suyos
         let turnos = [];
         if (esAdminORecep) {
-            const r = await fetch(`${API_BASE}/turnos/todos`);
+            const r = await fetch(`${API_BASE}/turnos/todos`, {
+                headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+            });
             turnos = await r.json();
         } else {
-            const resTurnos = await fetch(`${API_BASE}/turnos/profesional/${usuario.id}`);
+            const resTurnos = await fetch(`${API_BASE}/turnos/profesional/${usuario.id}`, {
+                headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+            });
             turnos = await resTurnos.json();
         }
 
         let html = '';
 
         // ===== SECCIÓN 1: CITAS CON CLIENTES =====
-        const inputFechaFiltro = document.getElementById('filtro-citas-fecha-prof');
         const hoy = new Date();
         if (esRecep) hoy.setDate(hoy.getDate() + 1);
         const hoyLocal = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
-        const fechaFiltro = (inputFechaFiltro && inputFechaFiltro.value) ? inputFechaFiltro.value : hoyLocal;
+        const fechaFiltro = fechaExistente || hoyLocal;
         const turnosFiltrados = (Array.isArray(turnos) ? turnos : []).filter(t => String(t.fecha).slice(0,10) === fechaFiltro);
 
         html += `
@@ -2687,7 +2724,7 @@ async function calcG() {
         if(desde) url+='fecha_desde='+desde+'&';
         if(hasta) url+='fecha_hasta='+hasta+'&';
         if(profId) url+='profesional_id='+profId+'&';
-        const turnos=await (await fetch(url)).json();
+        const turnos=await (await fetch(url, { headers: { 'Authorization': 'Bearer ' + obtenerToken() } })).json();
         if(!Array.isArray(turnos)||!turnos.length){
             cont.innerHTML='<div style="background:white;border-radius:12px;padding:24px;text-align:center;color:#888;box-shadow:0 2px 8px rgba(0,0,0,0.06);">Sin turnos en ese período</div>';return;
         }
@@ -2896,7 +2933,9 @@ async function cargarTodosLosTurnos() {
         if (fechaDesde) params.append('fecha_desde', fechaDesde);
         if (fechaHasta) params.append('fecha_hasta', fechaHasta);
         if (params.toString()) url += '?' + params.toString();
-        const res = await fetch(url);
+        const res = await fetch(url, {
+            headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+        });
         const turnos = await res.json();
         if (!turnos.length) {
             container.innerHTML = '<div class="mensaje-vacio"><h3>No hay turnos</h3></div>';
