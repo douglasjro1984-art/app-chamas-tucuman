@@ -11,7 +11,7 @@ async function cargarGestionHorarios() {
     const usuario = obtenerUsuarioActual();
     if (!container || !usuario) return;
 
-    if (usuario.rol === 'super_admin' || usuario.rol === 'admin') {
+    if (usuario.rol === 'super_admin' || usuario.rol === 'admin' || usuario.rol === 'recepcionista') {
         await cargarGestionHorariosAdmin(container);
     } else if (usuario.rol === 'especialista') {
         await cargarGestionHorariosEspecialista(container, usuario.id, usuario.nombre);
