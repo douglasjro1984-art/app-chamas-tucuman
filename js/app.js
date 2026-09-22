@@ -1662,11 +1662,13 @@ async function cargarTurnosProfesional() {
     if (!container || !usuario) return;
     container.innerHTML = '<p style="text-align:center;color:#C06C84;padding:30px;">⏳ Cargando...</p>';
     const esAdmin = usuario.rol === 'admin';
+    const esRecep = usuario.rol === 'recepcionista';
+    const esAdminORecep = esAdmin || esRecep;
 
     try {
-        // Turnos: admin ve todos, profesional ve los suyos
+        // Turnos: admin/recepcionista ven todos, profesional ve los suyos
         let turnos = [];
-        if (esAdmin) {
+        if (esAdminORecep) {
             const r = await fetch(`${API_BASE}/turnos/todos`);
             turnos = await r.json();
         } else {
@@ -1679,6 +1681,7 @@ async function cargarTurnosProfesional() {
         // ===== SECCIÓN 1: CITAS CON CLIENTES =====
         const inputFechaFiltro = document.getElementById('filtro-citas-fecha-prof');
         const hoy = new Date();
+        if (esRecep) hoy.setDate(hoy.getDate() + 1);
         const hoyLocal = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
         const fechaFiltro = (inputFechaFiltro && inputFechaFiltro.value) ? inputFechaFiltro.value : hoyLocal;
         const turnosFiltrados = (Array.isArray(turnos) ? turnos : []).filter(t => String(t.fecha).slice(0,10) === fechaFiltro);
@@ -1690,15 +1693,15 @@ async function cargarTurnosProfesional() {
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <label for="filtro-citas-fecha-prof" style="color:#888;font-size:0.88rem;">📅 Día a mostrar:</label>
                         <input type="date" id="filtro-citas-fecha-prof" value="${fechaFiltro}" onchange="cargarTurnosProfesional()" style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-weight:600;color:#C06C84;background:white;">
-                        <button onclick="document.getElementById('filtro-citas-fecha-prof').value='';cargarTurnosProfesional();" class="btn-whatsapp-mini" style="padding:9px 12px;width:auto;background:#f5f5f5;color:#C06C84;">✖ Ver: Hoy</button>
+                        <button onclick="document.getElementById('filtro-citas-fecha-prof').value='';cargarTurnosProfesional();" class="btn-whatsapp-mini" style="padding:9px 12px;width:auto;background:#f5f5f5;color:#C06C84;">✖ Ver: ${esRecep ? 'Mañana' : 'Hoy'}</button>
                     </div>
                 </div>
         `;
 
         if (turnosFiltrados.length === 0) {
             html += `<p style="color:#888;text-align:center;padding:20px;">📭 No hay citas agendadas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
-        } else if (esAdmin) {
-            // Admin: agrupar por profesional
+        } else if (esAdminORecep) {
+            // Admin/Recepcionista: agrupar por profesional
             const porProf = {};
             turnosFiltrados.forEach(t => {
                 const n = t.profesional || 'Sin asignar';
@@ -1712,22 +1715,34 @@ async function cargarTurnosProfesional() {
                         <strong style="color:#C06C84;font-size:1rem;">${profNom}</strong>
                         <span style="background:#f9e4ee;color:#C06C84;padding:3px 10px;border-radius:20px;font-size:0.82rem;font-weight:700;">${citas.length} cita${citas.length!==1?'s':''}</span>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:8px;">
-                        ${citas.map(t => `
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                        ${citas.map(t => {
+                            const tel = (t.telefono || '').replace(/\D/g, '');
+                            const telWa = tel.startsWith('54') ? tel : tel ? '54' + tel : '';
+                            const nombre = esc(t.cliente_nombre || t.cliente || 'N/A');
+                            const srv = esc(t.servicio || 'N/A');
+                            const fecha = new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'});
+                            const hora = (t.hora_inicio || t.hora || '').substring(0,5);
+                            const prof = esc(t.profesional || '');
+                            const msj = encodeURIComponent(`Hola ${nombre}! Te recordamos tu turno de ${srv} el ${fecha} a las ${hora} con ${prof}. ¡Te esperamos!`);
+                            const waLink = telWa ? `https://wa.me/${telWa}?text=${msj}` : '#';
+                            return `
                             <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
                                 <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
                                     <span style="font-size:1.3rem;">👤</span>
                                     <div>
-<strong style="color:#333;display:block;">${esc(t.cliente_nombre||t.cliente||'N/A')}</strong>
-                                <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${esc(t.servicio||'N/A')}</span>
-                                    <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
-                                    <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
+                                        <strong style="color:#333;display:block;">${nombre}</strong>
+                                        <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
+                                    </div>
                                 </div>
-                            </div>`).join('')}
+                                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+                                    <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${srv}</span>
+                                    <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${fecha}</span>
+                                    <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${hora}</span>
+                                    ${telWa ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;padding:6px 12px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.82rem;white-space:nowrap;">📲 WhatsApp</a>` : ''}
+                                </div>
+                            </div>`;
+                        }).join('')}
                     </div>
                 </div>`).join('');
         } else {
