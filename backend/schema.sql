@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS turnos (
     estado VARCHAR(20) NOT NULL DEFAULT 'confirmado',
     tipo VARCHAR(20) NOT NULL DEFAULT 'normal',
     notas TEXT NULL,
+    motivo_cancelacion TEXT NULL,
+    cancelado_por BIGINT NULL,
     recordatorio_enviado TINYINT(1) NOT NULL DEFAULT 0,
     fin_real TIME NULL,
     creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -228,6 +230,7 @@ CREATE TABLE IF NOT EXISTS horarios_config (
     tipo_turno VARCHAR(20) NOT NULL DEFAULT 'ambos',
     dias_laborables VARCHAR(100) NULL DEFAULT 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado',
     paso_tiempo INT NOT NULL DEFAULT 90,
+    sobreturno_duracion INT NOT NULL DEFAULT 30,
     INDEX idx_horarios_profesional (profesional_id)
 ) ENGINE=InnoDB;
 

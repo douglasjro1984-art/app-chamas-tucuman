@@ -862,7 +862,6 @@ function _seleccionarDia(fecha) {
             <button onclick="_cambiarPasoHoras(90,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 90 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 90 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 90 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">1:30 h</button>
             <button onclick="_cambiarPasoHoras(60,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 60 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 60 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 60 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">1 hora</button>
             <button onclick="_cambiarPasoHoras(30,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 30 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 30 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 30 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">30 min</button>
-            <button onclick="_cambiarPasoHoras(20,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 20 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 20 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 20 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">20 min</button>
             <span style="color:#999;font-size:12px;">Los turnos se agendan en este intervalo en el día elegido.</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:15px;">
@@ -4475,7 +4474,7 @@ async function confirmarCobro(turnoId) {
     const adicionales = [];
     const cantPiedreria = parseInt(document.getElementById('adicional-piedreria')?.value || 0) || 0;
     const cantDisenos = parseInt(document.getElementById('adicional-disenos')?.value || 0) || 0;
-    if (cantPiedreria > 0) adicionales.push({ nombre: 'Piedrería', tipo: 'extra', cantidad: cantPiedreria, precio_unitario: 10000, importe: cantPiedreria * 10000 });
+    if (cantPiedreria > 0) adicionales.push({ nombre: 'Piedrería', tipo: 'extra', cantidad: cantPiedreria, precio_unitario: 1000, importe: cantPiedreria * 1000 });
     if (cantDisenos > 0) adicionales.push({ nombre: 'Diseños en manos', tipo: 'extra', cantidad: cantDisenos, precio_unitario: 800, importe: cantDisenos * 800 });
     try {
         const res = await fetch(`${API_BASE}/caja/turnos/${turnoId}/cerrar`, {

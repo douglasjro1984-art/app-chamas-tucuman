@@ -70,14 +70,14 @@ const ROLES = {
     CLIENTE: 'cliente'
 };
 const PERMISOS = {
-    SUPER_ADMIN: ['gestion_total','gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','asignar_roles','gestionar_horarios_todos','gestionar_sobreturnos'],
-    ADMIN: ['gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','gestionar_horarios_todos','gestionar_sobreturnos'],
+    SUPER_ADMIN: ['gestion_total','gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','asignar_roles','gestionar_horarios_todos','gestionar_sobreturnos','cancelar_turnos','deshacer_retiro','gestionar_cumpleanos','ver_citas_clientes'],
+    ADMIN: ['gestionar_turnos_todos','gestionar_servicios','gestionar_precios','admin_contable','acceso_clientes','gestionar_horarios_todos','gestionar_sobreturnos','cancelar_turnos','deshacer_retiro','gestionar_cumpleanos','ver_citas_clientes'],
     PROFESIONAL: ['gestionar_propios_turnos','gestionar_propios_horarios'],
     ESPECIALISTA: ['gestionar_propios_turnos','gestionar_propios_horarios','gestionar_servicios_categoria','gestionar_precios_propios','cierre_semanal'],
-    RECEPCIONISTA: ['gestionar_turnos_todos','admin_contable','gestionar_sobreturnos'],
+    RECEPCIONISTA: ['gestionar_turnos_todos','admin_contable','gestionar_sobreturnos','gestionar_propios_horarios','cancelar_turnos','deshacer_retiro','ver_citas_clientes','ver_cumpleanos'],
     CLIENTE: []
 };
-const NOMBRES_PERMISOS = {'gestion_total':'Gestión Total','gestionar_turnos_todos':'Gestionar Turnos de Todos','gestionar_turnos_propios':'Gestionar Propios Turnos','gestionar_servicios':'Gestionar Servicios (TODOS)','gestionar_servicios_categoria':'Gestionar Servicios por Categoría','gestionar_precios':'Gestionar Precios (TODOS)','gestionar_precios_propios':'Gestionar Precios Propios','admin_contable':'Administración Contable','acceso_clientes':'Acceso a Base de Clientas','asignar_roles':'Asignar Roles','gestionar_horarios_todos':'Gestionar Horarios de Todos','gestionar_propios_horarios':'Gestionar Propios Horarios','gestionar_sobreturnos':'Gestionar Sobreturnos','cierre_semanal':'Cierre de Caja Semanal'};
+const NOMBRES_PERMISOS = {'gestion_total':'Gestión Total','gestionar_turnos_todos':'Gestionar Turnos de Todos','gestionar_turnos_propios':'Gestionar Propios Turnos','gestionar_servicios':'Gestionar Servicios (TODOS)','gestionar_servicios_categoria':'Gestionar Servicios por Categoría','gestionar_precios':'Gestionar Precios (TODOS)','gestionar_precios_propios':'Gestionar Precios Propios','admin_contable':'Administración Contable','acceso_clientes':'Acceso a Base de Clientas','asignar_roles':'Asignar Roles','gestionar_horarios_todos':'Gestionar Horarios de Todos','gestionar_propios_horarios':'Gestionar Mis Horarios','gestionar_sobreturnos':'Gestionar Sobreturnos','cierre_semanal':'Cierre de Caja Semanal','cancelar_turnos':'Cancelar Turnos','deshacer_retiro':'Deshacer Retiros','gestionar_cumpleanos':'Gestionar Cumpleaños','ver_citas_clientes':'Ver Citas de Clientes','ver_cumpleanos':'Ver Cumpleaños'};
 function rolTienePermiso(rol, permiso) { return (PERMISOS[rol] || []).includes(permiso); }
 function puedeGestionarTurno(req, profesionalId) { const r=req.usuario.rol; if(r==='super_admin'||r==='admin'||r==='recepcionista') return true; if(r==='profesional'||r==='especialista') return req.usuario.id===profesionalId; return false; }
 
@@ -92,6 +92,15 @@ function puedeGestionarTurno(req, profesionalId) { const r=req.usuario.rol; if(r
         await pool.query(`ALTER TABLE retiros ADD COLUMN IF NOT EXISTS deshecho TINYINT(1) NOT NULL DEFAULT 0`);
         await pool.query(`ALTER TABLE retiros ADD COLUMN IF NOT EXISTS deshecho_por BIGINT NULL`);
         await pool.query(`ALTER TABLE retiros ADD COLUMN IF NOT EXISTS deshecho_at DATETIME NULL`);
+        // Migración para cancelación de turnos
+        const [turnosCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'turnos' AND COLUMN_NAME IN ('motivo_cancelacion','cancelado_por')`);
+        const existentesTurnos = new Set(turnosCols.map(c => c.COLUMN_NAME));
+        if (!existentesTurnos.has('motivo_cancelacion')) await pool.query(`ALTER TABLE turnos ADD COLUMN motivo_cancelacion TEXT NULL`);
+        if (!existentesTurnos.has('cancelado_por')) await pool.query(`ALTER TABLE turnos ADD COLUMN cancelado_por BIGINT NULL`);
+        // Migración para sobreturno_duracion en horarios_config
+        const [horariosCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'horarios_config' AND COLUMN_NAME = 'sobreturno_duracion'`);
+        const existentesHorarios = new Set(horariosCols.map(c => c.COLUMN_NAME));
+        if (!existentesHorarios.has('sobreturno_duracion')) await pool.query(`ALTER TABLE horarios_config ADD COLUMN sobreturno_duracion INT NOT NULL DEFAULT 30`);
         console.log('🧾 Tablas auxiliares y RBAC verificadas');
     } catch (e) { console.error('❌ Error creando tablas:', e.message); }
 })();
@@ -1661,6 +1670,32 @@ app.put('/api/turnos/:id', autenticar, async (req, res) => {
     }
 });
 
+// Cancelar turno con motivo (recepcionista y admin) - no afecta caja, reactiva el horario
+app.patch('/api/turnos/:id/cancelar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const { id } = req.params;
+    const { motivo } = req.body;
+    if (!motivo || !motivo.trim()) {
+        return res.status(400).json({ success: false, message: 'El motivo de cancelación es obligatorio' });
+    }
+    try {
+        // Verificar que el turno existe y no está ya cancelado
+        const [turno] = await pool.query('SELECT id, estado FROM turnos WHERE id = ?', [id]);
+        if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
+        if (turno[0].estado === 'cancelado') return res.status(400).json({ success: false, message: 'El turno ya está cancelado' });
+        
+        // Cancelar: cambiar estado, guardar motivo y quién canceló
+        await pool.query(
+            'UPDATE turnos SET estado = ?, motivo_cancelacion = ?, cancelado_por = ? WHERE id = ?',
+            ['cancelado', motivo.trim(), req.usuario.id, id]
+        );
+        
+        res.json({ success: true, message: 'Turno cancelado correctamente. El horario queda disponible nuevamente.' });
+    } catch (error) {
+        console.error('âŒ Error al cancelar turno:', error.message);
+        res.status(500).json({ success: false, error: 'Error al cancelar el turno' });
+    }
+});
+
 // Obtener los servicios (items) de un turno
 app.get('/api/turnos/:id/items', autenticar, async (req, res) => {
     const { id } = req.params;
@@ -2652,7 +2687,7 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
 });
 
 // Deshacer un retiro: restaura el dinero a la caja y marca el retiro como deshecho (NO se borra)
-app.post('/api/caja/retiros/:id/deshacer', autenticar, autorizar(['admin','super_admin']), async (req, res) => {
+app.post('/api/caja/retiros/:id/deshacer', autenticar, autorizar(['admin','super_admin','recepcionista']), async (req, res) => {
     try {
         const { id } = req.params;
         const [row] = await pool.query('SELECT * FROM retiros WHERE id = ?', [id]);
@@ -2728,12 +2763,12 @@ app.put('/api/horarios/config/:profesionalId', autenticar, async (req, res) => {
         if (!puedeGestionarTurno(req, profesionalId)) {
             return res.status(403).json({ success: false, message: 'No tenés permiso' });
         }
-        const { desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo } = req.body;
+        const { desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo, sobreturno_duracion } = req.body;
         const [existe] = await pool.query('SELECT id FROM horarios_config WHERE profesional_id = ?', [profesionalId]);
         if (existe.length) {
-            await pool.query('UPDATE horarios_config SET desde_manana = ?, hasta_manana = ?, desde_tarde = ?, hasta_tarde = ?, tipo_turno = ?, dias_laborables = ?, paso_tiempo = ? WHERE profesional_id = ?', [desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo, profesionalId]);
+            await pool.query('UPDATE horarios_config SET desde_manana = ?, hasta_manana = ?, desde_tarde = ?, hasta_tarde = ?, tipo_turno = ?, dias_laborables = ?, paso_tiempo = ?, sobreturno_duracion = ? WHERE profesional_id = ?', [desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo, sobreturno_duracion, profesionalId]);
         } else {
-            await pool.query('INSERT INTO horarios_config (profesional_id, desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [profesionalId, desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo]);
+            await pool.query('INSERT INTO horarios_config (profesional_id, desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo, sobreturno_duracion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [profesionalId, desde_manana, hasta_manana, desde_tarde, hasta_tarde, tipo_turno, dias_laborables, paso_tiempo, sobreturno_duracion]);
         }
         res.json({ success: true, message: 'Configuración de horarios guardada' });
     } catch (e) { res.status(500).json({ error: 'Error al guardar configuración de horarios' }); }
@@ -2824,7 +2859,10 @@ app.post('/api/sobreturnos', autenticar, requerirPermiso('gestionar_sobreturnos'
         }
         if (minutosLibres === null) minutosLibres = 22*60 - (parseInt(desde.split(':')[0])*60 + parseInt(desde.split(':')[1]));
         if (minutosLibres < 30) return res.status(400).json({ success: false, message: 'No hay suficiente tiempo libre para un sobreturno (mín. 30 min)' });
-        const duracion = Math.min(minutosLibres, 40);
+        // Obtener duración máxima de sobreturno configurada por el profesional (30-40 min)
+        const [cfg] = await pool.query('SELECT sobreturno_duracion FROM horarios_config WHERE profesional_id = ?', [profesional_id]);
+        const maxDuracion = cfg.length && cfg[0].sobreturno_duracion ? cfg[0].sobreturno_duracion : 40;
+        const duracion = Math.min(minutosLibres, Math.max(30, Math.min(maxDuracion, 40)));
         const [sv] = await pool.query(`SELECT id, nombre, precio FROM servicios WHERE id IN (?) AND activo = TRUE`, [servicios]);
         if (!sv.length) return res.status(400).json({ success: false, message: 'Servicios inválidos' });
         const precioTotal = sv.reduce((s, x) => s + parseFloat(x.precio || 0), 0);
@@ -3004,7 +3042,7 @@ console.log('   ðŸ” POST   /api/auth/login');
     console.log('   ðŸ§¾ POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
     console.log('   ðŸ’¸ GET    /api/caja/retiros (sugerencias + registrados)');
 console.log('   ðŸ’¸ POST   /api/caja/retiros (registrar retiro de profesional)');
-     console.log('   â¡¸ POST   /api/caja/retiros/:id/deshacer (deshacer retiro, solo admin)');
+     console.log('   â¡¸ POST   /api/caja/retiros/:id/deshacer (deshacer retiro, admin y recep)');
      console.log('   ðŸ”€ GET    /api/turnos/cancelados (historial de cancelados)');
     console.log('   ðŸ”€ GET    /api/sobreturnos/disponibles (sobreturnos)');
     console.log('   ðŸ”€ POST   /api/sobreturnos (crear sobreturno)');
