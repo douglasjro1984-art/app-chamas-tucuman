@@ -1689,7 +1689,7 @@ async function cargarTurnosProfesional() {
         html += `
             <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-                    <h3 style="color:#555;margin:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnos)?turnos.length:0} turnos)</span></h3>
+                    <h3 style="color:#555;margin:0;">📅 Citas del Día <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnos)?turnos.length:0} turnos)</span></h3>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <label for="filtro-citas-fecha-prof" style="color:#888;font-size:0.88rem;">📅 Día a mostrar:</label>
                         <input type="date" id="filtro-citas-fecha-prof" value="${fechaFiltro}" onchange="cargarTurnosProfesional()" style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-weight:600;color:#C06C84;background:white;">
@@ -1740,6 +1740,7 @@ async function cargarTurnosProfesional() {
                                     <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${fecha}</span>
                                     <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${hora}</span>
                                     ${telWa ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;padding:6px 12px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.82rem;white-space:nowrap;">📲 WhatsApp</a>` : ''}
+                                    <button onclick="cancelarTurnoDesdeCitas(${t.id})" style="background:#e53935;color:white;padding:6px 12px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">✖ Cancelar</button>
                                 </div>
                             </div>`;
                         }).join('')}
@@ -1920,6 +1921,26 @@ async function cancelarTurno(turnoId) {
             cargarTodosLosTurnos();
             cargarTurnosCaja();
             cargarEstadoCaja();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (error) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
+}
+
+async function cancelarTurnoDesdeCitas(turnoId) {
+    const motivo = prompt('¿Motivo de la cancelación?');
+    if (!motivo || !motivo.trim()) return;
+    try {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}/cancelar`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + obtenerToken() },
+            body: JSON.stringify({ motivo: motivo.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('❌ Turno cancelado. El horario queda disponible.');
+            cargarTurnosProfesional();
         } else {
             mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
         }
