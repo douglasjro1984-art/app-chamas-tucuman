@@ -4299,7 +4299,7 @@ async function abrirModalCobro(event, turnoId) {
                 <div>
                     <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">💎 Adicionales</label>
                     <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;">
-                        <span style="font-size:0.9rem;color:#333;">💅 Piedrería <small style="color:#888;">($10000/uña)</small></span>
+                        <span style="font-size:0.9rem;color:#333;">💅 Piedrería <small style="color:#888;">($1000/uña)</small></span>
                         <input type="number" id="adicional-piedreria" min="0" step="1" value="0" placeholder="cant. uñas"
                                oninput="recalcularTotalModalCobro()"
                                style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-size:0.9rem;box-sizing:border-box;width:100%;">
@@ -4362,7 +4362,7 @@ function recalcularTotalModalCobro() {
     const base = (_turnoItemsActivos || []).reduce((s, it) => s + parseFloat(it.precio || 0), 0);
     const cantPiedreria = parseInt(document.getElementById('adicional-piedreria')?.value || 0) || 0;
     const cantDisenos = parseInt(document.getElementById('adicional-disenos')?.value || 0) || 0;
-    const subPiedreria = cantPiedreria * 10000;
+    const subPiedreria = cantPiedreria * 1000;
     const subDisenos = cantDisenos * 800;
     const spP = document.getElementById('subtotal-piedreria');
     const spD = document.getElementById('subtotal-disenos');
