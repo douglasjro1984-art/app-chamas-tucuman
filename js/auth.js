@@ -540,12 +540,18 @@ function configurarInterfazPorRol(rol) {
         if (navServicios) navServicios.style.display = 'inline-block';
     } else if (rol === 'recepcionista') {
         // Anahí: Caja completa, Mis Horarios, Turnos y Reservas, Citas Clientes, Cumpleaños (solo enviar)
+        // Ocultar pestañas que no corresponden
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.super-admin-only').forEach(el => el.style.display = 'none');
+        // Mostrar las que sí corresponden
         document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.horarios-gestion').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'block');
-        document.querySelectorAll('.nav-links button').forEach(b => b.style.display = '');
+        // Ocultar botón de servicios si no es necesario
+        const navServicios = document.querySelector('[onclick*="servicios"]');
+        if (navServicios) navServicios.style.display = 'none';
     } else if (rol === 'cliente') {
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
