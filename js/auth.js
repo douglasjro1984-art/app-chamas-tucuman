@@ -539,19 +539,17 @@ function configurarInterfazPorRol(rol) {
         const navServicios = document.querySelector('[onclick*="servicios"]');
         if (navServicios) navServicios.style.display = 'inline-block';
     } else if (rol === 'recepcionista') {
-        // Anahí: Caja completa, Mis Horarios, Turnos y Reservas, Citas Clientes, Cumpleaños (solo enviar)
-        // Ocultar pestañas que no corresponden
-        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        document.querySelectorAll('.super-admin-only').forEach(el => el.style.display = 'none');
-        // Mostrar las que sí corresponden
+        // Anahí: Servicios, Caja, Turnos/Reservas, Citas Clientes, Mis Horarios, Cumpleaños
+        // Primero ocultar todo
+        document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
+        // Luego mostrar solo lo que corresponde
         document.querySelectorAll('.caja-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
-        document.querySelectorAll('.horarios-gestion').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'block');
-        // Ocultar botón de servicios si no es necesario
-        const navServicios = document.querySelector('[onclick*="servicios"]');
-        if (navServicios) navServicios.style.display = 'none';
+        // Mostrar Servicios (no tiene clase especial, tiene onclick showSection('servicios'))
+        const btnServicios = document.querySelector('button[onclick*="servicios"]');
+        if (btnServicios) btnServicios.style.display = 'inline-block';
     } else if (rol === 'cliente') {
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.nav-links button').forEach(b => b.style.display = 'none');
