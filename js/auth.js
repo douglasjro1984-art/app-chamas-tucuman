@@ -547,6 +547,7 @@ function configurarInterfazPorRol(rol) {
         document.querySelectorAll('.cliente-puede').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.prof-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.gestor-only').forEach(el => el.style.display = 'block');
+        document.querySelectorAll('.admrecep-only').forEach(el => el.style.display = 'block');
         // Mostrar Servicios (no tiene clase especial, tiene onclick showSection('servicios'))
         const btnServicios = document.querySelector('button[onclick*="servicios"]');
         if (btnServicios) btnServicios.style.display = 'inline-block';

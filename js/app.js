@@ -3821,7 +3821,8 @@ async function cargarTurnosCaja() {
                 <div style="display:flex;align-items:center;gap:10px;">
                     <strong style="color:#28a745;font-size:1.15rem;">$${parseFloat(t.precio || 0).toFixed(2)}</strong>
                     ${esCobrado
-                        ? '<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">✔ Cobrado</span>'
+                        ? `<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">✔ Cobrado</span>
+                        <button onclick="abrirModalEditar(${t.id})" title="Editar turno" style="background:#6c757d;color:white;padding:6px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">✏️ Editar</button>`
                         : `<button onclick="abrirModalCobro(event, ${t.id})" data-cliente="${esc(t.cliente_nombre||'')}" data-precio="${t.precio||0}" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">💳 Cobrar</button>
                         <button onclick="cancelarTurno(${t.id})" style="background:#dc3545;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">❌ Cancelar</button>`}
                 </div>
