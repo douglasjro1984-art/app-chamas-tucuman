@@ -16,3 +16,7 @@ node_modules/
 backup-datos-prueba-*.sql
 backup-disponibilidad-*.sql
 backup-caja-*.sql
+
+fix-proxy.js
+check-turnos.js
+check-roles.js
