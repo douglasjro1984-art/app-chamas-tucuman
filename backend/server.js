@@ -1671,6 +1671,21 @@ app.put('/api/turnos/:id', autenticar, async (req, res) => {
     }
 });
 
+// Revertir cobro de turno (solo admin) - vuelve a pendiente
+app.patch('/api/turnos/:id/revertir-cobro', autenticar, autorizar(['admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [turno] = await pool.query('SELECT id, estado FROM turnos WHERE id = ?', [id]);
+        if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
+        if (turno[0].estado !== 'cobrado') return res.status(400).json({ success: false, message: 'El turno no está cobrado' });
+        await pool.query('UPDATE turnos SET estado = ? WHERE id = ?', ['pendiente', id]);
+        res.json({ success: true, message: 'Cobro revertido. El turno vuelve a pendiente.' });
+    } catch (error) {
+        console.error('Error al revertir cobro:', error.message);
+        res.status(500).json({ success: false, error: 'Error al revertir cobro' });
+    }
+});
+
 // Cancelar turno con motivo (recepcionista y admin) - no afecta caja, reactiva el horario
 app.patch('/api/turnos/:id/cancelar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { id } = req.params;

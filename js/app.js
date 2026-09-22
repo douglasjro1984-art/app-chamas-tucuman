@@ -1810,6 +1810,11 @@ async function abrirModalEditar(turnoId) {
         document.getElementById('edit-profesional-select').value = turno.profesional_id;
         await cargarHorariosModal(turno.profesional_id, turno.fecha.split('T')[0], turno.id);
         document.getElementById('edit-turno-hora').value = turno.hora_inicio.substring(0,5);
+        const usuario = obtenerUsuarioActual();
+        const btnBorrar = document.getElementById('btn-borrar-cobro');
+        if (btnBorrar) {
+            btnBorrar.style.display = (turno.estado === 'cobrado' && usuario && usuario.rol === 'admin') ? 'inline-block' : 'none';
+        }
         document.getElementById('modal-editar-turno').style.display = 'flex';
     } catch (error) {
         mostrarNotificacion('❌ Error', 'error');
@@ -1818,6 +1823,27 @@ async function abrirModalEditar(turnoId) {
 
 function cerrarModalEditar() {
     document.getElementById('modal-editar-turno').style.display = 'none';
+}
+
+async function borrarCobroTurno() {
+    const turnoId = document.getElementById('edit-turno-id').value;
+    if (!confirm('¿Borrar el cobro de este turno? Volverá a estado pendiente.')) return;
+    try {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}/revertir-cobro`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + obtenerToken() }
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('✅ Cobro revertido. Turno vuelve a pendiente.');
+            cerrarModalEditar();
+            cargarTurnosCaja();
+            cargarEstadoCaja();
+        } else {
+            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+        }
+    } catch (error) {
+        mostrarNotificacion('❌ Error de conexión', 'error');
+    }
 }
 
 async function cargarServiciosModal() {
