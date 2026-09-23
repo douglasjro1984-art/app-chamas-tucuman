@@ -19,7 +19,14 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    ssl: sslConfig
+    ssl: sslConfig,
+    timezone: '-03:00',
+    dateStrings: true
+});
+
+// Configurar zona horaria Argentina en cada conexión nueva
+pool.on('connection', (connection) => {
+    connection.query("SET time_zone = '-03:00'");
 });
 
 // Prueba la conexión al arrancar

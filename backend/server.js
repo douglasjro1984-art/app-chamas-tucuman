@@ -26,6 +26,14 @@ const nodemailer = require('nodemailer');
 const rateLimit = require('express-rate-limit');
 const pool = require('./database'); 
 
+// Fecha de Argentina (UTC-3) como YYYY-MM-DD
+function fechaHoyArgentina() {
+    const ahora = new Date();
+    const utc = ahora.getTime() + (ahora.getTimezoneOffset() * 60000);
+    const arg = new Date(utc + (3600000 * -3));
+    return arg.toISOString().slice(0, 10);
+}
+
 // Crear tablas auxiliares de caja si no existen (TiDB Cloud)
 (async () => {
     try {
@@ -1686,11 +1694,32 @@ app.put('/api/turnos/:id', autenticar, async (req, res) => {
 app.patch('/api/turnos/:id/revertir-cobro', autenticar, autorizar(['admin']), async (req, res) => {
     const { id } = req.params;
     try {
-        const [turno] = await pool.query('SELECT id, estado FROM turnos WHERE id = ?', [id]);
+        const [turno] = await pool.query('SELECT id, estado, precio FROM turnos WHERE id = ?', [id]);
         if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
         if (turno[0].estado !== 'cobrado') return res.status(400).json({ success: false, message: 'El turno no está cobrado' });
-        await pool.query('UPDATE turnos SET estado = ? WHERE id = ?', ['pendiente', id]);
-        res.json({ success: true, message: 'Cobro revertido. El turno vuelve a pendiente.' });
+
+        // Buscar ticket asociado para saber método de pago y monto
+        const [tickets] = await pool.query('SELECT id, total, metodo_pago, caja_id FROM tickets WHERE turno_id = ? ORDER BY id DESC LIMIT 1', [id]);
+
+        await pool.query('UPDATE turnos SET estado = ?, precio = 0 WHERE id = ?', ['pendiente', id]);
+
+        // Revertir monto de la caja
+        if (tickets.length) {
+            const ticket = tickets[0];
+            const monto = parseFloat(ticket.total || 0);
+            const cajaId = ticket.caja_id;
+            const metodo = ticket.metodo_pago || 'efectivo';
+            const colMetodo = { efectivo: 'total_efectivo', transferencia: 'total_transferencia', debito: 'total_debito' }[metodo] || 'total_efectivo';
+
+            if (cajaId && monto > 0) {
+                await pool.query(`UPDATE cajas SET ${colMetodo} = GREATEST(${colMetodo} - ?, 0) WHERE id = ?`, [monto, cajaId]);
+            }
+
+            // Eliminar el ticket
+            await pool.query('DELETE FROM tickets WHERE id = ?', [ticket.id]);
+        }
+
+        res.json({ success: true, message: 'Cobro revertido, monto descontado de caja y ticket eliminado.' });
     } catch (error) {
         console.error('Error al revertir cobro:', error.message);
         res.status(500).json({ success: false, error: 'Error al revertir cobro' });
