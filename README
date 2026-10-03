@@ -1,0 +1,78 @@
+# CHAMAS SPA, sistema de gestión de turnos
+
+Aplicación web para gestionar los turnos de **CHAMAS SPA**, un local de estética de Tucumán, Argentina. Se desarrolló para un local en funcionamiento.
+
+## Qué hace
+
+- **Reserva de turnos:** los clientes se registran, inician sesión y reservan servicios, con control de disponibilidad por fecha y horario.
+- **Gestión de citas:** filtro por fecha y cancelación de turnos.
+- **Roles:** perfiles de administrador y de recepción, con acceso según el rol.
+- **WhatsApp:** botón de contacto en cada servicio y asistente de reserva por chat.
+- **Ticket:** descuentos aplicados en el ticket del servicio.
+- Zona horaria de Argentina (UTC-3) en la conexión con la base de datos.
+
+## Tecnologías
+
+**Backend**
+- Node.js 18 o superior y Express
+- MySQL con `mysql2`
+- `bcrypt` para cifrar las contraseñas
+- Autenticación con tokens (`jsonwebtoken`)
+- `helmet` y `express-rate-limit` para reforzar la seguridad
+- `nodemailer` para el envío de correos
+- CORS
+
+**Frontend:** HTML, CSS y JavaScript (carpetas `CSS`, `js` e `imagen`)
+
+**Despliegue:** Render
+
+## Estructura
+
+```
+├── backend/        # Servidor Express (server.js) y lógica de la API
+├── CSS/            # Estilos
+├── js/             # Scripts del frontend
+├── imagen/         # Imágenes del sitio
+├── render.yaml     # Configuración de despliegue en Render
+└── package.json    # Dependencias y scripts
+```
+
+## Cómo ejecutarlo en tu computadora
+
+1. Cloná el repositorio e instalá las dependencias:
+
+   ```bash
+   git clone https://github.com/douglasjro1984-art/app-chamas-tucuman.git
+   cd app-chamas-tucuman
+   npm install
+   ```
+
+2. Creá una base de datos MySQL vacía y configurá estas variables de entorno:
+
+   | Variable | Descripción |
+   |---|---|
+   | `DB_HOST` | Servidor de la base de datos |
+   | `DB_USER` | Usuario |
+   | `DB_PASSWORD` | Contraseña |
+   | `DB_NAME` | Nombre de la base de datos |
+   | `DB_PORT` | Puerto (3306 por defecto) |
+   | `DB_SSL` | `true` si la conexión requiere SSL |
+   | `JWT_SECRET` | Clave secreta para firmar los tokens |
+   | `NODE_ENV` | `production` o `development` |
+
+3. Iniciá el servidor:
+
+   ```bash
+   npm start
+   ```
+
+   Para desarrollo, con reinicio automático: `npm run dev`.
+
+## Despliegue en Render
+
+El archivo `render.yaml` define el servicio web `chamas-spa` (entorno Node, `npm install` y `npm start`). Las claves de la base de datos y `JWT_SECRET` se cargan como variables de entorno en Render y nunca se suben al repositorio.
+
+## Autor
+
+**Douglas Romero**, desarrollador backend junior.
+[GitHub](https://github.com/douglasjro1984-art) · [LinkedIn](https://www.linkedin.com/in/douglas-romero-574576384)
