@@ -4137,28 +4137,22 @@ async function cargarReporteCaja() {
     const container = document.getElementById('reporte-caja-lista');
     if (!container) return;
     const periodo = document.getElementById('reporte-periodo')?.value || 'diario';
+    const fechaSel = document.getElementById('reporte-fecha');
+    if (fechaSel && !fechaSel.value) fechaSel.value = new Date().toISOString().slice(0, 10);
+    const fecha = (periodo !== 'diario' && fechaSel?.value) ? fechaSel.value : '';
     container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">Cargando reporte...</p>';
     try {
-        const res = await fetch(`${API_BASE}/caja/reporte?periodo=${periodo}`);
+        const res = await fetch(`${API_BASE}/caja/reporte?periodo=${periodo}${fecha ? '&fecha=' + encodeURIComponent(fecha) : ''}`);
         const data = await res.json();
         const filas = data.datos || [];
         if (!filas.length) {
             container.innerHTML = '<div class="mensaje-vacio"><h3>No hay datos para este período</h3></div>';
             return;
         }
+        // Un renglón por día en todos los períodos
         const etiqueta = (f) => {
-            if (periodo === 'mensual') {
-                const [a, m] = f.split('-');
-                const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-                return meses[parseInt(m) - 1] + ' ' + a;
-            }
-            if (periodo === 'semanal') {
-                const d = new Date(f + 'T12:00:00');
-                const opts = { day: '2-digit', month: '2-digit' };
-                return 'Semana del ' + d.toLocaleDateString('es-AR', opts);
-            }
-            const d = new Date(f + 'T12:00:00');
-            return f.split('-').reverse().join('/') + ' (' + d.toLocaleDateString('es-AR', { weekday: 'short' }) + ')';
+            const d = new Date(String(f).slice(0, 10) + 'T12:00:00');
+            return String(f).slice(0, 10).split('-').reverse().join('/') + ' (' + d.toLocaleDateString('es-AR', { weekday: 'short' }) + ')';
         };
         const totalVentas = filas.reduce((s, r) => s + r.total_ventas, 0);
         const totalGastos = filas.reduce((s, r) => s + r.total_gastos, 0);

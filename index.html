@@ -289,14 +289,15 @@
                             <div class="panel-actions">
                                 <span class="field-label" style="margin:0;">Período:</span>
                                 <select id="reporte-periodo" onchange="cargarReporteCaja()" class="select-accent">
-                                    <option value="diario">Diario</option>
-                                    <option value="semanal">Semanal</option>
-                                    <option value="mensual">Mensual</option>
+                                    <option value="diario">Diario (mes en curso)</option>
+                                    <option value="semanal">Semanal (7 días)</option>
+                                    <option value="mensual">Mes elegido (todos los días)</option>
                                 </select>
+                                <input type="date" id="reporte-fecha" onchange="cargarReporteCaja()" style="padding:8px 10px;border:1px solid #e5d3dd;border-radius:8px;font:inherit;color:#5c4653;background:white;" title="Semana o mes a mostrar (en Diario se usa el mes en curso)">
                                 <button onclick="cargarReporteCaja()" class="btn-guardar btn-inline">Actualizar</button>
                             </div>
                         </div>
-                        <p class="panel-desc">Resumen desplegable de las cobranzas del período: ventas por método de pago, gastos del local y retiros de profesionales.</p>
+                        <p class="panel-desc">Resumen por día de las cobranzas del período (un renglón por día): ventas por método de pago, gastos del local, retiros de profesionales y el neto. La fecha elegida define la semana o el mes a mostrar.</p>
                         <div id="reporte-caja-lista"></div>
                     </div>
                 </div>
@@ -560,7 +561,7 @@
 <script src="js/apiAuth.js?v=20261020"></script>
 <script src="js/api.js?v=20261020"></script>
 <script src="js/auth.js?v=20261020"></script>
-<script src="js/app.js?v=20261020c"></script>
+<script src="js/app.js?v=20261020d"></script>
 <script src="js/roles-funciones.js?v=20261020"></script>
 <script src="js/horarios-adminc.js?v=20261020"></script>
 <script>

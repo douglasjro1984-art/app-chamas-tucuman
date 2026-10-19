@@ -2551,24 +2551,31 @@ app.delete('/api/gastos/:id', autenticar, autorizar(['admin']), async (req, res)
 // ============================================
 app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const periodo = req.query.periodo || 'diario'; // diario | semanal | mensual
+    const { fecha } = req.query;
     try {
-        // Períodos calculados en horario de Argentina (UTC-3): el servidor corre
+        // Período calculado en horario de Argentina (UTC-3): el servidor corre
         // en UTC y, usando su reloj, el día de "hoy" quedaba corrido un día.
-        const ahoraAR = new Date(Date.now() - 3 * 60 * 60 * 1000);
-        const anioAR = ahoraAR.getUTCFullYear();
-        const mesAR = ahoraAR.getUTCMonth();
-        const diaAR = ahoraAR.getUTCDate();
-        const diaSemanaAR = ahoraAR.getUTCDay(); // 0 = domingo
+        //  - diario:   todos los días del mes en curso
+        //  - semanal:  los 7 días (lunes a domingo) de la semana de "fecha"
+        //  - mensual:  todos los días del mes de "fecha" (por defecto, hoy)
+        const refAR = (fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha))
+            ? new Date(fecha + 'T12:00:00Z')
+            : new Date(Date.now() - 3 * 60 * 60 * 1000);
+        const anioAR = refAR.getUTCFullYear();
+        const mesAR = refAR.getUTCMonth();
+        const diaAR = refAR.getUTCDate();
+        const diaSemanaAR = refAR.getUTCDay(); // 0 = domingo
         const isoDia = (ms) => new Date(ms).toISOString().slice(0, 10);
-        const isoMes = (ms) => new Date(ms).toISOString().slice(0, 7);
         let fechas = [];
-        if (periodo === 'mensual') {
-            for (let i = 2; i >= 0; i--) fechas.push(isoMes(Date.UTC(anioAR, mesAR - i, 1)));
-        } else if (periodo === 'semanal') {
+        if (periodo === 'semanal') {
             const lunes = Date.UTC(anioAR, mesAR, diaAR - ((diaSemanaAR + 6) % 7)); // lunes = 0
-            for (let i = 2; i >= 0; i--) fechas.push(isoDia(lunes - i * 7 * 86400000));
-        } else { // diario: últimos 7 días
-            for (let i = 6; i >= 0; i--) fechas.push(isoDia(Date.UTC(anioAR, mesAR, diaAR - i)));
+            for (let i = 0; i < 7; i++) fechas.push(isoDia(lunes + i * 86400000));
+        } else {
+            // diario (mes en curso) o mensual (mes elegido): todos sus días
+            const mRef = periodo === 'diario' ? new Date(Date.now() - 3 * 60 * 60 * 1000) : refAR;
+            const desde = Date.UTC(mRef.getUTCFullYear(), mRef.getUTCMonth(), 1);
+            const hasta = Date.UTC(mRef.getUTCFullYear(), mRef.getUTCMonth() + 1, 0);
+            for (let t = desde; t <= hasta; t += 86400000) fechas.push(isoDia(t));
         }
 
         // Mismas fuentes que "Aperturas y Cierres de Caja": todo se agrega por
@@ -2618,7 +2625,7 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
             b.total_retiros += parseFloat(r.total || 0);
         }
 
-        const keyFn = (f) => periodo === 'mensual' ? String(f).slice(0, 7) : String(f).slice(0, 10);
+        const keyFn = (f) => String(f).slice(0, 10); // siempre por día
         // Sumar las cajas de cada período
         const porPeriodo = {};
         for (const b of Object.values(porCaja)) {
