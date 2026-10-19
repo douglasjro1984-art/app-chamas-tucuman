@@ -2662,6 +2662,144 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
     }
 });
 
+// ============================================
+// MANTENIMIENTO (uso administrativo puntual):
+// reasignar tickets cobrados a la caja de su propio día.
+// Antes del fix del cobro, si una caja quedaba abierta de un día anterior
+// todos los cobros posteriores se guardaban dentro de esa caja vieja.
+// Esta rutina los mueve a la caja del día que les corresponde (creándola
+// si no existe). No borra ni altera montos: solo cambia el caja_id y
+// deja un respaldo reversible en caja_reasignacion_backup.
+// ============================================
+async function ticketsFueraDeSuCaja(conn) {
+    const q = conn || pool;
+    const [rows] = await q.query(
+        `SELECT t.id, t.total, DATE(t.fecha_emision) as dia, t.caja_id
+         FROM tickets t
+         LEFT JOIN cajas c ON t.caja_id = c.id
+         WHERE (t.caja_id IS NULL AND t.total > 0 AND t.fecha_emision IS NOT NULL)
+            OR (c.id IS NOT NULL AND DATE(t.fecha_emision) <> c.fecha)
+         ORDER BY t.fecha_emision`
+    );
+    return rows;
+}
+
+async function recalcularColumnasCaja(conn, cajaId) {
+    const [ticks] = await conn.query(
+        'SELECT total, metodo_pago, metodo_pago_detalle FROM tickets WHERE caja_id = ?', [cajaId]);
+    const acu = { efectivo: 0, transferencia: 0, debito: 0 };
+    for (const t of ticks) acumularPagoPorMetodo(acu, t.metodo_pago, t.total, t.metodo_pago_detalle);
+    const [gastos] = await conn.query('SELECT monto, metodo_pago FROM gastos WHERE caja_id = ?', [cajaId]);
+    for (const g of gastos) {
+        const col = { efectivo: 'efectivo', transferencia: 'transferencia', debito: 'debito' }[g.metodo_pago] || 'efectivo';
+        acu[col] -= parseFloat(g.monto || 0);
+    }
+    const [retiros] = await conn.query('SELECT monto_retirado, metodo_retiro FROM retiros WHERE caja_id = ? AND deshecho = 0', [cajaId]);
+    for (const r of retiros) {
+        const col = r.metodo_retiro === 'transferencia' ? 'transferencia' : 'efectivo';
+        acu[col] -= parseFloat(r.monto_retirado || 0);
+    }
+    const r2 = (x) => Math.round(Math.max(0, x) * 100) / 100; // el sistema nunca deja columnas en negativo
+    await conn.query(
+        'UPDATE cajas SET total_efectivo = ?, total_transferencia = ?, total_debito = ?, total_credito = 0 WHERE id = ?',
+        [r2(acu.efectivo), r2(acu.transferencia), r2(acu.debito), cajaId]
+    );
+}
+
+// Vista previa: qué cobros quedaron registrados fuera del día que les corresponde
+app.get('/api/caja/reasignar/preview', autenticar, autorizar(['admin','super_admin']), async (req, res) => {
+    try {
+        const tickets = await ticketsFueraDeSuCaja();
+        const porDia = {};
+        let montoTotal = 0, sinCaja = 0, enOtraCaja = 0;
+        for (const t of tickets) {
+            const dia = String(t.dia).slice(0, 10);
+            const b = porDia[dia] || (porDia[dia] = { cantidad: 0, monto: 0 });
+            b.cantidad += 1;
+            b.monto += parseFloat(t.total || 0);
+            montoTotal += parseFloat(t.total || 0);
+            if (t.caja_id) enOtraCaja += 1; else sinCaja += 1;
+        }
+        res.json({
+            cantidad: tickets.length,
+            monto_total: Math.round(montoTotal * 100) / 100,
+            sin_caja: sinCaja,
+            en_otra_caja: enOtraCaja,
+            dias: Object.keys(porDia).sort().map(fecha => ({
+                fecha,
+                cantidad: porDia[fecha].cantidad,
+                monto: Math.round(porDia[fecha].monto * 100) / 100
+            }))
+        });
+    } catch (e) {
+        console.error('Error preview reasignación:', e.message);
+        res.status(500).json({ error: 'Error al analizar los cobros' });
+    }
+});
+
+// Ejecutar la reasignación (transaccional y con respaldo de lo que había)
+app.post('/api/caja/reasignar', autenticar, autorizar(['admin','super_admin']), async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const tickets = await ticketsFueraDeSuCaja(conn);
+        if (!tickets.length) {
+            await conn.rollback();
+            conn.release();
+            return res.json({ success: true, movidos: 0, message: 'No hay cobros fuera de su día: no hay nada que reasignar' });
+        }
+        await conn.query(
+            `CREATE TABLE IF NOT EXISTS caja_reasignacion_backup (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                ticket_id BIGINT NOT NULL,
+                caja_id_anterior BIGINT NULL,
+                fecha_emision DATETIME NULL,
+                total DECIMAL(10,2) NULL,
+                creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB`
+        );
+        const [existentes] = await pool.query(`SELECT id, DATE_FORMAT(fecha, '%Y-%m-%d') as fecha FROM cajas`);
+        const cajaPorFecha = {};
+        for (const c of existentes) (cajaPorFecha[c.fecha] || (cajaPorFecha[c.fecha] = [])).push(c.id);
+        const cajasAfectadas = new Set();
+        let movidos = 0;
+        for (const t of tickets) {
+            const dia = String(t.dia).slice(0, 10);
+            let cajaId = (cajaPorFecha[dia] || [])[0] || null;
+            if (!cajaId) {
+                const [r] = await conn.query(
+                    `INSERT INTO cajas (fecha, estado, monto_inicial, cajero_nombre, cerrada_at)
+                     VALUES (?, 'cerrada', 0, 'Reasignación automática', NOW())`,
+                    [dia]
+                );
+                cajaId = r.insertId;
+                cajaPorFecha[dia] = [cajaId];
+            }
+            await conn.query(
+                `INSERT INTO caja_reasignacion_backup (ticket_id, caja_id_anterior, fecha_emision, total) VALUES (?, ?, ?, ?)`,
+                [t.id, t.caja_id, t.fecha_emision, t.total]
+            );
+            await conn.query('UPDATE tickets SET caja_id = ? WHERE id = ?', [cajaId, t.id]);
+            if (t.caja_id) cajasAfectadas.add(String(t.caja_id));
+            cajasAfectadas.add(String(cajaId));
+            movidos++;
+        }
+        for (const id of cajasAfectadas) await recalcularColumnasCaja(conn, id);
+        await conn.commit();
+        conn.release();
+        res.json({
+            success: true,
+            movidos,
+            message: `${movidos} cobro${movidos === 1 ? '' : 's'} reasignado${movidos === 1 ? '' : 's'} a la caja de su día`
+        });
+    } catch (e) {
+        try { await conn.rollback(); } catch (e2) { /* noop */ }
+        conn.release();
+        console.error('Error reasignar cobros:', e.message);
+        res.status(500).json({ success: false, message: 'Error al reasignar los cobros; no se modificó nada' });
+    }
+});
+
 // Cobrar un turno + generar ticket (comprobante no fiscal)
 // Registra el pago en la caja del dÃ­a si hay una caja abierta.
 app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {

@@ -4204,8 +4204,51 @@ async function cargarReporteCaja() {
                     </tfoot>
                 </table>
             </div>`;
+        if (esAdmin()) chequearReasignacionCobros(container);
     } catch (e) {
         container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el reporte</p>';
+    }
+}
+
+// =====================================================
+// MANTENIMIENTO (admin): cobros guardados en una caja
+// de otro día. Aviso dentro del Registro de Cobranzas.
+// =====================================================
+async function chequearReasignacionCobros(container) {
+    const cont = container || document.getElementById('reporte-caja-lista');
+    if (!cont) return;
+    try {
+        const res = await fetch(`${API_BASE}/caja/reasignar/preview`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.cantidad) return;
+        const lista = (data.dias || []).map(d =>
+            `${d.cantidad} cobro${d.cantidad === 1 ? '' : 's'} del ${String(d.fecha).split('-').reverse().join('/')} ($${Number(d.monto).toFixed(2)})`
+        ).join(' · ');
+        cont.insertAdjacentHTML('afterbegin', `
+            <div style="background:#fff4e5;border:1px solid #f0c36d;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:0.86rem;color:#7a4b00;">
+                <strong style="display:block;margin-bottom:4px;">Hay cobros guardados en una caja de otro día</strong>
+                ${data.cantidad} cobro${data.cantidad === 1 ? '' : 's'} (total $${Number(data.monto_total).toFixed(2)}) están anotados en una caja que no es del día en que se cobraron${data.sin_caja ? `, y ${data.sin_caja} sin caja asignada` : ''}:
+                <div style="margin:6px 0;color:#8a5a00;">${lista}</div>
+                Si los reasignás, cada día va a mostrar su propio cobro en este registro.
+                <button onclick="reasignarCobrosASuDia()" style="margin-top:8px;background:#B9770E;color:white;padding:7px 12px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Reasignar cobros a su día</button>
+            </div>`);
+    } catch (e) { /* silencioso: es solo un aviso de mantenimiento */ }
+}
+
+async function reasignarCobrosASuDia() {
+    if (!confirm('Se moverá cada cobro a la caja del día que se realizó (se crea la caja del día si no existe).\n\nNo se borra ningún dato: queda un respaldo de lo que había antes.\n\n¿Continuar?')) return;
+    try {
+        const res = await fetch(`${API_BASE}/caja/reasignar`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message || 'Cobros reasignados');
+            cargarReporteCaja();
+        } else {
+            alert(data.message || 'No se pudo reasignar');
+        }
+    } catch (e) {
+        alert('Error de conexión al reasignar los cobros');
     }
 }
 
@@ -4281,7 +4324,7 @@ async function cargarHistorialCajas() {
                             <td style="padding:10px 8px;font-weight:700;">$${parseFloat(c.total_cobrado || 0).toFixed(2)}</td>
                             <td style="padding:10px 8px;color:#dc3545;">-$${Number(c.total_gastos || 0).toFixed(2)}</td>
                             <td style="padding:10px 8px;color:#C06C84;">-$${Number(c.total_retiros || 0).toFixed(2)}</td>
-                            <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? '$' + Number(c.monto_final || 0).toFixed(2) + '<br><small style="color:#aaa;font-weight:400;">' + fmtHora(c.cerrada_at) + 'hs</small>' : '—'}</td>
+                            <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? (c.monto_final == null ? '<span style="color:#bbb;font-weight:400;">Sin arqueo</span>' : '$' + Number(c.monto_final).toFixed(2) + '<br><small style="color:#aaa;font-weight:400;">' + fmtHora(c.cerrada_at) + 'hs</small>') : '—'}</td>
                             <td style="padding:10px 8px;">
                                 <button title="Ver detalle completo" onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Ver</button>
                             </td>
