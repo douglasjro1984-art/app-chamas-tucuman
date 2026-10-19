@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -304,10 +304,19 @@
                 <div>
                     <div class="panel panel-orange">
                         <div class="panel-head">
-                            <h3 class="panel-title">Aperturas y Cierres de Caja (todos los días)</h3>
-                            <button onclick="cargarHistorialCajas()" class="btn-guardar btn-inline">Actualizar</button>
+                            <h3 class="panel-title">Aperturas y Cierres de Caja</h3>
+                            <div class="panel-actions">
+                                <span class="field-label" style="margin:0;">Ver:</span>
+                                <select id="historial-periodo" onchange="cargarHistorialCajas()" class="select-accent">
+                                    <option value="diario">Días con registro</option>
+                                    <option value="semanal">Semana (7 días)</option>
+                                    <option value="mensual">Mes (todos los días)</option>
+                                </select>
+                                <input type="date" id="historial-fecha" onchange="cargarHistorialCajas()" style="padding:8px 10px;border:1px solid #e5d3dd;border-radius:8px;font:inherit;color:#5c4653;background:white;">
+                                <button onclick="cargarHistorialCajas()" class="btn-guardar btn-inline">Actualizar</button>
+                            </div>
                         </div>
-                        <p class="panel-desc">Cada jornada con su apertura (fondo inicial y cajera), cobros de los turnos, gastos, retiros de profesionales y el arqueo del cierre. Tocá el ojo para ver el detalle completo.</p>
+                        <p class="panel-desc">Cada jornada con su apertura (fondo inicial y cajera), cobros de los turnos, gastos, retiros de profesionales y el arqueo del cierre. En semana/mes se muestran todos los días del período; los días sin apertura figuran como "Sin registro".</p>
                         <div id="historial-cajas"></div>
                     </div>
                 </div>
@@ -548,10 +557,10 @@
         </div>
     </div>
 
-<script src="js/apiAuth.js?v=20261020"></script>
+<script src="js/apiauth.js?v=20261020"></script>
 <script src="js/api.js?v=20261020"></script>
 <script src="js/auth.js?v=20261020"></script>
-<script src="js/app.js?v=20261020"></script>
+<script src="js/app.js?v=20261020b"></script>
 <script src="js/roles-funciones.js?v=20261020"></script>
 <script src="js/horarios-adminc.js?v=20261020"></script>
 <script>

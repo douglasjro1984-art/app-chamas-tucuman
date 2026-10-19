@@ -2321,18 +2321,53 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
 });
 
 // Historial de cajas (aperturas y cierres de todos los días)
+// Filtros opcionales: ?periodo=diario|semanal|mensual&fecha=YYYY-MM-DD
+//  - mensual: todos los días del mes de "fecha" (días sin caja = "sin_caja")
+//  - semanal: los 7 días de la semana (lunes a domingo) de "fecha"
+//  - diario (o sin filtro): solo los días con caja registrada
 app.get('/api/caja/historial', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    const { periodo, fecha } = req.query;
     try {
-        const [rows] = await pool.query(
-            `SELECT c.id, DATE_FORMAT(c.fecha, '%Y-%m-%d') as fecha, c.estado, c.monto_inicial, c.monto_final,
+        // Período de referencia en horario de Argentina (UTC-3), igual que el reporte
+        const refAR = (fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha))
+            ? new Date(fecha + 'T12:00:00Z')
+            : new Date(Date.now() - 3 * 60 * 60 * 1000);
+        const anioAR = refAR.getUTCFullYear();
+        const mesAR = refAR.getUTCMonth();
+        const diaAR = refAR.getUTCDate();
+        const diaSemanaAR = refAR.getUTCDay(); // 0 = domingo
+        const isoDia = (ms) => new Date(ms).toISOString().slice(0, 10);
+        let filtroDesde = null, filtroHasta = null, diasPeriodo = null;
+        if (periodo === 'mensual') {
+            const desde = Date.UTC(anioAR, mesAR, 1);
+            const hasta = Date.UTC(anioAR, mesAR + 1, 0);
+            filtroDesde = isoDia(desde); filtroHasta = isoDia(hasta);
+            diasPeriodo = [];
+            for (let t = desde; t <= hasta; t += 86400000) diasPeriodo.push(isoDia(t));
+            diasPeriodo.reverse(); // más reciente primero
+        } else if (periodo === 'semanal') {
+            const lunes = Date.UTC(anioAR, mesAR, diaAR - ((diaSemanaAR + 6) % 7));
+            filtroDesde = isoDia(lunes);
+            filtroHasta = isoDia(lunes + 6 * 86400000);
+            diasPeriodo = [];
+            for (let i = 6; i >= 0; i--) diasPeriodo.push(isoDia(lunes + i * 86400000));
+        }
+
+        let sql = `SELECT c.id, DATE_FORMAT(c.fecha, '%Y-%m-%d') as fecha, c.estado, c.monto_inicial, c.monto_final,
                     c.total_efectivo, c.total_transferencia, c.total_debito, c.total_credito,
                     c.cajero_nombre, c.abierta_at, c.cerrada_at,
                     (SELECT COUNT(*) FROM tickets t WHERE t.caja_id = c.id) AS cantidad_turnos,
                     (SELECT COALESCE(SUM(t.total),0) FROM tickets t WHERE t.caja_id = c.id) AS total_cobrado,
                     (SELECT COALESCE(SUM(g.monto),0) FROM gastos g WHERE g.caja_id = c.id) AS total_gastos,
                     (SELECT COALESCE(SUM(r.monto_retirado),0) FROM retiros r WHERE r.caja_id = c.id) AS total_retiros
-             FROM cajas c ORDER BY c.fecha DESC, c.id DESC LIMIT 120`
-        );
+             FROM cajas c`;
+        const sqlParams = [];
+        if (filtroDesde) {
+            sql += ' WHERE c.fecha BETWEEN ? AND ?';
+            sqlParams.push(filtroDesde, filtroHasta);
+        }
+        sql += ` ORDER BY c.fecha DESC, c.id DESC LIMIT ${diasPeriodo ? 400 : 120}`;
+        const [rows] = await pool.query(sql, sqlParams);
         // Enriquecer cada caja con el total de sus tickets por método de pago
         // (se calcula en JS para repartir correctamente los cobros "mixto")
         const IDs = rows.map(r => r.id);
@@ -2348,7 +2383,7 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin','recepcionista']),
                 acumularPagoPorMetodo(acu, tk.metodo_pago, tk.total, tk.metodo_pago_detalle);
             }
         }
-        const resFull = rows.map(r => {
+        let resFull = rows.map(r => {
             const t = ticks[r.id] || { efectivo: 0, transferencia: 0, debito: 0 };
             return {
                 ...r,
@@ -2360,6 +2395,27 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin','recepcionista']),
                 total_cobrado: parseFloat(r.total_cobrado || 0)
             };
         });
+        // En mensual/semanal se muestran TODOS los días del período; los días
+        // sin caja registrada aparecen con estado "sin_caja" para que se vea
+        // que ese día no hubo apertura.
+        if (diasPeriodo) {
+            const porFecha = {};
+            for (const r of resFull) (porFecha[r.fecha] || (porFecha[r.fecha] = [])).push(r);
+            const completo = [];
+            for (const d of diasPeriodo) {
+                if (porFecha[d] && porFecha[d].length) {
+                    completo.push(...porFecha[d]);
+                } else {
+                    completo.push({
+                        id: null, fecha: d, estado: 'sin_caja', monto_inicial: 0, monto_final: null,
+                        efectivo: 0, transferencia: 0, debito: 0, total_cobrado: 0,
+                        total_gastos: 0, total_retiros: 0, cantidad_turnos: 0,
+                        cajero_nombre: null, abierta_at: null, cerrada_at: null
+                    });
+                }
+            }
+            resFull = completo;
+        }
         res.json(resFull);
     } catch (e) {
         console.error('âŒ Error historial caja:', e.message);
@@ -2515,64 +2571,90 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
             for (let i = 6; i >= 0; i--) fechas.push(isoDia(Date.UTC(anioAR, mesAR, diaAR - i)));
         }
 
-        // Cada movimiento se imputa al día de la CAJA en la que se registró
-        // (la misma fuente que "Aperturas y Cierres de Caja"), así los dos
-        // paneles muestran siempre los mismos números. Si un ticket no tiene
-        // caja asociada se usa su fecha de emisión.
+        // Mismas fuentes que "Aperturas y Cierres de Caja": todo se agrega por
+        // CAJA (tickets, gastos y retiros asociados a un caja_id) y luego las
+        // cajas se agrupan por su fecha. Así los dos paneles dan siempre los
+        // mismos números; los movimientos sin caja no se imputan a ningún día,
+        // igual que en Aperturas y Cierres.
+        const [cajas] = await pool.query(
+            `SELECT c.id, DATE_FORMAT(c.fecha, '%Y-%m-%d') as fecha, c.estado, COALESCE(c.monto_final,0) as monto_final
+             FROM cajas c`
+        );
+        const porCaja = {};
+        for (const c of cajas) {
+            porCaja[c.id] = {
+                fecha: c.fecha, efectivo: 0, transferencia: 0, debito: 0, total: 0, cantidad: 0,
+                gastos_fijos: 0, gastos_compras: 0, total_gastos: 0, total_retiros: 0,
+                monto_final: c.estado === 'cerrada' ? parseFloat(c.monto_final || 0) : 0
+            };
+        }
         const [tickets] = await pool.query(
-            `SELECT t.total, t.metodo_pago, t.metodo_pago_detalle,
-                    DATE_FORMAT(COALESCE(c.fecha, t.fecha_emision), '%Y-%m-%d') as fecha
-             FROM tickets t
-             LEFT JOIN cajas c ON t.caja_id = c.id`
+            `SELECT caja_id, total, metodo_pago, metodo_pago_detalle FROM tickets WHERE caja_id IS NOT NULL`
         );
-        const [gastos] = await pool.query(
-            `SELECT g.tipo, COALESCE(g.monto,0) as total,
-                    DATE_FORMAT(COALESCE(c.fecha, g.fecha), '%Y-%m-%d') as fecha
-             FROM gastos g
-             LEFT JOIN cajas c ON g.caja_id = c.id`
-        );
-        const [retiros] = await pool.query(
-            `SELECT COALESCE(r.monto_retirado,0) as total,
-                    DATE_FORMAT(COALESCE(c.fecha, r.fecha), '%Y-%m-%d') as fecha
-             FROM retiros r
-             LEFT JOIN cajas c ON r.caja_id = c.id`
-        );
-        const [cierres] = await pool.query(
-            `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, COALESCE(monto_final,0) as monto_final FROM cajas WHERE estado = 'cerrada'`
-        );
-
-        const keyFn = (f) => periodo === 'mensual' ? String(f).slice(0, 7) : String(f).slice(0, 10);
-        // Agrupar tickets por período en JS (repartiendo los cobros "mixto")
-        const porPeriodo = {};
         for (const t of tickets) {
-            const clave = keyFn(t.fecha);
-            const b = porPeriodo[clave] || (porPeriodo[clave] = { efectivo: 0, transferencia: 0, debito: 0, total: 0, cantidad: 0 });
+            const b = porCaja[t.caja_id];
+            if (!b) continue;
             b.total += parseFloat(t.total || 0);
             b.cantidad += 1;
+            // Reparte correctamente los cobros "mixto" por método de pago
             acumularPagoPorMetodo(b, t.metodo_pago, t.total, t.metodo_pago_detalle);
         }
-        const ticketsAgrupados = Object.keys(porPeriodo).map(f => ({ fecha: f, ...porPeriodo[f] }));
-        const resultado = [];
-        for (const f of fechas) {
-            const clave = f;
-            const ticketsDia = ticketsAgrupados.filter(t => keyFn(t.fecha) === clave);
-            const gastosDia = gastos.filter(g => keyFn(g.fecha) === clave);
-            const retirosDia = retiros.filter(r => keyFn(r.fecha) === clave);
-            const cierre = cierres.find(c => keyFn(c.fecha) === clave);
-            resultado.push({
-                fecha: clave,
-                efectivo: Math.round(ticketsDia.reduce((s, t) => s + parseFloat(t.efectivo || 0), 0) * 100) / 100,
-                transferencia: Math.round(ticketsDia.reduce((s, t) => s + parseFloat(t.transferencia || 0), 0) * 100) / 100,
-                debito: Math.round(ticketsDia.reduce((s, t) => s + parseFloat(t.debito || 0), 0) * 100) / 100,
-                total_ventas: Math.round(ticketsDia.reduce((s, t) => s + parseFloat(t.total || 0), 0) * 100) / 100,
-                cantidad_turnos: ticketsDia.reduce((s, t) => s + parseInt(t.cantidad || 0), 0),
-                gastos_fijos: Math.round(gastosDia.filter(g => g.tipo === 'fijo').reduce((s, g) => s + parseFloat(g.total || 0), 0) * 100) / 100,
-                gastos_compras: Math.round(gastosDia.filter(g => g.tipo === 'compra').reduce((s, g) => s + parseFloat(g.total || 0), 0) * 100) / 100,
-                total_gastos: Math.round(gastosDia.reduce((s, g) => s + parseFloat(g.total || 0), 0) * 100) / 100,
-                total_retiros: Math.round(retirosDia.reduce((s, r) => s + parseFloat(r.total || 0), 0) * 100) / 100,
-                monto_final: cierre ? parseFloat(cierre.monto_final) : null
-            });
+        const [gastos] = await pool.query(
+            `SELECT caja_id, tipo, COALESCE(monto,0) as total FROM gastos WHERE caja_id IS NOT NULL`
+        );
+        for (const g of gastos) {
+            const b = porCaja[g.caja_id];
+            if (!b) continue;
+            b.total_gastos += parseFloat(g.total || 0);
+            if (g.tipo === 'fijo') b.gastos_fijos += parseFloat(g.total || 0);
+            else b.gastos_compras += parseFloat(g.total || 0);
         }
+        const [retiros] = await pool.query(
+            `SELECT caja_id, COALESCE(monto_retirado,0) as total FROM retiros WHERE caja_id IS NOT NULL`
+        );
+        for (const r of retiros) {
+            const b = porCaja[r.caja_id];
+            if (!b) continue;
+            b.total_retiros += parseFloat(r.total || 0);
+        }
+
+        const keyFn = (f) => periodo === 'mensual' ? String(f).slice(0, 7) : String(f).slice(0, 10);
+        // Sumar las cajas de cada período
+        const porPeriodo = {};
+        for (const b of Object.values(porCaja)) {
+            const clave = keyFn(b.fecha);
+            const p = porPeriodo[clave] || (porPeriodo[clave] = {
+                efectivo: 0, transferencia: 0, debito: 0, total_ventas: 0, cantidad_turnos: 0,
+                gastos_fijos: 0, gastos_compras: 0, total_gastos: 0, total_retiros: 0, monto_final: 0
+            });
+            p.efectivo += b.efectivo;
+            p.transferencia += b.transferencia;
+            p.debito += b.debito;
+            p.total_ventas += b.total;
+            p.cantidad_turnos += b.cantidad;
+            p.gastos_fijos += b.gastos_fijos;
+            p.gastos_compras += b.gastos_compras;
+            p.total_gastos += b.total_gastos;
+            p.total_retiros += b.total_retiros;
+            p.monto_final += b.monto_final;
+        }
+        const r2 = (x) => Math.round(x * 100) / 100;
+        const resultado = fechas.map(f => {
+            const p = porPeriodo[f] || {};
+            return {
+                fecha: f,
+                efectivo: r2(p.efectivo || 0),
+                transferencia: r2(p.transferencia || 0),
+                debito: r2(p.debito || 0),
+                total_ventas: r2(p.total_ventas || 0),
+                cantidad_turnos: p.cantidad_turnos || 0,
+                gastos_fijos: r2(p.gastos_fijos || 0),
+                gastos_compras: r2(p.gastos_compras || 0),
+                total_gastos: r2(p.total_gastos || 0),
+                total_retiros: r2(p.total_retiros || 0),
+                monto_final: porPeriodo[f] ? r2(p.monto_final) : null
+            };
+        });
         res.json({ periodo, datos: resultado });
     } catch (e) {
         console.error('Error reporte caja:', e.message);
@@ -2637,16 +2719,23 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
             ? JSON.stringify(Object.fromEntries(pagosValidos.map(p => [p.metodo, p.monto])))
             : null;
 
-        // La caja del día debe estar abierta para poder cobrar
-        // (se valida antes de modificar ningún dato)
+        // La caja de HOY debe estar abierta para poder cobrar
+        // (se valida antes de modificar ningún dato). Si quedó abierta una
+        // caja de otro día, hay que cerrarla con el arqueo y abrir la de hoy:
+        // así el dinero siempre se anota en la caja del día correcto.
         const [cajaAbierta] = await pool.query(
-            "SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
+            "SELECT * FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() LIMIT 1"
         );
         if (!cajaAbierta.length) {
+            const [vieja] = await pool.query(
+                "SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fec FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
+            );
             return res.status(400).json({
                 success: false,
                 code: 'caja_cerrada',
-                message: 'La caja no está abierta. Abrí la caja del día para poder cobrar.'
+                message: vieja.length
+                    ? `Queda una caja abierta del ${vieja[0].fec}. Cerrala con el arqueo y abrí la caja de hoy para poder cobrar.`
+                    : 'La caja no está abierta. Abrí la caja del día para poder cobrar.'
             });
         }
         const cajaId = cajaAbierta[0].id;

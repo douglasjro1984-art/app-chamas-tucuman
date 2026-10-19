@@ -4217,9 +4217,19 @@ const cacheDetalleCajas = {};
 async function cargarHistorialCajas() {
     const container = document.getElementById('historial-cajas');
     if (!container) return;
+    const periodoSel = document.getElementById('historial-periodo');
+    const fechaSel = document.getElementById('historial-fecha');
+    if (fechaSel && !fechaSel.value) fechaSel.value = new Date().toISOString().slice(0, 10);
+    const periodo = periodoSel?.value || 'diario';
+    const params = new URLSearchParams();
+    if (periodo === 'semanal' || periodo === 'mensual') {
+        params.set('periodo', periodo);
+        if (fechaSel?.value) params.set('fecha', fechaSel.value);
+    }
     container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">Cargando historial...</p>';
     try {
-        const res = await fetch(`${API_BASE}/caja/historial`);
+        const qs = params.toString();
+        const res = await fetch(`${API_BASE}/caja/historial${qs ? '?' + qs : ''}`);
         const cajas = await res.json();
         if (!Array.isArray(cajas) || !cajas.length) {
             container.innerHTML = '<div class="mensaje-vacio"><h3>No hay cajas registradas</h3></div>';
@@ -4227,6 +4237,20 @@ async function cargarHistorialCajas() {
         }
         const fmt = (f) => String(f || '').slice(0, 10).split('-').reverse().join('/');
         const fmtHora = (f) => String(f || '').slice(11, 16);
+        const diaCorto = (f) => {
+            try { return new Date(String(f).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short' }); }
+            catch (e) { return ''; }
+        };
+        const reales = cajas.filter(c => c.id);
+        const tot = reales.reduce((s, c) => ({
+            ini: s.ini + Number(c.monto_inicial || 0),
+            ef: s.ef + Number(c.efectivo || 0),
+            tr: s.tr + Number(c.transferencia || 0),
+            db: s.db + Number(c.debito || 0),
+            co: s.co + Number(c.total_cobrado || 0),
+            ga: s.ga + Number(c.total_gastos || 0),
+            re: s.re + Number(c.total_retiros || 0)
+        }), { ini: 0, ef: 0, tr: 0, db: 0, co: 0, ga: 0, re: 0 });
         container.innerHTML = `
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:800px;">
@@ -4245,7 +4269,7 @@ async function cargarHistorialCajas() {
                         <th style="padding:10px 8px;"></th>
                     </tr></thead>
                     <tbody>
-                    ${cajas.map((c, i) => `
+                    ${cajas.map((c, i) => c.id ? `
                         <tr style="background:${i % 2 === 0 ? 'white' : '#fdf7ea'};border-bottom:1px solid #f0e0ea;">
                             <td style="padding:10px 8px;font-weight:700;color:#B9770E;">${fmt(c.fecha)}</td>
                             <td style="padding:10px 8px;">${c.estado === 'abierta' ? '<span style="background:#e8f8f0;color:#1aa851;padding:3px 8px;border-radius:6px;font-weight:700;">Abierta</span>' : '<span style="background:#fdf5f8;color:#C06C84;padding:3px 8px;border-radius:6px;font-weight:700;">Cerrada</span>'}</td>
@@ -4264,8 +4288,27 @@ async function cargarHistorialCajas() {
                         </tr>
                         <tr id="detalle-caja-${c.id}" style="display:none;">
                             <td colspan="12" style="padding:0;background:#fffdf7;"></td>
+                        </tr>` : `
+                        <tr style="background:#faf7f2;border-bottom:1px solid #f0e0ea;">
+                            <td style="padding:10px 8px;font-weight:700;color:#b9a294;">${fmt(c.fecha)} <small>(${diaCorto(c.fecha)})</small></td>
+                            <td colspan="11" style="padding:10px 8px;color:#b3a3ad;font-style:italic;">Sin registro de caja este día</td>
                         </tr>`).join('')}
                     </tbody>
+                    <tfoot>
+                        <tr style="background:#B9770E;color:white;font-weight:700;">
+                            <td style="padding:10px 8px;">TOTALES</td>
+                            <td style="padding:10px 8px;" colspan="2">${reales.length} caja${reales.length === 1 ? '' : 's'}</td>
+                            <td style="padding:10px 8px;">$${tot.ini.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${tot.ef.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${tot.tr.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${tot.db.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">$${tot.co.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">-$${tot.ga.toFixed(2)}</td>
+                            <td style="padding:10px 8px;">-$${tot.re.toFixed(2)}</td>
+                            <td style="padding:10px 8px;"></td>
+                            <td style="padding:10px 8px;"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>`;
     } catch (e) {
