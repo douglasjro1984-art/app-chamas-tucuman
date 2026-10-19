@@ -69,7 +69,7 @@ body {
 }
 
 
-/* ⚠️ PROTECCIÓN: Cuando el login se oculta, debe ser totalmente invisible */
+/* PROTECCIÓN: Cuando el login se oculta, debe ser totalmente invisible */
 .login-container[style*="display: none"],
 .login-container[style*="display:none"] {
     display: none !important;
@@ -1265,7 +1265,7 @@ footer p {
    CORRECCIÓN CSS - EDITAR PRECIOS
    ========================================== */
 
-/* 🔥 CORRECCIÓN: Layout mejorado para editor de servicios */
+/* CORRECCIÓN: Layout mejorado para editor de servicios */
 .editor-servicio-card {
     display: grid;
     grid-template-columns: 200px 1fr 180px;
@@ -1367,7 +1367,7 @@ footer p {
     justify-content: flex-start;
 }
 
-/* 🔥 Responsivo para pantallas pequeñas */
+/* Responsivo para pantallas pequeñas */
 @media (max-width: 968px) {
     .editor-servicio-card {
         grid-template-columns: 1fr;

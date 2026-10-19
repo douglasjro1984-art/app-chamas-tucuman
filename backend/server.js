@@ -89,6 +89,32 @@ const NOMBRES_PERMISOS = {'gestion_total':'Gestión Total','gestionar_turnos_tod
 function rolTienePermiso(rol, permiso) { return (PERMISOS[rol] || []).includes(permiso); }
 function puedeGestionarTurno(req, profesionalId) { const r=req.usuario.rol; if(r==='super_admin'||r==='admin'||r==='recepcionista') return true; if(r==='profesional'||r==='especialista') return req.usuario.id===profesionalId; return false; }
 
+// Acumula un cobro según su método de pago. Soporta cobros "mixto" (varios
+// medios de pago en un mismo ticket) usando tickets.metodo_pago_detalle
+// (JSON: {"efectivo":5000,"transferencia":3000}).
+function acumularPagoPorMetodo(acu, metodo, total, detalle) {
+    const monto = parseFloat(total || 0);
+    if (metodo === 'efectivo') acu.efectivo += monto;
+    else if (metodo === 'transferencia') acu.transferencia += monto;
+    else if (metodo === 'debito') acu.debito += monto;
+    else if (metodo === 'mixto') {
+        let d = null;
+        try { d = detalle ? JSON.parse(detalle) : null; } catch (e) { d = null; }
+        if (d && typeof d === 'object') {
+            let repartido = 0;
+            ['efectivo', 'transferencia', 'debito'].forEach(k => {
+                const v = parseFloat(d[k]);
+                if (v > 0) { acu[k] += v; repartido += v; }
+            });
+            // Redondeos o importes sin clasificar van a efectivo (resguardo)
+            if (monto - repartido > 0.009) acu.efectivo += monto - repartido;
+        } else {
+            acu.efectivo += monto; // respaldo si no hay detalle guardado
+        }
+    }
+    // Otros métodos históricos (ej: credito) no se contabilizan, como antes
+}
+
 // Crear tablas auxiliares de caja si no existen (TiDB Cloud) + tablas RBAC
 (async () => {
     try {
@@ -109,6 +135,9 @@ function puedeGestionarTurno(req, profesionalId) { const r=req.usuario.rol; if(r
         const [horariosCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'horarios_config' AND COLUMN_NAME = 'sobreturno_duracion'`);
         const existentesHorarios = new Set(horariosCols.map(c => c.COLUMN_NAME));
         if (!existentesHorarios.has('sobreturno_duracion')) await pool.query(`ALTER TABLE horarios_config ADD COLUMN sobreturno_duracion INT NOT NULL DEFAULT 30`);
+        // Migración para cobros con varios métodos de pago (metodo_pago = 'mixto')
+        const [ticketsCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'tickets' AND COLUMN_NAME = 'metodo_pago_detalle'`);
+        if (!ticketsCols.length) await pool.query(`ALTER TABLE tickets ADD COLUMN metodo_pago_detalle TEXT NULL`);
         // Tabla horarios_dia: configuración por día de la semana
         await pool.query(`CREATE TABLE IF NOT EXISTS horarios_dia (id BIGINT AUTO_INCREMENT PRIMARY KEY, profesional_id BIGINT NOT NULL, dia_semana VARCHAR(15) NOT NULL, activo TINYINT(1) NOT NULL DEFAULT 1, manana_desde TIME NULL DEFAULT '10:00:00', manana_hasta TIME NULL DEFAULT '12:30:00', manana_paso INT NOT NULL DEFAULT 90, tarde_desde TIME NULL DEFAULT '15:00:00', tarde_hasta TIME NULL DEFAULT '19:00:00', tarde_paso INT NOT NULL DEFAULT 90, UNIQUE KEY uq_prof_dia (profesional_id, dia_semana), INDEX idx_horarios_dia_prof (profesional_id)) ENGINE=InnoDB`);
         console.log('🧾 Tablas auxiliares y RBAC verificadas');
@@ -1699,7 +1728,7 @@ app.patch('/api/turnos/:id/revertir-cobro', autenticar, autorizar(['admin']), as
         if (turno[0].estado !== 'cobrado') return res.status(400).json({ success: false, message: 'El turno no está cobrado' });
 
         // Buscar ticket asociado para saber método de pago y monto
-        const [tickets] = await pool.query('SELECT id, total, metodo_pago, caja_id FROM tickets WHERE turno_id = ? ORDER BY id DESC LIMIT 1', [id]);
+        const [tickets] = await pool.query('SELECT id, total, metodo_pago, metodo_pago_detalle, caja_id FROM tickets WHERE turno_id = ? ORDER BY id DESC LIMIT 1', [id]);
 
         await pool.query('UPDATE turnos SET estado = ?, precio = 0 WHERE id = ?', ['pendiente', id]);
 
@@ -1709,10 +1738,32 @@ app.patch('/api/turnos/:id/revertir-cobro', autenticar, autorizar(['admin']), as
             const monto = parseFloat(ticket.total || 0);
             const cajaId = ticket.caja_id;
             const metodo = ticket.metodo_pago || 'efectivo';
-            const colMetodo = { efectivo: 'total_efectivo', transferencia: 'total_transferencia', debito: 'total_debito' }[metodo] || 'total_efectivo';
+            const colPorMetodo = { efectivo: 'total_efectivo', transferencia: 'total_transferencia', debito: 'total_debito' };
+            const colMetodo = colPorMetodo[metodo] || 'total_efectivo';
 
             if (cajaId && monto > 0) {
-                await pool.query(`UPDATE cajas SET ${colMetodo} = GREATEST(${colMetodo} - ?, 0) WHERE id = ?`, [monto, cajaId]);
+                if (metodo === 'mixto') {
+                    // Cobro con varios medios de pago: descontar cada uno de su columna
+                    let d = null;
+                    try { d = ticket.metodo_pago_detalle ? JSON.parse(ticket.metodo_pago_detalle) : null; } catch (e) { d = null; }
+                    if (d && typeof d === 'object') {
+                        let restado = 0;
+                        for (const k of ['efectivo', 'transferencia', 'debito']) {
+                            const importe = Math.round((parseFloat(d[k]) || 0) * 100) / 100;
+                            if (importe > 0 && colPorMetodo[k]) {
+                                await pool.query(`UPDATE cajas SET ${colPorMetodo[k]} = GREATEST(${colPorMetodo[k]} - ?, 0) WHERE id = ?`, [importe, cajaId]);
+                                restado += importe;
+                            }
+                        }
+                        if (monto - restado > 0.009) {
+                            await pool.query(`UPDATE cajas SET total_efectivo = GREATEST(total_efectivo - ?, 0) WHERE id = ?`, [monto - restado, cajaId]);
+                        }
+                    } else {
+                        await pool.query(`UPDATE cajas SET ${colMetodo} = GREATEST(${colMetodo} - ?, 0) WHERE id = ?`, [monto, cajaId]);
+                    }
+                } else {
+                    await pool.query(`UPDATE cajas SET ${colMetodo} = GREATEST(${colMetodo} - ?, 0) WHERE id = ?`, [monto, cajaId]);
+                }
             }
 
             // Eliminar el ticket
@@ -2126,7 +2177,7 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
         );
         const [tickets] = await pool.query(
             `SELECT t.id, t.numero, DATE_FORMAT(t.fecha_emision, '%H:%i') as hora, t.cliente_nombre,
-                    t.profesional_nombre, t.items, t.total, t.metodo_pago
+                    t.profesional_nombre, t.items, t.total, t.metodo_pago, t.metodo_pago_detalle
              FROM tickets t WHERE t.caja_id = ? ORDER BY t.id`, [caja[0].id]
         );
         const [retiros] = await pool.query(
@@ -2277,25 +2328,27 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin','recepcionista']),
              FROM cajas c ORDER BY c.fecha DESC, c.id DESC LIMIT 120`
         );
         // Enriquecer cada caja con el total de sus tickets por método de pago
+        // (se calcula en JS para repartir correctamente los cobros "mixto")
         const IDs = rows.map(r => r.id);
-        let ticks = [];
+        const ticks = {};
         if (IDs.length) {
             const ph = IDs.map(() => '?').join(',');
             const [t] = await pool.query(
-                `SELECT caja_id, COALESCE(SUM(CASE WHEN metodo_pago='efectivo' THEN total ELSE 0 END),0) AS efectivo,
-                        COALESCE(SUM(CASE WHEN metodo_pago='transferencia' THEN total ELSE 0 END),0) AS transferencia,
-                        COALESCE(SUM(CASE WHEN metodo_pago='debito' THEN total ELSE 0 END),0) AS debito
-                 FROM tickets WHERE caja_id IN (${ph}) GROUP BY caja_id`, IDs
+                `SELECT caja_id, total, metodo_pago, metodo_pago_detalle
+                 FROM tickets WHERE caja_id IN (${ph})`, IDs
             );
-            ticks = t;
+            for (const tk of t) {
+                const acu = ticks[tk.caja_id] || (ticks[tk.caja_id] = { efectivo: 0, transferencia: 0, debito: 0 });
+                acumularPagoPorMetodo(acu, tk.metodo_pago, tk.total, tk.metodo_pago_detalle);
+            }
         }
         const resFull = rows.map(r => {
-            const t = ticks.find(x => x.caja_id === r.id) || { efectivo: 0, transferencia: 0, debito: 0 };
+            const t = ticks[r.id] || { efectivo: 0, transferencia: 0, debito: 0 };
             return {
                 ...r,
-                efectivo: parseFloat(t.efectivo || 0),
-                transferencia: parseFloat(t.transferencia || 0),
-                debito: parseFloat(t.debito || 0),
+                efectivo: Math.round(parseFloat(t.efectivo || 0) * 100) / 100,
+                transferencia: Math.round(parseFloat(t.transferencia || 0) * 100) / 100,
+                debito: Math.round(parseFloat(t.debito || 0) * 100) / 100,
                 total_gastos: parseFloat(r.total_gastos || 0),
                 total_retiros: parseFloat(r.total_retiros || 0),
                 total_cobrado: parseFloat(r.total_cobrado || 0)
@@ -2317,7 +2370,7 @@ app.get('/api/caja/historial/:id', autenticar, autorizar(['admin','recepcionista
         if (!caja.length) return res.status(404).json({ error: 'Caja no encontrada' });
         const [tickets] = await pool.query(
             `SELECT t.numero, DATE_FORMAT(t.fecha_emision, '%H:%i') as hora, t.cliente_nombre,
-                    t.profesional_nombre, t.items, t.total, t.metodo_pago, t.cajero_nombre
+                    t.profesional_nombre, t.items, t.total, t.metodo_pago, t.metodo_pago_detalle, t.cajero_nombre
              FROM tickets t WHERE t.caja_id = ? ORDER BY t.numero`, [req.params.id]
         );
         const [gastos] = await pool.query(
@@ -2465,11 +2518,8 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
         }
 
         const [tickets] = await pool.query(
-            `SELECT DATE_FORMAT(fecha_emision, '%Y-%m-%d') as fecha, SUM(total) as total, COUNT(*) as cantidad,
-                    SUM(CASE WHEN metodo_pago='efectivo' THEN total ELSE 0 END) as efectivo,
-                    SUM(CASE WHEN metodo_pago='transferencia' THEN total ELSE 0 END) as transferencia,
-                    SUM(CASE WHEN metodo_pago='debito' THEN total ELSE 0 END) as debito
-             FROM tickets GROUP BY DATE_FORMAT(fecha_emision, '%Y-%m-%d')`
+            `SELECT DATE_FORMAT(fecha_emision, '%Y-%m-%d') as fecha, total, metodo_pago, metodo_pago_detalle
+             FROM tickets`
         );
         const [gastos] = await pool.query(
             `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, tipo, COALESCE(SUM(monto),0) as total FROM gastos GROUP BY DATE_FORMAT(fecha, '%Y-%m-%d'), tipo`
@@ -2482,10 +2532,20 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
         );
 
         const keyFn = (f) => periodo === 'mensual' ? String(f).slice(0, 7) : String(f).slice(0, 10);
+        // Agrupar tickets por período en JS (repartiendo los cobros "mixto")
+        const porPeriodo = {};
+        for (const t of tickets) {
+            const clave = keyFn(t.fecha);
+            const b = porPeriodo[clave] || (porPeriodo[clave] = { efectivo: 0, transferencia: 0, debito: 0, total: 0, cantidad: 0 });
+            b.total += parseFloat(t.total || 0);
+            b.cantidad += 1;
+            acumularPagoPorMetodo(b, t.metodo_pago, t.total, t.metodo_pago_detalle);
+        }
+        const ticketsAgrupados = Object.keys(porPeriodo).map(f => ({ fecha: f, ...porPeriodo[f] }));
         const resultado = [];
         for (const f of fechas) {
             const clave = f;
-            const ticketsDia = tickets.filter(t => keyFn(t.fecha) === clave);
+            const ticketsDia = ticketsAgrupados.filter(t => keyFn(t.fecha) === clave);
             const gastosDia = gastos.filter(g => keyFn(g.fecha) === clave);
             const retirosDia = retiros.filter(r => keyFn(r.fecha) === clave);
             const cierre = cierres.find(c => keyFn(c.fecha) === clave);
@@ -2514,7 +2574,7 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
 // Registra el pago en la caja del dÃ­a si hay una caja abierta.
 app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { id } = req.params;
-    const { monto, metodo_pago, adicionales, descuento_porcentaje } = req.body;
+    const { monto, metodo_pago, adicionales, descuento_porcentaje, pagos } = req.body;
     try {
         const [turno] = await pool.query('SELECT * FROM turnos WHERE id = ?', [id]);
         if (!turno.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
@@ -2527,12 +2587,59 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
 
         const montoFinal = parseFloat(monto);
         if (!montoFinal || montoFinal <= 0) {
-            return res.status(400).json({ success: false, message: 'Monto invÃ¡lido' });
+            return res.status(400).json({ success: false, message: 'Monto inválido' });
         }
-        const metodo = metodo_pago || 'efectivo';
-        if (metodo === 'credito') {
-            return res.status(400).json({ success: false, message: 'Este negocio no acepta tarjetas de crÃ©dito' });
+
+        // Medios de pago: uno solo o varios combinados (ej: efectivo + transferencia).
+        // Se acepta el legado { metodo_pago } o el nuevo { pagos: [{metodo, monto}] }.
+        const METODOS_OK = ['efectivo', 'transferencia', 'debito'];
+        let pagosValidos = [];
+        if (Array.isArray(pagos) && pagos.length) {
+            for (const p of pagos) {
+                const m = String((p && p.metodo) || '').toLowerCase();
+                const importe = Math.round((parseFloat(p && p.monto) || 0) * 100) / 100;
+                if (!METODOS_OK.includes(m)) {
+                    return res.status(400).json({ success: false, message: 'Método de pago inválido' });
+                }
+                if (importe <= 0) {
+                    return res.status(400).json({ success: false, message: 'Cada medio de pago debe tener un monto mayor a cero' });
+                }
+                const ya = pagosValidos.find(x => x.metodo === m);
+                if (ya) ya.monto = Math.round((ya.monto + importe) * 100) / 100;
+                else pagosValidos.push({ metodo: m, monto: importe });
+            }
+            const sumaPagos = Math.round(pagosValidos.reduce((s, p) => s + p.monto, 0) * 100) / 100;
+            if (Math.abs(sumaPagos - montoFinal) > 0.01) {
+                return res.status(400).json({ success: false, message: 'La suma de los medios de pago debe ser igual al total a cobrar' });
+            }
+        } else {
+            const unico = String(metodo_pago || 'efectivo').toLowerCase();
+            if (unico === 'credito') {
+                return res.status(400).json({ success: false, message: 'Este negocio no acepta tarjetas de crédito' });
+            }
+            if (!METODOS_OK.includes(unico)) {
+                return res.status(400).json({ success: false, message: 'Método de pago inválido' });
+            }
+            pagosValidos = [{ metodo: unico, monto: montoFinal }];
         }
+        const metodo = pagosValidos.length === 1 ? pagosValidos[0].metodo : 'mixto';
+        const metodoPagoDetalle = pagosValidos.length > 1
+            ? JSON.stringify(Object.fromEntries(pagosValidos.map(p => [p.metodo, p.monto])))
+            : null;
+
+        // La caja del día debe estar abierta para poder cobrar
+        // (se valida antes de modificar ningún dato)
+        const [cajaAbierta] = await pool.query(
+            "SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
+        );
+        if (!cajaAbierta.length) {
+            return res.status(400).json({
+                success: false,
+                code: 'caja_cerrada',
+                message: 'La caja no está abierta. Abrí la caja del día para poder cobrar.'
+            });
+        }
+        const cajaId = cajaAbierta[0].id;
 
         // Items del turno (multi-servicio). Si no hay, usa el servicio principal.
         const [itemsDb] = await pool.query(
@@ -2578,21 +2685,12 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
         );
         const dato = d[0] || {};
 
-        // Caja abierta del dÃ­a (si existe)
-        const [cajaAbierta] = await pool.query(
-            "SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
-        );
-        let cajaId = null;
-        if (cajaAbierta.length) {
-            cajaId = cajaAbierta[0].id;
-            const colMetodo = {
-                efectivo: 'total_efectivo',
-                transferencia: 'total_transferencia',
-                debito: 'total_debito'
-            }[metodo] || 'total_efectivo';
+        // Sumar cada medio de pago a su columna de la caja
+        for (const p of pagosValidos) {
+            const colMetodo = { efectivo: 'total_efectivo', transferencia: 'total_transferencia', debito: 'total_debito' }[p.metodo];
             await pool.query(
                 `UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ?`,
-                [totalFinal, cajaId]
+                [p.monto, cajaId]
             );
         }
 
@@ -2606,10 +2704,10 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
         const [tick] = await pool.query(
             `INSERT INTO tickets (numero, turno_id, cliente_nombre, cliente_telefono, cliente_email,
                                   profesional_nombre, items, subtotal, descuento, total, metodo_pago,
-                                  cajero_id, cajero_nombre, tipo_comprobante, caja_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ticket', ?)`,
+                                  metodo_pago_detalle, cajero_id, cajero_nombre, tipo_comprobante, caja_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ticket', ?)`,
             [numero, id, dato.cliente_nombre || null, dato.cliente_telefono || null, dato.cliente_email || null,
-             dato.profesional || null, items, subtotal, descuentoMonto, totalFinal, metodo,
+             dato.profesional || null, items, subtotal, descuentoMonto, totalFinal, metodo, metodoPagoDetalle,
              req.usuario.id, req.usuario.nombre || null, cajaId]
         );
 
@@ -2638,7 +2736,8 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
                 subtotal: subtotal,
                 descuento: descuentoMonto,
                 total: totalFinal,
-                metodo_pago: metodo
+                metodo_pago: metodo,
+                pagos: pagosValidos
             }
         });
     } catch (e) {

@@ -6,9 +6,13 @@
     <link rel="icon" href="img/logo-original.webp" type="image/webp">
     <title>CHAMAS - Sistema de Turnos</title>
     
-    <link rel="stylesheet" href="css/styles.css?v=20260938">
-    <link rel="stylesheet" href="css/13-galeria.css">
-    <link rel="stylesheet" href="css/fix-backgrounds.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=20261018">
+    <link rel="stylesheet" href="css/13-galeria.css?v=20261018">
+    <link rel="stylesheet" href="css/fix-backgrounds.css?v=20261018">
+    <link rel="stylesheet" href="css/theme-v2.css?v=20261018c">
     <script>
     // Configuración dinámica de la URL del backend
     window.API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -20,7 +24,7 @@
    
     <!-- PANTALLA DE LOGIN / REGISTRO -->
     <div id="login-screen" class="login-container">
-        <button id="login-close-btn" onclick="ocultarLogin()" style="display:none;position:fixed;top:18px;right:22px;z-index:20001;background:rgba(0,0,0,0.15);color:#333;border:none;border-radius:50%;width:40px;height:40px;font-size:1.5rem;cursor:pointer;">✖</button>
+        <button id="login-close-btn" onclick="ocultarLogin()" class="login-close" style="display:none;">×</button>
         <div class="login-card">
             <img src="img/logo.png" alt="Chamas Logo" class="login-logo">
 
@@ -28,13 +32,13 @@
             <div id="tab-login">
                 <form id="form-login">
                     <div class="form-group">
-                        <label for="login-identificador">📧📞 Email o Teléfono</label>
+                        <label for="login-identificador">Email o Teléfono</label>
                         <input type="text" id="login-identificador" required
-                               placeholder="tu@email.com  ó  3865123456"
+                               placeholder="tu@email.com ó 3865123456"
                                autocomplete="username">
                     </div>
                     <div class="form-group">
-                        <label for="login-password">🔒 Contraseña</label>
+                        <label for="login-password">Contraseña</label>
                         <input type="password" id="login-password" required placeholder="********" autocomplete="current-password">
                     </div>
                     <button type="submit" class="btn-login">Ingresar</button>
@@ -57,119 +61,128 @@
 
         <nav>
             <div class="container nav-wrapper">
-                <div class="nav-links">
-                    <button onclick="showSection('servicios')">📦 Servicios</button>
-                    <button class="caja-only" onclick="showSection('caja')">💵 Caja</button>
-                    <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">📅 Turnos y Reservas</button>
-                    <button class="prof-only" onclick="showSection('mis-turnos-profesional')">👥 Citas clientes</button>
-                    <button class="prof-only horarios-gestion" onclick="showSection('gestionar-horarios')">⏰ Mis Horarios</button>
-                    <button class="admin-only" onclick="showSection('admin')">📊 Administración</button>
-                    <button class="gestor-only" onclick="showSection('cumpleanos')">🎂 Cumpleaños y Cupones</button>
-                </div>
+                <button class="nav-burger" id="nav-burger" type="button"
+                        aria-label="Abrir menú de navegación" aria-expanded="false"
+                        onclick="toggleNavDrawer()">
+                    <span></span><span></span><span></span>
+                </button>
 
-                <div class="user-status-card">
-                    <div class="user-info">
-                        <span class="user-icon">👤</span>
-                        <span id="user-name">Usuario</span>
+                <div class="nav-drawer" id="nav-drawer">
+                    <div class="nav-links">
+                        <button onclick="showSection('servicios')">Servicios</button>
+                        <button class="caja-only" onclick="showSection('caja')">Caja</button>
+                        <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">Turnos y Reservas</button>
+                        <button class="prof-only" onclick="showSection('mis-turnos-profesional')">Citas clientes</button>
+                        <button class="prof-only horarios-gestion" onclick="showSection('gestionar-horarios')">Mis Horarios</button>
+                        <button class="admin-only" onclick="showSection('admin')">Administración</button>
+                        <button class="gestor-only" onclick="showSection('cumpleanos')">Cumpleaños y Cupones</button>
                     </div>
-                    <button onclick="abrirModalCambiarContrasena()" class="btn-logout" style="background:#f8f9fa;color:#555;">🔑 Cambiar</button>
-                    <button onclick="cerrarSesion()" class="btn-logout">Salir</button>
+
+                    <div class="user-status-card">
+                        <div class="user-info">
+                            <span class="user-icon">C</span>
+                            <span id="user-name">Usuario</span>
+                        </div>
+                        <button onclick="abrirModalCambiarContrasena()" class="btn-logout btn-ghost">Cambiar</button>
+                        <button onclick="cerrarSesion()" class="btn-logout">Salir</button>
+                    </div>
                 </div>
             </div>
         </nav>
+        <div class="nav-overlay" id="nav-overlay" onclick="cerrarNavDrawer()"></div>
 
         <main class="container">
             
             <section id="servicios" class="section active">
-                <h2>📦 Nuestros Servicios</h2>
-                <div style="margin-bottom:18px;">
-                    <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini" style="padding:13px 18px;width:auto;">📲 Reservar por WhatsApp</button>
-                    <button onclick="mostrarEditorPrecios()" class="btn-whatsapp-mini admin-only" style="padding:13px 18px;width:auto;background:#C06C84;">💰 Editar precios</button>
+                <h2>Nuestros Servicios</h2>
+                <div class="section-actions">
+                    <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini btn-inline">Reservar por WhatsApp</button>
+                    <button onclick="mostrarEditorPrecios()" class="btn-whatsapp-mini btn-inline admin-only" style="background:var(--grad-brand);">Editar precios</button>
                 </div>
                 <div id="servicios-grid" class="grid"></div>
 
                 <div class="admin-only" id="editar-precios-panel" style="margin-top:30px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px;">
-                        <h2 style="margin:0;">💰 Gestión de Precios (Admin)</h2>
-                        <button onclick="ocultarEditorPrecios()" class="btn-reset">🔼 Ocultar editor</button>
+                        <h2 style="margin:0;">Gestión de Precios (Admin)</h2>
+                        <button onclick="ocultarEditorPrecios()" class="btn-reset">Ocultar editor</button>
                     </div>
                     <div id="lista-precios-editar"></div>
                 </div>
             </section>
 
             <section id="caja" class="section">
-                <h2>💵 Caja</h2>
+                <h2>Caja</h2>
                 <p style="color: #666; margin-bottom: 20px;">Abrí/cerrá la caja, cobrá los turnos del día y emití el ticket.</p>
                 <div id="caja-estado"></div>
                 <div id="caja-turnos-dia"></div>
 
-                <div class="caja-only" style="margin-top: 30px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #25D366;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                            <h3 style="margin:0;color:#1aa851;">📲 Recordatorios WhatsApp (1 día antes del turno)</h3>
-                            <button onclick="cargarRecordatorios()" class="btn-whatsapp-mini" style="padding:10px 16px;width:auto;">🔄 Recargar</button>
+                <div class="caja-only">
+                    <div class="panel panel-green">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Recordatorios WhatsApp (1 día antes del turno)</h3>
+                            <button onclick="cargarRecordatorios()" class="btn-whatsapp-mini btn-inline">Recargar</button>
                         </div>
                         <div id="recordatorios-lista"></div>
                     </div>
                 </div>
 
-                <div class="caja-only" style="margin-top: 30px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #C06C84;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                            <h3 style="margin:0;color:#C06C84;">💸 Retiros de Profesionales (Hoy)</h3>
-                            <button onclick="cargarRetiros()" class="btn-reset">🔄 Actualizar</button>
+                <div class="caja-only">
+                    <div class="panel panel-pink">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Retiros de Profesionales (Hoy)</h3>
+                            <button onclick="cargarRetiros()" class="btn-reset">Actualizar</button>
                         </div>
                         <div id="retiros-lista"></div>
                     </div>
                 </div>
 
-                <div class="admrecep-only" style="margin-top: 30px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #8E44AD;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                            <h3 style="margin:0;color:#6C3483;">🧾 Gastos del Local (fijos y compras)</h3>
-                            <button onclick="abrirModalGasto()" class="btn-guardar" style="padding:10px 16px;width:auto;">➕ Registrar Gasto</button>
+                <div class="admrecep-only">
+                    <div class="panel panel-purple">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Gastos del Local (fijos y compras)</h3>
+                            <button onclick="abrirModalGasto()" class="btn-guardar btn-inline">Registrar Gasto</button>
                         </div>
-                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">Los gastos se descuentan de la caja abierta y quedan registrados en el arqueo y en el reporte de Administración.</p>
+                        <p class="panel-desc">Los gastos se descuentan de la caja abierta y quedan registrados en el arqueo y en el reporte de Administración.</p>
                         <div id="gastos-caja-lista"></div>
                     </div>
                 </div>
             </section>
 
             <section id="mis-turnos-cliente" class="section">
-                <h1>📅 Turnos y Reservas</h1>
+                <h1>Turnos y Reservas</h1>
                 <p style="color: #666; margin-bottom: 20px;">Agendá un nuevo turno o consultá los turnos.</p>
 
                 <div style="margin-bottom:25px;">
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px;">
-                        <button onclick="prepararAgendado()" class="btn-whatsapp-mini" style="padding:12px 18px;width:auto;">➕ Agendar nuevo turno</button>
-                        <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini" style="padding:12px 18px;width:auto;background:#C06C84;">📲 Asistente de reserva por chat</button>
+                    <div class="section-actions" style="margin-bottom:15px;">
+                        <button onclick="prepararAgendado()" class="btn-whatsapp-mini btn-inline">Agendar nuevo turno</button>
+                        <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini btn-inline" style="background:var(--grad-brand);">Asistente de reserva por chat</button>
                     </div>
                     <div id="turnos-cliente-lista"></div>
                 </div>
 
-                <form id="form-turno" class="form-card" style="margin-top:25px;border-top:3px solid #C06C84;">
-                    <h3 style="color:#C06C84;margin-top:0;">➕ Agendar Nuevo Turno</h3>
+                <form id="form-turno" class="form-card">
+                    <h3 style="color:#C06C84;margin-top:0;">Agendar Nuevo Turno</h3>
                     <div class="form-group">
-                        <label for="cliente-nombre">👤 Nombre Completo</label>
+                        <label for="cliente-nombre">Nombre Completo</label>
                         <input type="text" id="cliente-nombre" required placeholder="Ej: Maria Gonzalez" list="datalist-clientes-frecuentes" oninput="autocompletarClienteFrecuente()">
                         <datalist id="datalist-clientes-frecuentes"></datalist>
-                        <small style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">💡 Si el cliente ya vino antes, escribí su nombre y se completan los datos.</small>
+                        <small style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">Si el cliente ya vino antes, escribí su nombre y se completan los datos.</small>
                     </div>
                     <div class="form-group">
-                        <label for="cliente-email">📧 Email</label>
+                        <label for="cliente-email">Email</label>
                         <input type="email" id="cliente-email" placeholder="tu-email@ejemplo.com">
                     </div>
                     <div class="form-group">
-                        <label for="cliente-telefono">📞 Teléfono</label>
+                        <label for="cliente-telefono">Teléfono</label>
                         <input type="tel" id="cliente-telefono" required placeholder="+54 9 11 1234-5678">
                     </div>
                     <div class="form-group">
-                        <label for="cliente-fecha-nacimiento">🎂 Fecha de Cumpleaños (opcional)</label>
+                        <label for="cliente-fecha-nacimiento">Fecha de Cumpleaños (opcional)</label>
                         <input type="date" id="cliente-fecha-nacimiento">
-                        <small style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">🎁 Para felicitarlos y regalarles cupones en su mes de cumpleaños.</small>
+                        <small style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">Para felicitarlos y regalarles cupones en su mes de cumpleaños.</small>
                     </div>
                     <div class="form-group">
-                        <label for="servicio-select">💆 Servicios (podés elegir varios)</label>
+                        <label for="servicio-select">Servicios (podés elegir varios)</label>
                         <select id="servicio-select" multiple style="min-height: 130px;" required>
                             <option value="">Seleccionar servicio(s)...</option>
                         </select>
@@ -178,13 +191,13 @@
                         </small>
                     </div>
                     <div class="form-group">
-                        <label for="profesional-select">👨‍💼 Profesional</label>
+                        <label for="profesional-select">Profesional</label>
                         <select id="profesional-select" disabled>
                             <option value="">Primero selecciona un servicio...</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="turno-fecha">📅 Fecha</label>
+                        <label for="turno-fecha">Fecha</label>
                         <input type="date" id="turno-fecha" required disabled>
                         <small id="info-fechas-disponibles"
                                style="display:block;margin-top:5px;color:#888;font-size:0.85rem;">
@@ -192,134 +205,134 @@
                         </small>
                     </div>
                     <div class="form-group">
-                        <label for="turno-hora">🕐 Hora</label>
+                        <label for="turno-hora">Hora</label>
                         <select id="turno-hora" required>
                             <option value="">Seleccionar hora...</option>
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-primary">✅ Confirmar Turno</button>
+                    <button type="submit" class="btn btn-primary">Confirmar Turno</button>
                 </form>
 
                 <div class="admin-only" style="margin-top: 30px;">
                     <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
-                        <p><strong>⚙️ Gestión de Turnos:</strong> Aquí puedes ver, editar y eliminar TODOS los turnos del sistema.</p>
+                        <p><strong>Gestión de Turnos:</strong> Aquí puedes ver, editar y eliminar TODOS los turnos del sistema.</p>
                     </div>
-                    <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                        <h3>🔍 Filtrar Turnos</h3>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                    <div class="panel panel-pink" style="margin-top:0;">
+                        <h3 class="panel-title">Filtrar Turnos</h3>
+                        <div class="form-grid">
                             <div>
-                                <label for="filtro-profesional">Profesional:</label>
+                                <label for="filtro-profesional" class="field-label">Profesional:</label>
                                 <select id="filtro-profesional" onchange="cargarTodosLosTurnos()">
                                     <option value="">Todos</option>
                                 </select>
                             </div>
                             <div>
-                                <label for="filtro-fecha-desde">Fecha desde:</label>
+                                <label for="filtro-fecha-desde" class="field-label">Fecha desde:</label>
                                 <input type="date" id="filtro-fecha-desde" onchange="cargarTodosLosTurnos()">
                             </div>
                             <div>
-                                <label for="filtro-fecha-hasta">Fecha hasta:</label>
+                                <label for="filtro-fecha-hasta" class="field-label">Fecha hasta:</label>
                                 <input type="date" id="filtro-fecha-hasta" onchange="cargarTodosLosTurnos()">
                             </div>
                             <div style="display: flex; align-items: flex-end;">
-                                <button onclick="limpiarFiltros()" class="btn-reset" style="width: 100%;">🔄 Limpiar</button>
+                                <button onclick="limpiarFiltros()" class="btn-reset" style="width: 100%;">Limpiar</button>
                             </div>
                         </div>
                     </div>
                     <div id="todos-turnos-lista"></div>
                 </div>
 
-                <div class="admrecep-only" style="margin-top:30px;margin-bottom:10px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #8E44AD;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                            <h3 style="margin:0;color:#6C3483;">⏱️ Sobreturnos (huecos entre turnos)</h3>
-                            <button onclick="cargarSobreturnos()" class="btn-whatsapp-mini" style="padding:10px 16px;width:auto;">🔄 Recargar</button>
+                <div class="admrecep-only">
+                    <div class="panel panel-purple">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Sobreturnos (huecos entre turnos)</h3>
+                            <button onclick="cargarSobreturnos()" class="btn-whatsapp-mini btn-inline">Recargar</button>
                         </div>
-                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">💡 Cuando un turno termina antes de tiempo, aparece el hueco hasta el próximo turno del profesional para agregar un cliente con el tiempo restante.</p>
+                        <p class="panel-desc">Cuando un turno termina antes de tiempo, aparece el hueco hasta el próximo turno del profesional para agregar un cliente con el tiempo restante.</p>
                         <div id="sobreturnos-lista"></div>
                     </div>
                 </div>
             </section>
 
             <section id="mis-turnos-profesional" class="section">
-                <h1>👥 Citas de Clientes</h1>
+                <h1>Citas de Clientes</h1>
                 <p style="color: #666; margin-bottom: 20px;">Aquí puedes ver todos los turnos que tus clientes han agendado contigo.</p>
                 <div id="turnos-profesional-lista"></div>
             </section>
 
             <section id="gestionar-horarios" class="section">
-                <h1>⏰ Gestionar Mis Horarios</h1>
+                <h1>Gestionar Mis Horarios</h1>
                 <div id="horarios-lista"></div>
             </section>
 
             <section id="admin" class="section">
-                <h2>📊 Panel de Administración</h2>
+                <h2>Panel de Administración</h2>
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <h3>📅 Turnos Hoy</h3>
+                        <h3>Turnos Hoy</h3>
                         <p class="stat-number" id="stat-turnos-hoy">0</p>
                     </div>
                     <div class="stat-card">
-                        <h3>💰 Ingresos del Mes</h3>
+                        <h3>Ingresos del Mes</h3>
                         <p class="stat-number" id="stat-ingresos">$0</p>
                     </div>
                     <div class="stat-card">
-                        <h3>👥 Clientes Únicos</h3>
+                        <h3>Clientes Únicos</h3>
                         <p class="stat-number" id="stat-clientes">0</p>
                     </div>
                 </div>
 
-                <div style="margin-top:35px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #C06C84;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-                            <h3 style="margin:0;color:#C06C84;">📊 Registro de Cobranzas en Caja</h3>
-                            <div style="display:flex;gap:8px;align-items:center;">
-                                <span style="color:#888;font-size:0.88rem;">Período:</span>
-                                <select id="reporte-periodo" onchange="cargarReporteCaja()" style="padding:9px 12px;border:2px solid #C06C84;border-radius:9px;font-weight:600;color:#C06C84;background:white;">
-                                    <option value="diario">📆 Diario</option>
-                                    <option value="semanal">🗓️ Semanal</option>
-                                    <option value="mensual">📅 Mensual</option>
+                <div>
+                    <div class="panel panel-pink">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Registro de Cobranzas en Caja</h3>
+                            <div class="panel-actions">
+                                <span class="field-label" style="margin:0;">Período:</span>
+                                <select id="reporte-periodo" onchange="cargarReporteCaja()" class="select-accent">
+                                    <option value="diario">Diario</option>
+                                    <option value="semanal">Semanal</option>
+                                    <option value="mensual">Mensual</option>
                                 </select>
-                                <button onclick="cargarReporteCaja()" class="btn-guardar" style="padding:9px 14px;width:auto;">🔄 Actualizar</button>
+                                <button onclick="cargarReporteCaja()" class="btn-guardar btn-inline">Actualizar</button>
                             </div>
                         </div>
-                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">Resumen desplegable de las cobranzas del período: ventas por método de pago, gastos del local y retiros de profesionales.</p>
+                        <p class="panel-desc">Resumen desplegable de las cobranzas del período: ventas por método de pago, gastos del local y retiros de profesionales.</p>
                         <div id="reporte-caja-lista"></div>
                     </div>
                 </div>
 
-                <div style="margin-top:25px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #F39C12;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-                            <h3 style="margin:0;color:#B9770E;">🏦 Aperturas y Cierres de Caja (todos los días)</h3>
-                            <button onclick="cargarHistorialCajas()" class="btn-guardar" style="padding:9px 14px;width:auto;">🔄 Actualizar</button>
+                <div>
+                    <div class="panel panel-orange">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Aperturas y Cierres de Caja (todos los días)</h3>
+                            <button onclick="cargarHistorialCajas()" class="btn-guardar btn-inline">Actualizar</button>
                         </div>
-                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">Cada jornada con su apertura (fondo inicial y cajera), cobros de los turnos, gastos, retiros de profesionales y el arqueo del cierre. Tocá el ojo 👁️ para ver el detalle completo.</p>
+                        <p class="panel-desc">Cada jornada con su apertura (fondo inicial y cajera), cobros de los turnos, gastos, retiros de profesionales y el arqueo del cierre. Tocá el ojo para ver el detalle completo.</p>
                         <div id="historial-cajas"></div>
                     </div>
                 </div>
 
-                <div style="margin-top:25px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #8E44AD;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                            <h3 style="margin:0;color:#6C3483;">🧾 Gastos Fijos y Compras del Local</h3>
-                            <button onclick="abrirModalGasto()" class="btn-guardar" style="padding:10px 16px;width:auto;">➕ Registrar Gasto</button>
+                <div>
+                    <div class="panel panel-purple">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Gastos Fijos y Compras del Local</h3>
+                            <button onclick="abrirModalGasto()" class="btn-guardar btn-inline">Registrar Gasto</button>
                         </div>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:15px;">
+                        <div class="form-grid">
                             <div>
-                                <label for="gastos-filtro-desde" style="font-size:0.9rem;color:#555;">Desde:</label>
-                                <input type="date" id="gastos-filtro-desde" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
+                                <label for="gastos-filtro-desde" class="field-label">Desde:</label>
+                                <input type="date" id="gastos-filtro-desde" onchange="cargarGastosAdmin()">
                             </div>
                             <div>
-                                <label for="gastos-filtro-hasta" style="font-size:0.9rem;color:#555;">Hasta:</label>
-                                <input type="date" id="gastos-filtro-hasta" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
+                                <label for="gastos-filtro-hasta" class="field-label">Hasta:</label>
+                                <input type="date" id="gastos-filtro-hasta" onchange="cargarGastosAdmin()">
                             </div>
                             <div>
-                                <label for="gastos-filtro-tipo" style="font-size:0.9rem;color:#555;">Tipo:</label>
-                                <select id="gastos-filtro-tipo" onchange="cargarGastosAdmin()" style="width:100%;padding:9px;border:2px solid #e0e0e0;border-radius:9px;">
+                                <label for="gastos-filtro-tipo" class="field-label">Tipo:</label>
+                                <select id="gastos-filtro-tipo" onchange="cargarGastosAdmin()">
                                     <option value="">Todos</option>
-                                    <option value="fijo">📌 Fijos</option>
-                                    <option value="compra">🛒 Compras</option>
+                                    <option value="fijo">Fijos</option>
+                                    <option value="compra">Compras</option>
                                 </select>
                             </div>
                         </div>
@@ -329,49 +342,49 @@
 
                 <div style="margin-top:25px;">
                     <div class="info-card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 20px;">
-                        <p><strong>👤 Registro de Personal:</strong> Asegúrate de asignar servicios válidos. Podés editar o eliminar profesionales desde la lista de abajo.</p>
+                        <p><strong>Registro de Personal:</strong> Asegúrate de asignar servicios válidos. Podés editar o eliminar profesionales desde la lista de abajo.</p>
                     </div>
                     <form id="form-registro-profesional" class="form-card">
                     <div class="form-group">
-                        <label for="prof-nombre">👤 Nombre Completo</label>
+                        <label for="prof-nombre">Nombre Completo</label>
                         <input type="text" id="prof-nombre" required placeholder="Ej: Laura García">
                     </div>
                     <div class="form-group">
-                        <label for="prof-email">📧 Email</label>
+                        <label for="prof-email">Email</label>
                         <input type="email" id="prof-email" required placeholder="ejemplo@chamas.com">
                     </div>
                     <div class="form-group">
-                        <label for="prof-telefono">📞 Teléfono</label>
+                        <label for="prof-telefono">Teléfono</label>
                         <input type="tel" id="prof-telefono" required placeholder="+54 9 11 1234-5678">
                     </div>
                     <div class="form-group">
-                        <label for="prof-rol">🎭 Tipo de Usuario</label>
+                        <label for="prof-rol">Tipo de Usuario</label>
                         <select id="prof-rol" onchange="toggleRolUsuario()">
-                            <option value="profesional">👩‍💼 Profesional</option>
-                            <option value="recepcionista">💵 Recepcionista</option>
+                            <option value="profesional">Profesional</option>
+                            <option value="recepcionista">Recepcionista</option>
                         </select>
                     </div>
                     <div class="form-group" id="prof-password-grupo" style="display:none;">
-                        <label for="prof-password-recepcionista">🔒 Contraseña de acceso</label>
+                        <label for="prof-password-recepcionista">Contraseña de acceso</label>
                         <input type="password" id="prof-password-recepcionista" placeholder="Mínimo 6 caracteres" minlength="6">
                     </div>
                     <div class="form-group" id="prof-servicios-grupo">
-                        <label for="prof-servicios">💆 Servicios Asignados (opcional — Ctrl/Cmd para seleccionar varios)</label>
+                        <label for="prof-servicios">Servicios Asignados (opcional — Ctrl/Cmd para seleccionar varios)</label>
                         <select id="prof-servicios" multiple style="min-height: 150px;">
                             <!-- Se llena dinámicamente desde JS -->
                         </select>
                         <small style="color: #888; display: block; margin-top: 5px;">
-                            💡 Mantén Ctrl (Windows) o Cmd (Mac) para seleccionar varios servicios
+                            Mantén Ctrl (Windows) o Cmd (Mac) para seleccionar varios servicios
                         </small>
                     </div>
                     <div class="form-group" id="prof-porcentaje-grupo">
-                        <label for="prof-porcentaje">💸 Porcentaje de retiro de la profesional (%)</label>
+                        <label for="prof-porcentaje">Porcentaje de retiro de la profesional (%)</label>
                         <input type="number" id="prof-porcentaje" value="70" min="0" max="100" step="1">
                         <small style="color: #888; display: block; margin-top: 5px;">
-                            💡 Lo que retira la profesional de lo cobrado por sus servicios (ej: 70%). El resto queda en la estética.
+                            Lo que retira la profesional de lo cobrado por sus servicios (ej: 70%). El resto queda en la estética.
                         </small>
                     </div>
-                    <button type="submit" class="btn-guardar">✅ Registrar</button>
+                    <button type="submit" class="btn-guardar">Registrar</button>
                 </form>
 
                 <!-- Lista de profesionales registradas -->
@@ -380,61 +393,61 @@
             </div>
 
             <div style="margin-top:35px;">
-                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #8E44AD;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-                        <h3 style="margin:0;color:#8E44AD;">📊 Registro Mensual de Clientes Habituales</h3>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <label for="habituales-mes" style="color:#888;font-size:0.9rem;">Mes:</label>
-                            <input type="month" id="habituales-mes" style="padding:9px 12px;border:2px solid #8E44AD;border-radius:9px;font-weight:600;color:#8E44AD;">
-                            <button onclick="cargarClientesHabituales()" class="btn-guardar" style="padding:9px 14px;width:auto;">🔄 Ver ranking</button>
+                <div class="panel panel-purple" style="margin-top:0;">
+                    <div class="panel-head">
+                        <h3 class="panel-title">Registro Mensual de Clientes Habituales</h3>
+                        <div class="panel-actions">
+                            <label for="habituales-mes" class="field-label" style="margin:0;">Mes:</label>
+                            <input type="month" id="habituales-mes" class="input-clean" style="width:auto;">
+                            <button onclick="cargarClientesHabituales()" class="btn-guardar btn-inline">Ver ranking</button>
                         </div>
                     </div>
-                    <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">Clientes del mes ordenados por cantidad de visitas. Los más habituales aparecen destacados arriba.</p>
+                    <p class="panel-desc">Clientes del mes ordenados por cantidad de visitas. Los más habituales aparecen destacados arriba.</p>
                     <div id="habituales-lista"><p style="color:#aaa;">Seleccioná el mes y pulsá "Ver ranking".</p></div>
                 </div>
             </div>
             </section>
 
             <section id="cumpleanos" class="section">
-                <h2 style="margin-bottom:10px;">🎂 Cumpleaños y Cupones</h2>
+                <h2>Cumpleaños y Cupones</h2>
 
-                <div class="gestor-only" style="margin-top: 10px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #E91E63;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                            <h3 style="margin:0;color:#C2185B;">🎂 Cumpleaños de este mes</h3>
-                            <button onclick="cargarCumpleanos()" class="btn-whatsapp-mini" style="padding:10px 16px;width:auto;">🔄 Recargar</button>
+                <div class="gestor-only">
+                    <div class="panel panel-rose" style="margin-top:10px;">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Cumpleaños de este mes</h3>
+                            <button onclick="cargarCumpleanos()" class="btn-whatsapp-mini btn-inline">Recargar</button>
                         </div>
-                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">👩‍💼 La recepcionista felicita al cliente por WhatsApp. Los cumpleañeros de hoy aparecen primero.</p>
+                        <p class="panel-desc">La recepcionista felicita al cliente por WhatsApp. Los cumpleañeros de hoy aparecen primero.</p>
                         <div id="cumpleanos-lista"></div>
                     </div>
                 </div>
 
-                <div class="admin-only" style="margin-top: 25px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #FF9800;">
-                        <h3 style="margin:0 0 12px;color:#e65100;">🎁 Autorizar Cupón de Servicio Gratis (Admin)</h3>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;">
+                <div class="admin-only">
+                    <div class="panel panel-orange">
+                        <h3 class="panel-title" style="margin-bottom:14px;">Autorizar Cupón de Servicio Gratis (Admin)</h3>
+                        <div class="form-grid">
                             <div>
-                                <label for="cupon-cliente-select" style="font-size:0.9rem;color:#555;">Cliente (cumpleañero)</label>
-                                <select id="cupon-cliente-select" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:9px;"></select>
+                                <label for="cupon-cliente-select" class="field-label">Cliente (cumpleañero)</label>
+                                <select id="cupon-cliente-select"></select>
                             </div>
                             <div>
-                                <label for="cupon-servicio-select" style="font-size:0.9rem;color:#555;">Servicio a regalar</label>
-                                <select id="cupon-servicio-select" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:9px;"></select>
+                                <label for="cupon-servicio-select" class="field-label">Servicio a regalar</label>
+                                <select id="cupon-servicio-select"></select>
                             </div>
                             <div style="display:flex;align-items:flex-end;">
-                                <button onclick="autorizarCupon()" style="width:100%;background:#FF9800;color:white;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">🎁 Autorizar Cupón</button>
+                                <button onclick="autorizarCupon()" class="btn-modal" style="background:linear-gradient(135deg,#F5B041,#D68910);margin-top:0;">Autorizar Cupón</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="admrecep-only" style="margin-top: 25px;">
-                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #9C27B0;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                            <h3 style="margin:0;color:#6A1B9A;">🎁 Cupones de Servicio</h3>
-                            <button onclick="cargarCupones()" class="btn-reset">🔄 Actualizar</button>
+                <div class="admrecep-only">
+                    <div class="panel panel-magenta">
+                        <div class="panel-head">
+                            <h3 class="panel-title">Cupones de Servicio</h3>
+                            <button onclick="cargarCupones()" class="btn-reset">Actualizar</button>
                         </div>
-                        <p style="color:#888;margin:0 0 12px;font-size:0.9rem;">👩‍💼 La recepcionista envía el cupón autorizado por WhatsApp y lo marca como enviado.</p>
+                        <p class="panel-desc">La recepcionista envía el cupón autorizado por WhatsApp y lo marca como enviado.</p>
                         <div id="cupones-lista"></div>
                     </div>
                 </div>
@@ -456,38 +469,38 @@
         <div class="modal-overlay" onclick="cerrarModalEditar()"></div>
         <div class="modal-contenido">
             <div class="modal-header">
-                <h2>✏️ Editar Turno</h2>
-                <button onclick="cerrarModalEditar()" class="modal-cerrar">✖</button>
+                <h2>Editar Turno</h2>
+                <button onclick="cerrarModalEditar()" class="modal-cerrar">×</button>
             </div>
             <div class="modal-body">
                 <form id="form-editar-turno">
                     <input type="hidden" id="edit-turno-id">
                     <div class="form-group">
-                        <label for="edit-cliente-nombre">👤 Cliente</label>
+                        <label for="edit-cliente-nombre">Cliente</label>
                         <input type="text" id="edit-cliente-nombre" readonly style="background: #f0f0f0;">
                     </div>
                     <div class="form-group">
-                        <label for="edit-servicio-select">💆 Servicio</label>
+                        <label for="edit-servicio-select">Servicio</label>
                         <select id="edit-servicio-select" required></select>
                     </div>
                     <div class="form-group">
-                        <label for="edit-profesional-select">👨‍💼 Profesional</label>
+                        <label for="edit-profesional-select">Profesional</label>
                         <select id="edit-profesional-select" required></select>
                     </div>
                     <div class="form-group">
-                        <label for="edit-turno-fecha">📅 Fecha</label>
+                        <label for="edit-turno-fecha">Fecha</label>
                         <input type="date" id="edit-turno-fecha" required>
                     </div>
                     <div class="form-group">
-                        <label for="edit-turno-hora">🕐 Hora</label>
+                        <label for="edit-turno-hora">Hora</label>
                         <select id="edit-turno-hora" required>
                             <option value="">Seleccionar hora...</option>
                         </select>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="button" onclick="cerrarModalEditar()" class="btn-reset" style="flex: 1;">❌ Cancelar</button>
-                        <button type="button" id="btn-borrar-cobro" onclick="borrarCobroTurno()" style="display:none;background:#dc3545;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;flex:1;">💰 Borrar Cobro</button>
-                        <button type="submit" class="btn-guardar" style="flex: 1;">💾 Guardar Cambios</button>
+                        <button type="button" onclick="cerrarModalEditar()" class="btn-reset" style="flex: 1;">Cancelar</button>
+                        <button type="button" id="btn-borrar-cobro" onclick="borrarCobroTurno()" style="display:none;background:#dc3545;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;flex:1;">Borrar Cobro</button>
+                        <button type="submit" class="btn-guardar" style="flex: 1;">Guardar Cambios</button>
                     </div>
                 </form>
             </div>
@@ -495,58 +508,84 @@
     </div>
 
     <!-- MODAL RECUPERAR CONTRASEÑA -->
-    <div id="modal-recuperar" style="display:flex;position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);visibility:hidden;">
-        <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);position:relative;">
-            <button onclick="cerrarModalRecuperar()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">✖</button>
+    <div id="modal-recuperar" style="display:flex;position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;align-items:center;justify-content:center;background:rgba(46,21,32,0.62);visibility:hidden;">
+        <div class="modal-box">
+            <button onclick="cerrarModalRecuperar()" class="modal-close-x">×</button>
 
             <!-- PASO 1: email/teléfono -->
             <div id="recuperar-paso1">
-                <h3 style="color:#C06C84;margin:0 0 10px;">🔐 Recuperar contraseña</h3>
-                <p style="color:#888;font-size:0.88rem;margin:0 0 16px;">Ingresá tu email o teléfono. Te enviaremos un código por WhatsApp.</p>
-                <input type="text" id="recuperar-identificador" placeholder="tu@email.com o 3865123456"
-                       style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
-                <p id="recuperar-msg1" style="color:#dc3545;font-size:0.85rem;margin:8px 0 0;display:none;"></p>
-                <button onclick="solicitarCodigo()" id="recuperar-btn-enviar" style="width:100%;margin-top:14px;padding:12px;background:#C06C84;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">📲 Enviar código</button>
+                <h3>Recuperar contraseña</h3>
+                <p>Ingresá tu email o teléfono. Te enviaremos un código por WhatsApp.</p>
+                <input type="text" id="recuperar-identificador" class="field" placeholder="tu@email.com o 3865123456">
+                <p id="recuperar-msg1" class="modal-msg"></p>
+                <button onclick="solicitarCodigo()" id="recuperar-btn-enviar" class="btn-modal">Enviar código</button>
             </div>
 
             <!-- PASO 2: código + nueva contraseña -->
             <div id="recuperar-paso2" style="display:none;">
-                <h3 style="color:#C06C84;margin:0 0 10px;">📥 Ingresá el código</h3>
-                <p id="recuperar-paso2-info" style="color:#888;font-size:0.88rem;margin:0 0 16px;">Código enviado por WhatsApp.</p>
-                <input type="text" id="recuperar-codigo" placeholder="Código de 6 dígitos" maxlength="6" inputmode="numeric"
-                       style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;text-align:center;letter-spacing:4px;font-weight:700;">
-                <input type="password" id="recuperar-nueva-password" placeholder="Nueva contraseña (mín. 6 caracteres)" minlength="6"
-                       style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-top:10px;">
-                <input type="password" id="recuperar-nueva-password2" placeholder="Repetir nueva contraseña" minlength="6"
-                       style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-top:8px;">
-                <p id="recuperar-msg2" style="color:#dc3545;font-size:0.85rem;margin:8px 0 0;display:none;"></p>
-                <button onclick="confirmarCodigo()" id="recuperar-btn-confirmar" style="width:100%;margin-top:14px;padding:12px;background:#28a745;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Cambiar contraseña</button>
-                <p style="text-align:center;margin-top:12px;font-size:0.83rem;"><a href="#" onclick="volverAPaso1Recuperar(); return false;" style="color:#C06C84;font-weight:600;">← Enviar código otra vez</a></p>
+                <h3>Ingresá el código</h3>
+                <p id="recuperar-paso2-info">Código enviado por WhatsApp.</p>
+                <input type="text" id="recuperar-codigo" class="field field-code" placeholder="000000" maxlength="6" inputmode="numeric">
+                <input type="password" id="recuperar-nueva-password" class="field" placeholder="Nueva contraseña (mín. 6 caracteres)" minlength="6">
+                <input type="password" id="recuperar-nueva-password2" class="field" placeholder="Repetir nueva contraseña" minlength="6">
+                <p id="recuperar-msg2" class="modal-msg"></p>
+                <button onclick="confirmarCodigo()" id="recuperar-btn-confirmar" class="btn-modal btn-success">Cambiar contraseña</button>
+                <p class="modal-link"><a href="#" onclick="volverAPaso1Recuperar(); return false;">← Enviar código otra vez</a></p>
             </div>
         </div>
     </div>
 
     <!-- MODAL CAMBIAR CONTRASEÑA (dentro de la app) -->
-    <div id="modal-cambiar-contrasena" style="display:flex;position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);visibility:hidden;">
-        <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);position:relative;">
-            <button onclick="cerrarModalCambiarContrasena()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">✖</button>
-            <h3 style="color:#C06C84;margin:0 0 16px;">🔑 Cambiar mi contraseña</h3>
-            <input type="password" id="cc-password-actual" placeholder="Contraseña actual"
-                   style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-bottom:10px;">
-            <input type="password" id="cc-password-nueva" placeholder="Nueva contraseña (mín. 6)" minlength="6"
-                   style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-bottom:10px;">
-            <input type="password" id="cc-password-nueva2" placeholder="Repetir nueva contraseña" minlength="6"
-                   style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;margin-bottom:6px;">
-            <p id="cc-msg" style="color:#dc3545;font-size:0.85rem;margin:0 0 10px;display:none;"></p>
-            <button onclick="confirmarCambioContrasena()" style="width:100%;padding:12px;background:#28a745;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Guardar nueva contraseña</button>
+    <div id="modal-cambiar-contrasena" style="display:flex;position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;align-items:center;justify-content:center;background:rgba(46,21,32,0.62);visibility:hidden;">
+        <div class="modal-box">
+            <button onclick="cerrarModalCambiarContrasena()" class="modal-close-x">×</button>
+            <h3>Cambiar mi contraseña</h3>
+            <input type="password" id="cc-password-actual" class="field" placeholder="Contraseña actual">
+            <input type="password" id="cc-password-nueva" class="field" placeholder="Nueva contraseña (mín. 6)" minlength="6">
+            <input type="password" id="cc-password-nueva2" class="field" placeholder="Repetir nueva contraseña" minlength="6">
+            <p id="cc-msg" class="modal-msg"></p>
+            <button onclick="confirmarCambioContrasena()" class="btn-modal btn-success">Guardar nueva contraseña</button>
         </div>
     </div>
 
-<script src="js/apiAuth.js?v=20260938"></script>
-<script src="js/api.js?v=20260938"></script>
-<script src="js/auth.js?v=20260938"></script>
-<script src="js/app.js?v=20260938"></script>
-<script src="js/roles-funciones.js?v=20260938"></script>
-<script src="js/horarios-adminc.js?v=20260938"></script>
+<script src="js/apiAuth.js?v=20261018"></script>
+<script src="js/api.js?v=20261018"></script>
+<script src="js/auth.js?v=20261018"></script>
+<script src="js/app.js?v=20261018"></script>
+<script src="js/roles-funciones.js?v=20261018"></script>
+<script src="js/horarios-adminc.js?v=20261018"></script>
+<script>
+/* ============================================================
+   REALCE VISUAL DEL MENÚ + MENÚ LATERAL (móvil)
+   - Marca el botón de la sección activa con estilo degradado.
+   - Al cambiar de sección vuelve suavemente arriba.
+   - En pantallas chicas el nav se despliega como cajón lateral
+     con botón hamburguesa (ver theme-v2.css "NAV DRAWER").
+   ============================================================ */
+function toggleNavDrawer() {
+    const abierta = document.body.classList.toggle('nav-abierta');
+    const burger = document.getElementById('nav-burger');
+    if (burger) burger.setAttribute('aria-expanded', String(abierta));
+}
+function cerrarNavDrawer() {
+    if (!document.body.classList.contains('nav-abierta')) return;
+    document.body.classList.remove('nav-abierta');
+    const burger = document.getElementById('nav-burger');
+    if (burger) burger.setAttribute('aria-expanded', 'false');
+}
+
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.nav-links button');
+    if (!btn) return;
+    document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cerrarNavDrawer(); // al elegir una sección, el cajón se cierra solo
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') cerrarNavDrawer();
+});
+</script>
 </body>
 </html>

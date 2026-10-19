@@ -36,10 +36,10 @@ async function cargarGestionHorarios() {
 async function _renderSelectorProfesional(container) {
     container.innerHTML = `
         <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:14px 18px;border-radius:8px;margin-bottom:20px;">
-            <p style="margin:0;font-weight:600;color:#856404;">⚙️ Panel de Administración — Elegí un profesional para editar sus horarios.</p>
+            <p style="margin:0;font-weight:600;color:#856404;">Panel de Administración — Elegí un profesional para editar sus horarios.</p>
         </div>
         <div style="background:white;padding:16px 20px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-            <label style="font-weight:600;color:#555;display:block;margin-bottom:8px;">👨‍💼 Seleccionar Profesional:</label>
+            <label style="font-weight:600;color:#555;display:block;margin-bottom:8px;">Seleccionar Profesional:</label>
             <select id="select-profesional-horario" style="width:100%;padding:10px 14px;border:2px solid #C06C84;border-radius:8px;font-size:1rem;" onchange="onCambiarProfesionalHorario()">
                 <option value="">— Cargando profesionales... —</option>
             </select>
@@ -84,10 +84,10 @@ async function _initCalendario(container, profesionalId, nombre) {
     container.innerHTML = `
         <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
             <div id="horarios-dia-detalle" style="flex:1;min-width:300px;background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.08);min-height:400px;">
-                <p style="text-align:center;color:#999;padding:40px 0;">📅 Elegí un día en el calendario para configurar sus horarios</p>
+                <p style="text-align:center;color:#999;padding:40px 0;">Elegí un día en el calendario para configurar sus horarios</p>
             </div>
             <div id="horarios-calendario-panel" style="flex:1;min-width:320px;background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-                <p style="text-align:center;color:#C06C84;padding:10px;">⏳ Cargando calendario...</p>
+                <p style="text-align:center;color:#C06C84;padding:10px;">Cargando calendario...</p>
             </div>
         </div>
     `;
@@ -139,9 +139,9 @@ function _renderCalendario() {
 
     let html = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <button onclick="_calendarioNavegar(-1)" style="background:none;border:2px solid #C06C84;color:#C06C84;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;">◀</button>
+            <button onclick="_calendarioNavegar(-1)" style="background:none;border:2px solid #C06C84;color:#C06C84;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;">‹</button>
             <h3 style="color:#C06C84;margin:0;">${MESES[mes]} ${anio}</h3>
-            <button onclick="_calendarioNavegar(1)" style="background:none;border:2px solid #C06C84;color:#C06C84;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;">▶</button>
+            <button onclick="_calendarioNavegar(1)" style="background:none;border:2px solid #C06C84;color:#C06C84;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;">›</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;margin-bottom:8px;">
             ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d => '<div style="font-weight:700;color:#C06C84;font-size:0.8rem;padding:6px 0;">' + d + '</div>').join('')}
@@ -191,7 +191,7 @@ function _renderCalendario() {
             <span style="font-size:0.75rem;display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:#f0f0f0;border:1px solid #aaa;border-radius:3px;display:inline-block;"></span> Domingo</span>
         </div>
         <div style="margin-top:16px;text-align:center;">
-            <button onclick="_guardarTodosLosDias()" class="btn-guardar" style="padding:12px 30px;font-size:1rem;">💾 GUARDAR TODOS LOS CAMBIOS</button>
+            <button onclick="_guardarTodosLosDias()" class="btn-guardar" style="padding:12px 30px;font-size:1rem;">GUARDAR TODOS LOS CAMBIOS</button>
         </div>
     `;
 
@@ -228,20 +228,20 @@ function _renderDetalleDia(dia, nombreDia, fecha) {
 
     panel.innerHTML = `
         <div style="border-bottom:2px solid #C06C84;padding-bottom:12px;margin-bottom:16px;">
-            <h3 style="color:#C06C84;margin:0;">📅 ${nombreDia} ${dia} de ${MESES[_horariosCalendario.mes]}</h3>
+            <h3 style="color:#C06C84;margin:0;">${nombreDia} ${dia} de ${MESES[_horariosCalendario.mes]}</h3>
             <p style="color:#888;font-size:0.85rem;margin:4px 0 0;">Configurá los horarios para este día</p>
         </div>
 
         <div style="margin-bottom:16px;">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
                 <input type="checkbox" id="dia-activo" ${config.activo ? 'checked' : ''} onchange="_toggleDiaActivo()" style="width:20px;height:20px;accent-color:#4CAF50;">
-                <span style="font-weight:700;color:#333;font-size:1rem;">${config.activo ? '🟢 Día Activo' : '🔴 Día Inactivo'}</span>
+                <span style="font-weight:700;color:#333;font-size:1rem;">${config.activo ? 'Día Activo' : 'Día Inactivo'}</span>
             </label>
         </div>
 
         <div id="dia-config-content" style="${config.activo ? '' : 'opacity:0.4;pointer-events:none;'}">
             <div style="background:#e8f5e9;border-radius:10px;padding:16px;margin-bottom:14px;">
-                <h4 style="color:#2e7d32;margin:0 0 12px;">☀️ Mañana</h4>
+                <h4 style="color:#2e7d32;margin:0 0 12px;">Mañana</h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
                     <div>
                         <label style="font-size:0.8rem;color:#555;display:block;margin-bottom:4px;">Desde</label>
@@ -265,7 +265,7 @@ function _renderDetalleDia(dia, nombreDia, fecha) {
             </div>
 
             <div style="background:#fff3e0;border-radius:10px;padding:16px;margin-bottom:14px;">
-                <h4 style="color:#e65100;margin:0 0 12px;">🌙 Tarde</h4>
+                <h4 style="color:#e65100;margin:0 0 12px;">Tarde</h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
                     <div>
                         <label style="font-size:0.8rem;color:#555;display:block;margin-bottom:4px;">Desde</label>
@@ -290,7 +290,7 @@ function _renderDetalleDia(dia, nombreDia, fecha) {
 
             <div style="background:#e3f2fd;border-radius:10px;padding:12px;margin-bottom:14px;">
                 <p style="margin:0;font-size:0.85rem;color:#1565c0;">
-                    💡 <strong>Sobreturnos:</strong> Se activan automáticamente cuando un servicio termina dentro del tiempo estipulado y hay un hueco disponible.
+                    <strong>Sobreturnos:</strong> Se activan automáticamente cuando un servicio termina dentro del tiempo estipulado y hay un hueco disponible.
                     Intervalo del servicio: <strong id="dia-intervalo-display">${config.manana_paso}</strong> min
                 </p>
             </div>
@@ -308,7 +308,7 @@ function _toggleDiaActivo() {
     content.style.opacity = cb.checked ? '1' : '0.4';
     content.style.pointerEvents = cb.checked ? 'auto' : 'none';
     const label = cb.nextElementSibling;
-    if (label) label.textContent = cb.checked ? '🟢 Día Activo' : '🔴 Día Inactivo';
+    if (label) label.textContent = cb.checked ? 'Día Activo' : 'Día Inactivo';
 }
 
 function _onCambioDetalle() {
@@ -392,7 +392,7 @@ async function _guardarTodosLosDias() {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Horarios por día guardados correctamente');
+            mostrarNotificacion('Horarios por día guardados correctamente');
             // Regenerar slots en disponibilidad_fechas
             await _generarDisponibilidadDesdeDias();
             _renderCalendario();

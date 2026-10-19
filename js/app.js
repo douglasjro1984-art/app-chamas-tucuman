@@ -60,7 +60,7 @@ function esc(str) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    debugLog("🚀 Aplicación iniciada conectando a:", URL_BASE);
+    debugLog("Aplicación iniciada conectando a:", URL_BASE);
     const usuario = obtenerUsuarioActual();
     
     if (usuario) {
@@ -93,14 +93,14 @@ function obtenerUsuarioActual() {
 // --- CARGAR SERVICIOS DESDE EL BACKEND (CORREGIDO) ---
 async function cargarDatosDesdeAPI() {
     try {
-        debugLog("📡 Intentando cargar servicios desde:", `${URL_BASE}/servicios`);
+        debugLog("Intentando cargar servicios desde:", `${URL_BASE}/servicios`);
         const res = await fetch(`${URL_BASE}/servicios`);
         const data = await res.json();
 
         // Si data es un array directo lo usamos, si viene en .data también
         servicios = Array.isArray(data) ? data : (data.data || []);
 
-        debugLog("✅ Servicios cargados:", servicios.length);
+        debugLog("Servicios cargados:", servicios.length);
 
         renderizarServicios();
         
@@ -111,11 +111,11 @@ async function cargarDatosDesdeAPI() {
         if (selectServicio) {
             llenarSelectServicios(selectServicio);
         } else {
-            console.warn("⚠️ No se encontró el elemento 'servicio-select' en el HTML");
+            console.warn("No se encontró el elemento 'servicio-select' en el HTML");
         }
     
     } catch (error) {
-        console.error("❌ Error al cargar servicios:", error);
+        console.error("Error al cargar servicios:", error);
     }
 }
 
@@ -133,7 +133,7 @@ function llenarSelectServicios(select) {
             select.appendChild(option);
         }
     });
-    debugLog("🎯 Desplegable de servicios actualizado con éxito");
+    debugLog("Desplegable de servicios actualizado con éxito");
 }
 
 // --- REGISTRO DE PROFESIONALES / CAJA (ADMIN) ---
@@ -168,15 +168,15 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
         
         const data = await response.json();
         if (data.success) {
-            alert(`✅ ${rol === 'recepcionista' ? 'Usuario de caja' : 'Profesional'} registrado con éxito`);
+            alert(`${rol === 'recepcionista' ? 'Usuario de caja' : 'Profesional'} registrado con éxito`);
             e.target.reset();
             if (typeof llenarSelectServiciosRegistro === 'function') llenarSelectServiciosRegistro();
             else cargarListaProfesionalesAdmin();
         } else {
-            alert('❌ ' + (data.message || 'Error al registrar'));
+            alert((data.message || 'Error al registrar'));
         }
     } catch (error) {
-        alert('❌ Error de conexión con el servidor');
+        alert('Error de conexión con el servidor');
     } finally {
         btn.disabled = false;
         btn.textContent = 'Registrar';
@@ -212,7 +212,7 @@ function renderizarServicios() {
                     <p class="servicio-precio">$${s.precio.toLocaleString()}</p>
                 </div>
                 ${puedeAgendar ? `<div class="servicio-accion"><button class="btn-agendar-mini" onclick="prepararAgendado(${s.id})">AGENDAR</button></div>` : ''}
-                <div class="servicio-whatsapp"><button class="btn-whatsapp-mini" onclick="reservarPorWhatsApp(${s.id})">📲 WhatsApp</button></div>
+                <div class="servicio-whatsapp"><button class="btn-whatsapp-mini" onclick="reservarPorWhatsApp(${s.id})">WhatsApp</button></div>
             </div>
         </div>
     `).join('');
@@ -238,7 +238,7 @@ async function cargarEditorPrecios() {
         }
     } catch(e) {}
 
-    const activos  = todosLosServicios.filter(s => s.activo);
+    const activos = todosLosServicios.filter(s => s.activo);
     const pausados = todosLosServicios.filter(s => !s.activo);
 
     const renderServicio = (s) => `
@@ -254,31 +254,31 @@ async function cargarEditorPrecios() {
                          style="width:148px;height:115px;object-fit:cover;border-radius:10px;border:3px solid ${s.activo?'#e8d0da':'#ffcc80'};transition:opacity 0.2s;"
                          onmouseover="this.style.opacity=0.7" onmouseout="this.style.opacity=1"
                          onerror="this.style.display='none';document.getElementById('prev-icon-${s.id}').style.display='flex';">
-                    <div id="prev-icon-${s.id}" style="width:148px;height:115px;border-radius:10px;background:linear-gradient(135deg,#f9e4ee,#C06C84);display:none;align-items:center;justify-content:center;font-size:2.5rem;">💆</div>
-                    <div style="position:absolute;bottom:5px;right:5px;background:rgba(0,0,0,0.55);color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">✏️</div>
-                    ${!s.activo ? '<div style="position:absolute;top:5px;left:5px;background:#ff9800;color:white;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;">⏸ PAUSADO</div>' : ''}
+                    <div id="prev-icon-${s.id}" style="width:148px;height:115px;border-radius:10px;background:linear-gradient(135deg,#f9e4ee,#C06C84);display:none;align-items:center;justify-content:center;font-size:2.5rem;"></div>
+                    <div style="position:absolute;bottom:5px;right:5px;background:rgba(0,0,0,0.55);color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;"></div>
+                    ${!s.activo ? '<div style="position:absolute;top:5px;left:5px;background:#ff9800;color:white;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;">PAUSADO</div>' : ''}
                 </div>
                 <small style="color:${s.activo?'#C06C84':'#ff9800'};font-weight:600;font-size:0.78rem;">Click para cambiar</small>
             </div>
             <!-- Campos -->
             <div style="display:flex;flex-direction:column;gap:9px;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
-                    <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">📝 Nombre</label>
+                    <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">Nombre</label>
                         <input type="text" id="edit-nombre-${s.id}" value="${s.nombre.replace(/"/g,'&quot;')}"
                                style="width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.88rem;box-sizing:border-box;"></div>
-                    <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">💰 Precio ($)</label>
+                    <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">Precio ($)</label>
                         <input type="number" id="edit-precio-${s.id}" value="${s.precio}" step="0.01"
                                style="width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.88rem;box-sizing:border-box;"></div>
                 </div>
-                <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">📄 Descripción</label>
+                <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">Descripción</label>
                     <textarea id="edit-desc-${s.id}" rows="2"
                               style="width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.84rem;resize:vertical;font-family:inherit;box-sizing:border-box;">${s.descripcion||''}</textarea></div>
-                <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">🖼️ URL imagen</label>
+                <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">URL imagen</label>
                     <input type="text" id="edit-imagen-${s.id}" value="${s.imagen||''}"
                            placeholder="https://... ó img/nombre.jpg"
                            oninput="prevImgEditor(${s.id},this.value)"
                            style="width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.78rem;box-sizing:border-box;"></div>
-                <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">📅 Días del mes en que se ofrece (opcional)</label>
+                <div><label style="font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;">Días del mes en que se ofrece (opcional)</label>
                     <input type="text" id="edit-dias-${s.id}" value="${s.dias_disponibles||''}"
                            placeholder="Ej: 5,20 — vacío = todos los días"
                            style="width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.78rem;box-sizing:border-box;">
@@ -289,17 +289,17 @@ async function cargarEditorPrecios() {
             <div style="display:flex;flex-direction:column;gap:8px;">
                 <button onclick="guardarCambiosServicioCompleto(${s.id})"
                         style="background:#C06C84;color:white;padding:10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;width:100%;font-size:0.88rem;">
-                    💾 Guardar</button>
+                    Guardar</button>
                 <button data-sid="${s.id}" data-activo="${s.activo?1:0}"
                         onclick="togglePausarServicio(this.dataset.sid, this.dataset.activo)"
                         style="background:${s.activo?'#ff9800':'#4CAF50'};color:white;padding:9px;border:none;border-radius:7px;cursor:pointer;font-weight:700;width:100%;font-size:0.85rem;">
-                    ${s.activo ? '⏸ Pausar' : '▶️ Activar'}</button>
+                    ${s.activo ? 'Pausar' : '› Activar'}</button>
                 <button onclick="eliminarServicio(event, ${s.id})" data-nombre="${esc(s.nombre)}"
                         style="background:#dc3545;color:white;padding:9px;border:none;border-radius:7px;cursor:pointer;font-weight:700;width:100%;font-size:0.85rem;">
-                    🗑️ Eliminar</button>
+                    Eliminar</button>
                 <button onclick="resetearCampos(${s.id})"
                         style="background:#f0f0f0;color:#555;padding:7px;border:none;border-radius:7px;cursor:pointer;font-size:0.78rem;width:100%;">
-                    🔄 Restaurar</button>
+                    Restaurar</button>
             </div>
         </div>`;
 
@@ -310,19 +310,19 @@ async function cargarEditorPrecios() {
         <div style="margin-bottom:20px;">
             <button onclick="abrirModalNuevoServicio()"
                     style="background:linear-gradient(135deg,#28a745,#1e7e34);color:white;padding:13px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;display:flex;align-items:center;gap:8px;">
-                ➕ Agregar Nuevo Servicio
+                Agregar Nuevo Servicio
             </button>
         </div>`;
 
     // Servicios activos
     if (activos.length) {
-        html += `<h3 style="color:#C06C84;margin:0 0 12px 0;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">✅ Servicios Activos (${activos.length})</h3>`;
+        html += `<h3 style="color:#C06C84;margin:0 0 12px 0;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">Servicios Activos (${activos.length})</h3>`;
         html += activos.map(renderServicio).join('');
     }
 
     // Servicios pausados
     if (pausados.length) {
-        html += `<h3 style="color:#ff9800;margin:24px 0 12px 0;padding-bottom:8px;border-bottom:2px solid #ffe0b2;">⏸ Servicios Pausados (${pausados.length})</h3>`;
+        html += `<h3 style="color:#ff9800;margin:24px 0 12px 0;padding-bottom:8px;border-bottom:2px solid #ffe0b2;">Servicios Pausados (${pausados.length})</h3>`;
         html += pausados.map(renderServicio).join('');
     }
 
@@ -347,7 +347,7 @@ function abrirModalCambiarFoto(servicioId) {
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);';
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:34px;max-width:440px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#C06C84;margin:0 0 5px 0;">🖼️ Cambiar foto — ${s.nombre}</h3>
+            <h3 style="color:#C06C84;margin:0 0 5px 0;">Cambiar foto — ${s.nombre}</h3>
             <p style="color:#888;font-size:0.86rem;margin:0 0 16px 0;">Pegá la URL o ruta de la nueva imagen</p>
             <div style="text-align:center;margin-bottom:14px;">
                 <img id="modal-foto-prev" src="${s.imagen||''}" alt="Vista previa de ${s.nombre}" style="width:190px;height:140px;object-fit:cover;border-radius:10px;border:3px solid #e8d0da;" onerror="this.style.display='none'">
@@ -356,8 +356,8 @@ function abrirModalCambiarFoto(servicioId) {
                    oninput="let v=this.value.trim();if(v&&!v.startsWith('http')&&!v.startsWith('img/')&&!v.startsWith('/'))v='img/'+v;const p=document.getElementById('modal-foto-prev');p.src=v;p.style.display='block';"
                    style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:0.9rem;box-sizing:border-box;margin-bottom:14px;">
             <div style="display:flex;gap:10px;">
-                <button onclick="aplicarFoto(${servicioId})" style="flex:1;background:#C06C84;color:white;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">✅ Aplicar</button>
-                <button onclick="document.getElementById('modal-cambiar-foto').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+                <button onclick="aplicarFoto(${servicioId})" style="flex:1;background:#C06C84;color:white;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Aplicar</button>
+                <button onclick="document.getElementById('modal-cambiar-foto').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">× Cancelar</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -367,12 +367,12 @@ function abrirModalCambiarFoto(servicioId) {
 
 async function aplicarFoto(servicioId) {
     let url = (document.getElementById('modal-foto-url')?.value||'').trim();
-    if (!url) { mostrarNotificacion('⚠️ Ingresá una URL','error'); return; }
+    if (!url) { mostrarNotificacion('Ingresá una URL','error'); return; }
     if (!url.startsWith('http')&&!url.startsWith('img/')&&!url.startsWith('/')) url='img/'+url;
     const inp = document.getElementById('edit-imagen-'+servicioId);
     if (inp) { inp.value=url; prevImgEditor(servicioId, url); }
     document.getElementById('modal-cambiar-foto').remove();
-    mostrarNotificacion('✅ URL aplicada — guardá para confirmar');
+    mostrarNotificacion('URL aplicada — guardá para confirmar');
 }
 
 // ── Agregar nuevo servicio ───────────────────────────────────
@@ -383,33 +383,33 @@ function abrirModalNuevoServicio() {
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);';
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:36px;max-width:500px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#28a745;margin:0 0 20px 0;">➕ Agregar Nuevo Servicio</h3>
+            <h3 style="color:#28a745;margin:0 0 20px 0;">Agregar Nuevo Servicio</h3>
             <div style="display:flex;flex-direction:column;gap:14px;">
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📝 Nombre del servicio *</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Nombre del servicio *</label>
                     <input type="text" id="nuevo-nombre" placeholder="Ej: Tratamiento Capilar"
                            style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                     <div>
-                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Precio ($) *</label>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Precio ($) *</label>
                         <input type="number" id="nuevo-precio" placeholder="0.00" step="0.01" min="0"
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                     <div>
-                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">🖼️ URL imagen</label>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">URL imagen</label>
                         <input type="text" id="nuevo-imagen" placeholder="img/servicio.jpg"
                                oninput="let v=this.value.trim();if(v&&!v.startsWith('http')&&!v.startsWith('img/'))v='img/'+v;const p=document.getElementById('nuevo-img-prev');if(p){p.src=v;p.style.display=v?'block':'none';}"
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.85rem;box-sizing:border-box;">
                     </div>
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📄 Descripción</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Descripción</label>
                     <textarea id="nuevo-desc" rows="2" placeholder="Breve descripción del servicio..."
                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;resize:vertical;font-family:inherit;box-sizing:border-box;"></textarea>
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📅 Días del mes en que se ofrece (opcional)</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Días del mes en que se ofrece (opcional)</label>
                     <input type="text" id="nuevo-dias" placeholder="Ej: 5,20 — vacío = todos los días"
                            style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;box-sizing:border-box;">
                     <small style="color:#888;font-size:0.78rem;display:block;margin-top:3px;">Solo se podrá agendar en esos días del mes. Dejalo vacío para ofrecerlo siempre.</small>
@@ -420,11 +420,11 @@ function abrirModalNuevoServicio() {
                 <div style="display:flex;gap:12px;margin-top:4px;">
                     <button onclick="confirmarNuevoServicio()"
                             style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">
-                        ✅ Crear Servicio
+                        Crear Servicio
                     </button>
                     <button onclick="document.getElementById('modal-nuevo-servicio').remove();"
                             style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">
-                        ✖ Cancelar
+                        × Cancelar
                     </button>
                 </div>
             </div>
@@ -437,11 +437,11 @@ function abrirModalNuevoServicio() {
 async function confirmarNuevoServicio() {
     const nombre = (document.getElementById('nuevo-nombre')?.value||'').trim();
     const precio = document.getElementById('nuevo-precio')?.value;
-    const desc   = (document.getElementById('nuevo-desc')?.value||'').trim();
-    const dias   = (document.getElementById('nuevo-dias')?.value||'').trim();
-    let imagen   = (document.getElementById('nuevo-imagen')?.value||'').trim();
-    if (!nombre) { mostrarNotificacion('⚠️ El nombre es obligatorio','error'); return; }
-    if (!precio || parseFloat(precio) <= 0) { mostrarNotificacion('⚠️ Ingresá un precio válido','error'); return; }
+    const desc = (document.getElementById('nuevo-desc')?.value||'').trim();
+    const dias = (document.getElementById('nuevo-dias')?.value||'').trim();
+    let imagen = (document.getElementById('nuevo-imagen')?.value||'').trim();
+    if (!nombre) { mostrarNotificacion('El nombre es obligatorio','error'); return; }
+    if (!precio || parseFloat(precio) <= 0) { mostrarNotificacion('Ingresá un precio válido','error'); return; }
     if (imagen && !imagen.startsWith('http') && !imagen.startsWith('img/')) imagen = 'img/'+imagen;
     try {
         const res = await fetch(`${API_BASE}/servicios`, {
@@ -450,12 +450,12 @@ async function confirmarNuevoServicio() {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Servicio "'+nombre+'" creado correctamente');
+            mostrarNotificacion('Servicio "'+nombre+'" creado correctamente');
             document.getElementById('modal-nuevo-servicio').remove();
             await cargarDatosDesdeAPI();
             cargarEditorPrecios();
-        } else { mostrarNotificacion('❌ '+(data.message||'Error'),'error'); }
-    } catch(e) { mostrarNotificacion('❌ Error de conexión','error'); }
+        } else { mostrarNotificacion((data.message||'Error'),'error'); }
+    } catch(e) { mostrarNotificacion('Error de conexión','error'); }
 }
 
 // ── Pausar / Activar servicio ───────────────────────────────
@@ -465,16 +465,16 @@ async function togglePausarServicio(id, activoActual) {
     if (!confirm(`¿Querés ${accion} este servicio?\n${activar ? 'Volverá a ser visible para agendar turnos.' : 'No aparecerá en el formulario de turnos.'}`)) return;
     try {
         // Leer campos actuales del formulario para que el PUT no rechace por "sin campos"
-        const nombre    = document.getElementById(`edit-nombre-${id}`)?.value?.trim();
-        const precio    = document.getElementById(`edit-precio-${id}`)?.value;
-        const desc      = document.getElementById(`edit-desc-${id}`)?.value?.trim();
-        const imagen    = document.getElementById(`edit-imagen-${id}`)?.value?.trim();
-        const dias      = document.getElementById(`edit-dias-${id}`)?.value?.trim() || '';
+        const nombre = document.getElementById(`edit-nombre-${id}`)?.value?.trim();
+        const precio = document.getElementById(`edit-precio-${id}`)?.value;
+        const desc = document.getElementById(`edit-desc-${id}`)?.value?.trim();
+        const imagen = document.getElementById(`edit-imagen-${id}`)?.value?.trim();
+        const dias = document.getElementById(`edit-dias-${id}`)?.value?.trim() || '';
         const body = { activo: activar };
-        if (nombre)  body.nombre      = nombre;
-        if (precio)  body.precio      = parseFloat(precio);
-        if (desc)    body.descripcion = desc;
-        if (imagen)  body.imagen      = imagen;
+        if (nombre) body.nombre = nombre;
+        if (precio) body.precio = parseFloat(precio);
+        if (desc) body.descripcion = desc;
+        if (imagen) body.imagen = imagen;
         body.dias_disponibles = dias;
 
         const res = await fetch(`${API_BASE}/servicios/${id}`, {
@@ -483,26 +483,26 @@ async function togglePausarServicio(id, activoActual) {
         });
         const data = await res.json();
         if (data.success || res.ok) {
-            mostrarNotificacion(activar ? '✅ Servicio activado' : '⏸ Servicio pausado');
+            mostrarNotificacion(activar ? 'Servicio activado' : 'Servicio pausado');
             await cargarDatosDesdeAPI();
             await cargarEditorPrecios();
-        } else { mostrarNotificacion('❌ '+(data.message||data.error||'Error al actualizar'),'error'); }
-    } catch(e) { mostrarNotificacion('❌ Error de conexión','error'); }
+        } else { mostrarNotificacion((data.message||data.error||'Error al actualizar'),'error'); }
+    } catch(e) { mostrarNotificacion('Error de conexión','error'); }
 }
 
 // ── Eliminar servicio ───────────────────────────────────────
 async function eliminarServicio(event, id) {
     const nombre = event.currentTarget.dataset.nombre || '';
-    if (!confirm(`⚠️ ¿Eliminar el servicio "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausalo.`)) return;
+    if (!confirm(`¿Eliminar el servicio "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausalo.`)) return;
     try {
         const res = await fetch(`${API_BASE}/servicios/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('🗑️ Servicio "'+nombre+'" eliminado');
+            mostrarNotificacion('Servicio "'+nombre+'" eliminado');
             await cargarDatosDesdeAPI();
             cargarEditorPrecios();
-        } else { mostrarNotificacion('❌ '+(data.message||'Error al eliminar'),'error'); }
-    } catch(e) { mostrarNotificacion('❌ Error de conexión','error'); }
+        } else { mostrarNotificacion((data.message||'Error al eliminar'),'error'); }
+    } catch(e) { mostrarNotificacion('Error de conexión','error'); }
 }
 
 async function guardarCambiosServicioCompleto(id) {
@@ -512,7 +512,7 @@ async function guardarCambiosServicioCompleto(id) {
     const nuevaImagen = document.getElementById(`edit-imagen-${id}`).value.trim();
     const nuevosDias = document.getElementById(`edit-dias-${id}`)?.value.trim() || '';
     if (!nuevoNombre || !nuevoPrecio) {
-        mostrarNotificacion('⚠️ Nombre y precio obligatorios', 'error');
+        mostrarNotificacion('Nombre y precio obligatorios', 'error');
         return;
     }
     try {
@@ -522,14 +522,14 @@ async function guardarCambiosServicioCompleto(id) {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Servicio actualizado');
+            mostrarNotificacion('Servicio actualizado');
             await cargarDatosDesdeAPI();
             cargarEditorPrecios();
         } else {
-            mostrarNotificacion('❌ Error', 'error');
+            mostrarNotificacion('Error', 'error');
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -540,7 +540,7 @@ function resetearCampos(id) {
         document.getElementById(`edit-precio-${id}`).value = servicio.precio;
         document.getElementById(`edit-desc-${id}`).value = servicio.descripcion;
         document.getElementById(`edit-imagen-${id}`).value = servicio.imagenBD;
-        mostrarNotificacion('🔄 Restaurado');
+        mostrarNotificacion('Restaurado');
     }
 }
 
@@ -559,7 +559,7 @@ async function cargarGestionHorarios() {
     } else {
         container.innerHTML = `
             <div class="info-card" style="background:#e8f5e9;border-left:4px solid #4CAF50;margin-bottom:20px;">
-                <p><strong>📌</strong> Selecciona días específicos y horas para estar disponible.</p>
+                <p>Selecciona días específicos y horas para estar disponible.</p>
             </div>
             <div id="calendario-profesional-panel"></div>
         `;
@@ -570,15 +570,15 @@ async function cargarGestionHorarios() {
 async function _renderSelectorProfesionalCalendario(container) {
     container.innerHTML = `
         <div class="info-card" style="background:#fff3cd;border-left:4px solid #ffc107;margin-bottom:20px;">
-            <p><strong>⚙️ Gestión:</strong> Elegí un profesional para ver y editar sus horarios.</p>
+            <p><strong>Gestión:</strong> Elegí un profesional para ver y editar sus horarios.</p>
         </div>
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-            <label style="font-weight:600;color:#555;display:block;margin-bottom:8px;">👨‍💼 Seleccionar Profesional:</label>
+            <label style="font-weight:600;color:#555;display:block;margin-bottom:8px;">Seleccionar Profesional:</label>
             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
                 <select id="select-prof-calendario" style="flex:1;min-width:220px;padding:10px 14px;border:2px solid #C06C84;border-radius:8px;font-size:1rem;background:#fff;">
                     <option value="">— Elegir profesional —</option>
                 </select>
-                <button onclick="_onElegirProfesionalCalendario()" class="btn-guardar" style="padding:10px 22px;">🔍 Ver Calendario</button>
+                <button onclick="_onElegirProfesionalCalendario()" class="btn-guardar" style="padding:10px 22px;">Ver Calendario</button>
             </div>
         </div>
         <div id="calendario-profesional-panel">
@@ -603,7 +603,7 @@ async function _renderSelectorProfesionalCalendario(container) {
             select.appendChild(opt);
         });
     } catch (err) {
-        mostrarNotificacion('❌ Error al cargar profesionales', 'error');
+        mostrarNotificacion('Error al cargar profesionales', 'error');
     }
 }
 
@@ -669,16 +669,16 @@ async function _renderCalendarioInteractivo(profesionalId, nombreProfesional) {
             <div>
                 <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
                     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px;">
-                        <h3 style="color:#C06C84;margin:0;">👨‍💼 ${nombreProfesional}</h3>
+                        <h3 style="color:#C06C84;margin:0;">${nombreProfesional}</h3>
                         <div style="display:flex;gap:8px;">
-                            <button id="btn-modo-general" onclick="_cambiarModoCalendario('general', ${profesionalId})" class="btn-reset" style="padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:700;border:2px solid #C06C84;background:#C06C84;color:white;">📋 Horarios generales</button>
-                            <button id="btn-modo-depilacion" onclick="_cambiarModoCalendario('depilacion', ${profesionalId})" class="btn-reset" style="padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:700;border:2px solid #C06C84;background:white;color:#C06C84;">⚡ Depilación Definitiva</button>
+                            <button id="btn-modo-general" onclick="_cambiarModoCalendario('general', ${profesionalId})" class="btn-reset" style="padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:700;border:2px solid #C06C84;background:#C06C84;color:white;">Horarios generales</button>
+                            <button id="btn-modo-depilacion" onclick="_cambiarModoCalendario('depilacion', ${profesionalId})" class="btn-reset" style="padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:700;border:2px solid #C06C84;background:white;color:#C06C84;">Depilación Definitiva</button>
                         </div>
                     </div>
                     <div id="calendario-navegacion" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                        <button onclick="_mesAnterior()" class="btn-reset" style="padding:8px 14px;">◄ Anterior</button>
+                        <button onclick="_mesAnterior()" class="btn-reset" style="padding:8px 14px;">‹ Anterior</button>
                         <h4 id="mes-nombre" style="margin:0;color:#555;min-width:150px;text-align:center;"></h4>
-                        <button onclick="_mesSiguiente()" class="btn-reset" style="padding:8px 14px;">Siguiente ►</button>
+                        <button onclick="_mesSiguiente()" class="btn-reset" style="padding:8px 14px;">Siguiente ›</button>
                     </div>
                     <div id="calendario-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;"></div>
                 </div>
@@ -687,19 +687,19 @@ async function _renderCalendarioInteractivo(profesionalId, nombreProfesional) {
             <!-- COLUMNA DERECHA: SELECTOR DE HORAS -->
             <div>
                 <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-                    <h3 style="color:#555;margin:0 0 15px 0;">⏰ Horarios para el día seleccionado</h3>
+                    <h3 style="color:#555;margin:0 0 15px 0;">Horarios para el día seleccionado</h3>
                     <div id="selector-horas-container" style="min-height:300px;">
                         <p style="color:#999;text-align:center;padding:40px 20px;">Selecciona un día en el calendario</p>
                     </div>
                     <div style="margin-top:15px;display:flex;gap:10px;flex-wrap:wrap;">
-                        <button onclick="_guardarHorariosSeleccionados(${profesionalId})" class="btn-guardar" style="flex:1;padding:12px;">💾 Guardar Cambios</button>
-                        <button onclick="_restaurarCalendario()" class="btn-reset" style="flex:1;padding:12px;">🔄 Restaurar</button>
+                        <button onclick="_guardarHorariosSeleccionados(${profesionalId})" class="btn-guardar" style="flex:1;padding:12px;">Guardar Cambios</button>
+                        <button onclick="_restaurarCalendario()" class="btn-reset" style="flex:1;padding:12px;">Restaurar</button>
                     </div>
                 </div>
 
                 <!-- HORARIOS GUARDADOS -->
                 <div style="margin-top:20px;background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-                    <h3 style="color:#555;margin:0 0 15px 0;">📋 Horarios Configurados</h3>
+                    <h3 style="color:#555;margin:0 0 15px 0;">Horarios Configurados</h3>
                     <div id="horarios-guardados-lista" style="max-height:300px;overflow-y:auto;">
                         <p style="color:#999;">Cargando...</p>
                     </div>
@@ -852,13 +852,13 @@ function _seleccionarDia(fecha) {
     const [año, mes, dia] = fecha.split('-');
     const fechaFormato = `${nombreDia} ${dia}/${mes}/${año}`;
     const colorPrincipal = _calendario_modo === 'depilacion' ? '#B8860B' : '#C06C84';
-    const textoModo = _calendario_modo === 'depilacion' ? '⚡ Depilación Definitiva' : '📋 Horarios generales';
+    const textoModo = _calendario_modo === 'depilacion' ? 'Depilación Definitiva' : 'Horarios generales';
 
     horasContainer.innerHTML = `
-        <h4 style="color:#555;margin:0 0 10px 0;">📅 ${fechaFormato}</h4>
+        <h4 style="color:#555;margin:0 0 10px 0;">${fechaFormato}</h4>
         <p style="color:${colorPrincipal};margin:0 0 12px 0;font-size:0.88rem;font-weight:600;">Modo: ${textoModo}</p>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
-            <span style="color:#777;font-weight:600;">⏱️ Cada:</span>
+            <span style="color:#777;font-weight:600;">Cada:</span>
             <button onclick="_cambiarPasoHoras(90,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 90 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 90 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 90 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">1:30 h</button>
             <button onclick="_cambiarPasoHoras(60,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 60 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 60 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 60 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">1 hora</button>
             <button onclick="_cambiarPasoHoras(30,'${fecha}')" class="btn-reset" style="padding:6px 14px;border:2px solid ${_calendario_paso_actual === 30 ? colorPrincipal : '#ddd'};background:${_calendario_paso_actual === 30 ? colorPrincipal : 'white'};color:${_calendario_paso_actual === 30 ? 'white' : '#555'};border-radius:6px;cursor:pointer;font-weight:600;">30 min</button>
@@ -877,8 +877,8 @@ function _seleccionarDia(fecha) {
             `).join('')}
         </div>
         <div style="display:flex;gap:10px;">
-            <button onclick="_seleccionarTodasLasHoras('${fecha}')" class="btn-reset" style="flex:1;padding:8px;">✅ Todas</button>
-            <button onclick="_limpiarHoras('${fecha}')" class="btn-reset" style="flex:1;padding:8px;">❌ Limpiar</button>
+            <button onclick="_seleccionarTodasLasHoras('${fecha}')" class="btn-reset" style="flex:1;padding:8px;">Todas</button>
+            <button onclick="_limpiarHoras('${fecha}')" class="btn-reset" style="flex:1;padding:8px;">Limpiar</button>
         </div>
     `;
 }
@@ -977,7 +977,7 @@ async function _guardarHorariosSeleccionados(profesionalId) {
     }
 
     if (horariosParaGuardar.length === 0) {
-        mostrarNotificacion('⚠️ Selecciona al menos un horario', 'error');
+        mostrarNotificacion('Selecciona al menos un horario', 'error');
         return;
     }
 
@@ -994,14 +994,14 @@ async function _guardarHorariosSeleccionados(profesionalId) {
 
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion(`✅ ${horariosParaGuardar.length} horarios guardados`);
+            mostrarNotificacion(`${horariosParaGuardar.length} horarios guardados`);
             await _actualizarHorariosGuardados(profesionalId);
             _actualizarCalendario();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
         console.error(error);
     }
 }
@@ -1061,7 +1061,7 @@ async function _actualizarHorariosGuardados(profesionalId) {
                 <div style="background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:10px;border-left:3px solid #C06C84;">
                     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
                         <strong style="color:#555;">${nombreDia} ${dia}/${mes}</strong>
-                        <button onclick="eliminarDiaCompleto('${fecha}', ${profesionalId})" class="btn-eliminar" style="background:#dc3545;color:white;padding:4px 8px;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;">🗑️ Eliminar</button>
+                        <button onclick="eliminarDiaCompleto('${fecha}', ${profesionalId})" class="btn-eliminar" style="background:#dc3545;color:white;padding:4px 8px;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem;">Eliminar</button>
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:4px;">
                         ${horas.map(h => `
@@ -1085,7 +1085,7 @@ async function _actualizarHorariosGuardados(profesionalId) {
 // ELIMINAR DÍA COMPLETO
 // ==========================================
 async function eliminarDiaCompleto(fecha, profesionalId) {
-    if (!confirm(`⚠️ ¿Eliminar todos los horarios del ${fecha}?`)) {
+    if (!confirm(`¿Eliminar todos los horarios del ${fecha}?`)) {
         return;
     }
 
@@ -1102,15 +1102,15 @@ async function eliminarDiaCompleto(fecha, profesionalId) {
 
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Día eliminado');
+            mostrarNotificacion('Día eliminado');
             delete _calendario_dias_seleccionados[fecha];
             await _actualizarHorariosGuardados(profesionalId);
             _actualizarCalendario();
         } else {
-            mostrarNotificacion('❌ Error', 'error');
+            mostrarNotificacion('Error', 'error');
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -1118,12 +1118,12 @@ async function eliminarDiaCompleto(fecha, profesionalId) {
 async function _renderSelectorProfesional(container) {
     container.innerHTML = `
         <div class="info-card" style="background:#fff3cd;border-left:4px solid #ffc107;margin-bottom:20px;">
-            <p><strong>⚙️ Gestión:</strong> Elegí un profesional para ver y editar sus horarios.</p>
+            <p><strong>Gestión:</strong> Elegí un profesional para ver y editar sus horarios.</p>
         </div>
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;
                     box-shadow:0 2px 10px rgba(0,0,0,0.08);">
             <label style="font-weight:600;color:#555;display:block;margin-bottom:8px;">
-                👨‍💼 Seleccionar Profesional:
+                Seleccionar Profesional:
             </label>
             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
                 <select id="select-prof-horario"
@@ -1132,7 +1132,7 @@ async function _renderSelectorProfesional(container) {
                     <option value="">— Elegir profesional —</option>
                 </select>
                 <button onclick="_onElegirProfesional()" class="btn-guardar" style="padding:10px 22px;">
-                    🔍 Ver Horarios
+                    Ver Horarios
                 </button>
             </div>
         </div>
@@ -1167,7 +1167,7 @@ async function _renderSelectorProfesional(container) {
             await _renderGrillaHorarios(_profesionalHorarioId, nombre);
         }
     } catch (err) {
-        mostrarNotificacion('❌ Error al cargar profesionales', 'error');
+        mostrarNotificacion('Error al cargar profesionales', 'error');
         console.error(err);
     }
 }
@@ -1190,24 +1190,24 @@ async function _renderGrillaHorarios(profesionalId, nombreProfesional) {
     const panel = document.getElementById('horarios-profesional-panel');
     if (!panel) return;
 
-    const hoy      = new Date();
+    const hoy = new Date();
     const defHasta = new Date(hoy);
     defHasta.setMonth(defHasta.getMonth() + 2);
-    const fmtDate  = d => d.toISOString().split('T')[0];
+    const fmtDate = d => d.toISOString().split('T')[0];
 
     panel.innerHTML = `
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:16px;
                     border-left:4px solid #C06C84;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
-            <h3 style="color:#C06C84;margin:0 0 12px 0;">👨‍💼 ${nombreProfesional || 'Profesional'}</h3>
+            <h3 style="color:#C06C84;margin:0 0 12px 0;">${nombreProfesional || 'Profesional'}</h3>
 
             <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
                 <div>
-                    <label style="font-weight:600;color:#555;display:block;margin-bottom:4px;">📅 Desde</label>
+                    <label style="font-weight:600;color:#555;display:block;margin-bottom:4px;">Desde</label>
                     <input type="date" id="rango-desde" value="${fmtDate(hoy)}" min="${fmtDate(hoy)}"
                            style="padding:8px 12px;border:2px solid #C06C84;border-radius:8px;font-size:0.95rem;">
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;display:block;margin-bottom:4px;">📅 Hasta</label>
+                    <label style="font-weight:600;color:#555;display:block;margin-bottom:4px;">Hasta</label>
                     <input type="date" id="rango-hasta" value="${fmtDate(defHasta)}" min="${fmtDate(hoy)}"
                            style="padding:8px 12px;border:2px solid #C06C84;border-radius:8px;font-size:0.95rem;">
                 </div>
@@ -1218,7 +1218,7 @@ async function _renderGrillaHorarios(profesionalId, nombreProfesional) {
                 </div>
             </div>
             <p style="color:#888;font-size:0.85rem;margin:0;">
-                💡 Elegí el rango, marcá días y horarios, luego guardá. Se crean slots para cada día del rango.
+                Elegí el rango, marcá días y horarios, luego guardá. Se crean slots para cada día del rango.
             </p>
         </div>
 
@@ -1239,16 +1239,16 @@ async function _renderGrillaHorarios(profesionalId, nombreProfesional) {
 
         <div id="resumen-slots" style="margin:16px 0;padding:14px;background:#f9f9f9;border-radius:10px;
              border:1px dashed #C06C84;font-size:0.88rem;color:#555;">
-            ⏳ Cargando resumen...
+            Cargando resumen...
         </div>
 
         <div style="display:flex;gap:12px;margin-top:8px;">
             <button onclick="document.querySelectorAll('.btn-hora').forEach(b=>b.classList.add('seleccionado'))"
-                    class="btn-reset" style="flex:1;">✅ Todos</button>
+                    class="btn-reset" style="flex:1;">Todos</button>
             <button onclick="document.querySelectorAll('.btn-hora').forEach(b=>b.classList.remove('seleccionado'))"
-                    class="btn-reset" style="flex:1;">❌ Limpiar</button>
+                    class="btn-reset" style="flex:1;">Limpiar</button>
             <button id="btn-guardar-horarios" onclick="enviarDisponibilidad(${profesionalId})" class="btn-guardar" style="flex:2;">
-                💾 GUARDAR HORARIOS
+                GUARDAR HORARIOS
             </button>
         </div>
     `;
@@ -1283,10 +1283,10 @@ async function _cargarResumenSlots(profesionalId) {
     const el = document.getElementById('resumen-slots');
     if (!el) return;
     try {
-        const res   = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}`);
+        const res = await fetch(`${API_BASE}/disponibilidad_completa/${profesionalId}`);
         const slots = await res.json();
         if (!slots.length) {
-            el.innerHTML = '📭 Sin horarios cargados. Definí el rango y guardá.';
+            el.innerHTML = 'Sin horarios cargados. Definí el rango y guardá.';
             return;
         }
         const porMes = {};
@@ -1297,11 +1297,11 @@ async function _cargarResumenSlots(profesionalId) {
         const html = Object.entries(porMes).map(([mes, cnt]) => {
             const [y, m] = mes.split('-');
             const nombre = new Date(y, m - 1).toLocaleString('es-ES', { month: 'long', year: 'numeric' });
-            return `<span style="margin-right:14px;">📅 <strong>${nombre}</strong>: ${cnt} slots</span>`;
+            return `<span style="margin-right:14px;"><strong>${nombre}</strong>: ${cnt} slots</span>`;
         }).join('');
-        el.innerHTML = `✅ Horarios actuales: ${html}`;
+        el.innerHTML = `Horarios actuales: ${html}`;
     } catch(e) {
-        el.innerHTML = '⚠️ No se pudo cargar el resumen.';
+        el.innerHTML = 'No se pudo cargar el resumen.';
     }
 }
 
@@ -1319,15 +1319,15 @@ async function enviarDisponibilidad(profesionalId) {
     if (!usuario) return;
 
     const idFinal = profesionalId || usuario.id;
-    const desde   = document.getElementById('rango-desde')?.value;
-    const hasta   = document.getElementById('rango-hasta')?.value;
+    const desde = document.getElementById('rango-desde')?.value;
+    const hasta = document.getElementById('rango-hasta')?.value;
 
     if (!desde || !hasta) {
-        mostrarNotificacion('❌ Seleccioná el rango de fechas', 'error');
+        mostrarNotificacion('Seleccioná el rango de fechas', 'error');
         return;
     }
     if (desde > hasta) {
-        mostrarNotificacion('❌ La fecha inicio debe ser anterior a la de fin', 'error');
+        mostrarNotificacion('La fecha inicio debe ser anterior a la de fin', 'error');
         return;
     }
 
@@ -1337,30 +1337,30 @@ async function enviarDisponibilidad(profesionalId) {
     });
 
     if (!horarios.length) {
-        mostrarNotificacion('⚠️ Seleccioná al menos un horario', 'error');
+        mostrarNotificacion('Seleccioná al menos un horario', 'error');
         return;
     }
 
     const btn = document.getElementById('btn-guardar-horarios');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando...'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
 
     try {
-        const res  = await fetch(`${API_BASE}/disponibilidad`, {
+        const res = await fetch(`${API_BASE}/disponibilidad`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ profesional_id: idFinal, desde, hasta, horarios })
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion(`✅ ${data.count} slots generados (${desde} → ${hasta})`);
+            mostrarNotificacion(`${data.count} slots generados (${desde} → ${hasta})`);
             await _cargarResumenSlots(idFinal);
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error al guardar'), 'error');
+            mostrarNotificacion((data.message || 'Error al guardar'), 'error');
         }
     } catch (err) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '💾 GUARDAR HORARIOS'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'GUARDAR HORARIOS'; }
     }
 }
 
@@ -1409,17 +1409,17 @@ async function cargarTurnosCliente() {
             html += `
                 <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;margin-bottom:25px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-                        <h3 style="color:#555;margin:0;">👥 Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnosTodos)?turnosTodos.length:0} turnos)</span></h3>
+                        <h3 style="color:#555;margin:0;">Citas de Clientes <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnosTodos)?turnosTodos.length:0} turnos)</span></h3>
                         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                            <label for="filtro-citas-fecha" style="color:#888;font-size:0.88rem;">📅 Día a mostrar:</label>
+                            <label for="filtro-citas-fecha" style="color:#888;font-size:0.88rem;">Día a mostrar:</label>
                             <input type="date" id="filtro-citas-fecha" value="${fechaFiltro}" onchange="cargarTurnosCliente()" style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-weight:600;color:#C06C84;background:white;">
-                            <button onclick="document.getElementById('filtro-citas-fecha').value='';cargarTurnosCliente();" class="btn-whatsapp-mini" style="padding:9px 12px;width:auto;background:#f5f5f5;color:#C06C84;">✖ Ver: Hoy</button>
+                            <button onclick="document.getElementById('filtro-citas-fecha').value='';cargarTurnosCliente();" class="btn-whatsapp-mini" style="padding:9px 12px;width:auto;background:#f5f5f5;color:#C06C84;">× Ver: Hoy</button>
                         </div>
                     </div>
             `;
 
             if (!Array.isArray(turnosTodos) || turnosTodos.length === 0) {
-                html += `<p style="color:#888;text-align:center;padding:20px;">📭 No hay citas agendadas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
+                html += `<p style="color:#888;text-align:center;padding:20px;">No hay citas agendadas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
             } else {
                 const turnosFiltrados = (Array.isArray(turnosTodos) ? turnosTodos : []).filter(t => String(t.fecha).slice(0,10) === fechaFiltro);
 
@@ -1448,25 +1448,24 @@ async function cargarTurnosCliente() {
                     const prof = esc(t.profesional||'');
                     const msj = encodeURIComponent(`Hola ${nombre}! Te recordamos tu turno de ${srv} el ${fecha} a las ${hora} con ${prof}. ¡Te esperamos!`);
                     const waLink = telWa ? `https://wa.me/${telWa}?text=${msj}` : '#';
-                    const cancelarBtn = esGestor && (t.estado || '') !== 'cancelado' ? `<button onclick="cancelarTurnoDesdeCitas(${t.id})" style="background:#e53935;color:white;padding:6px 12px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">✖ Cancelar</button>` : '';
-                    const waBtn = telWa ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;padding:6px 12px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.82rem;white-space:nowrap;">📲 WhatsApp</a>` : '';
+                    const cancelarBtn = esGestor && (t.estado || '') !== 'cancelado' ? `<button onclick="cancelarTurnoDesdeCitas(${t.id})" style="background:#e53935;color:white;padding:6px 12px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">× Cancelar</button>` : '';
+                    const waBtn = telWa ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;padding:6px 12px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.82rem;white-space:nowrap;">WhatsApp</a>` : '';
                     const estadoBadge = (t.estado || '') === 'cancelado'
-                        ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">❌ Cancelado</span>'
+                        ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">Cancelado</span>'
                         : (t.estado || '') === 'cobrado'
-                            ? '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">✔ Cobrado</span>' : '';
+                            ? '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">Cobrado</span>' : '';
                     return `
                     <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid ${(t.estado||'')==='cancelado'?'#dc3545':(t.estado||'')==='cobrado'?'#28a745':'#4CAF50'};flex-wrap:wrap;gap:8px;">
                         <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
-                            <span style="font-size:1.3rem;">👤</span>
                             <div>
                                 <strong style="color:#333;display:block;">${nombre}</strong>
-                                <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
+                                <small style="color:#888;">${esc(t.telefono||'N/A')}</small>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${srv}</span>
-                            <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${fecha}</span>
-                            <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${hora}</span>
+                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${srv}</span>
+                            <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${fecha}</span>
+                            <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">${hora}</span>
                             ${waBtn}
                             ${cancelarBtn}
                             ${estadoBadge}
@@ -1484,7 +1483,7 @@ async function cargarTurnosCliente() {
                     html += Object.entries(porProf).map(([profNom, citas]) => `
                         <div style="margin-bottom:20px;">
                             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">
-                                <span style="background:#C06C84;color:white;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;">👩‍💼</span>
+                                <span style="background:#C06C84;color:white;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;">${profNom.charAt(0).toUpperCase()}</span>
                                 <strong style="color:#C06C84;font-size:1rem;">${profNom}</strong>
                                 <span style="background:#f9e4ee;color:#C06C84;padding:3px 10px;border-radius:20px;font-size:0.82rem;font-weight:700;">${citas.length} cita${citas.length!==1?'s':''}</span>
                             </div>
@@ -1493,14 +1492,14 @@ async function cargarTurnosCliente() {
                             </div>
                         </div>`).join('');
                 } else {
-                    html += `<p style="color:#888;text-align:center;padding:15px;">📭 No hay citas activas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
+                    html += `<p style="color:#888;text-align:center;padding:15px;">No hay citas activas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
                 }
 
                 // Registros: servicios ya realizados/cancelados (salen de la lista principal)
                 if (realizados.length) {
                     html += `
                         <div style="margin-top:18px;padding:16px;background:#fbfbfb;border-radius:12px;border:1px solid #eee;">
-                            <h4 style="margin:0 0 10px 0;color:#777;font-size:0.95rem;">🗂️ Registros (servicios realizados / cancelados) <span style="color:#aaa;font-weight:normal;">${realizados.length}</span></h4>
+                            <h4 style="margin:0 0 10px 0;color:#777;font-size:0.95rem;">Registros (servicios realizados / cancelados) <span style="color:#aaa;font-weight:normal;">${realizados.length}</span></h4>
                             <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;">
                                 ${realizados.map(tarjetaCita).join('')}
                             </div>
@@ -1511,13 +1510,13 @@ async function cargarTurnosCliente() {
         } else {
             html += `
                 <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;margin-bottom:25px;">
-                    <h3 style="color:#555;margin-top:0;">📋 Tus Turnos Agendados</h3>
+                    <h3 style="color:#555;margin-top:0;">Tus Turnos Agendados</h3>
             `;
 
             if (!Array.isArray(turnos) || turnos.length === 0) {
                 html += `
                     <p style="color:#888;text-align:center;padding:20px;">
-                        😊 Aún no has agendado turnos
+                        Aún no has agendado turnos
                     </p>
                 `;
             } else {
@@ -1529,10 +1528,10 @@ async function cargarTurnosCliente() {
                 const pendientes = [...turnos].filter(t => (t.estado || '') !== 'cobrado' && (t.estado || '') !== 'cancelado').sort(ordenFn);
                 const realizados = [...turnos].filter(t => (t.estado || '') === 'cobrado' || (t.estado || '') === 'cancelado').sort(ordenFn);
                 const badgetEstado = (t) => (t.estado || '') === 'cancelado'
-                    ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">❌ Cancelado</span>'
+                    ? '<span style="background:#dc3545;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">Cancelado</span>'
                     : (t.estado || '') === 'cobrado'
-                        ? '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">✔ Cobrado</span>'
-                        : '<span style="background:#C06C84;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">📅 Confirmado</span>';
+                        ? '<span style="background:#28a745;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">Cobrado</span>'
+                        : '<span style="background:#C06C84;color:white;padding:3px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">Confirmado</span>';
                 const tabla = (lista) => `
                     <table class="tabla-turnos">
                         <thead>
@@ -1559,11 +1558,11 @@ async function cargarTurnosCliente() {
                 `;
                 html += pendientes.length
                     ? tabla(pendientes)
-                    : '<p style="color:#888;text-align:center;padding:15px;">📭 No tenés turnos pendientes</p>';
+                    : '<p style="color:#888;text-align:center;padding:15px;">No tenés turnos pendientes</p>';
                 if (realizados.length) {
                     html += `
                         <div style="margin-top:12px;">
-                            <h4 style="margin:0 0 8px 0;color:#777;font-size:0.9rem;">🗂️ Registros (servicios realizados / cancelados) <span style="color:#aaa;font-weight:normal;">${realizados.length}</span></h4>
+                            <h4 style="margin:0 0 8px 0;color:#777;font-size:0.9rem;">Registros (servicios realizados / cancelados) <span style="color:#aaa;font-weight:normal;">${realizados.length}</span></h4>
                             ${tabla(realizados)}
                         </div>`;
                 }
@@ -1574,7 +1573,7 @@ async function cargarTurnosCliente() {
         // ===== SECCIÓN 2: HORARIOS DISPONIBLES =====
         html += `
             <div style="background:white;padding:20px;border-radius:12px;margin-bottom:25px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #C06C84;">
-                <h3 style="color:#C06C84;margin-top:0;">📅 Horarios Disponibles para Agendar</h3>
+                <h3 style="color:#C06C84;margin-top:0;">Horarios Disponibles para Agendar</h3>
                 <p style="color:#888;font-size:0.9rem;margin:0 0 15px 0;">Estos son los horarios que los profesionales tienen disponibles:</p>
         `;
 
@@ -1627,7 +1626,7 @@ async function cargarTurnosCliente() {
             // Renderizar profesional
             html += `
                 <div style="background:#f9f9f9;padding:15px;border-radius:8px;margin-bottom:15px;border-left:3px solid #ff9cc5;">
-                    <h4 style="color:#555;margin:0 0 12px 0;">👨‍💼 ${prof.nombre}</h4>
+                    <h4 style="color:#555;margin:0 0 12px 0;">${prof.nombre}</h4>
                     <div style="display:flex;flex-direction:column;gap:10px;">
             `;
 
@@ -1638,7 +1637,7 @@ async function cargarTurnosCliente() {
 
                 html += `
                     <div style="background:white;padding:10px 12px;border-radius:6px;border:1px solid #e8d0da;">
-                        <strong style="color:#C06C84;display:block;margin-bottom:6px;font-size:0.95rem;">📅 ${etiqueta}</strong>
+                        <strong style="color:#C06C84;display:block;margin-bottom:6px;font-size:0.95rem;">${etiqueta}</strong>
                         <div style="display:flex;flex-wrap:wrap;gap:5px;">
                             ${horasUnicas.map(h => `
                                 <span style="background:#C06C84;color:white;padding:4px 8px;border-radius:15px;font-size:0.85rem;font-weight:600;">
@@ -1653,7 +1652,7 @@ async function cargarTurnosCliente() {
             html += `
                     </div>
                     <p style="font-size:0.85rem;color:#888;margin:10px 0 0 0;">
-                        ✅ Total: ${disponibilidad.length} horarios disponibles
+                        Total: ${disponibilidad.length} horarios disponibles
                     </p>
                 </div>
             `;
@@ -1662,14 +1661,14 @@ async function cargarTurnosCliente() {
         if (!hayHorarios) {
             html += `
                 <div style="padding:20px;text-align:center;color:#888;">
-                    <p>📭 No hay horarios disponibles configurados por los profesionales</p>
+                    <p>No hay horarios disponibles configurados por los profesionales</p>
                 </div>
             `;
         }
 
         html += `
                 <p style="font-size:0.9rem;color:#666;margin-top:15px;">
-                    💡 Elegí un servicio debajo y tocá "<strong>Agendar nuevo turno</strong>" para reservar
+                    Elegí un servicio debajo y tocá "<strong>Agendar nuevo turno</strong>" para reservar
                 </p>
             </div>
         `;
@@ -1678,7 +1677,7 @@ async function cargarTurnosCliente() {
 
     } catch (error) {
         console.error('Error:', error);
-        container.innerHTML = `<p class="error">❌ Error al cargar datos: ${error.message}</p>`;
+        container.innerHTML = `<p class="error">Error al cargar datos: ${error.message}</p>`;
     }
 }
 
@@ -1698,7 +1697,7 @@ async function cargarTurnosProfesional() {
     const inputFechaFiltro = document.getElementById('filtro-citas-fecha-prof');
     const fechaExistente = (inputFechaFiltro && inputFechaFiltro.value) ? inputFechaFiltro.value : null;
 
-    container.innerHTML = '<p style="text-align:center;color:#C06C84;padding:30px;">⏳ Cargando...</p>';
+    container.innerHTML = '<p style="text-align:center;color:#C06C84;padding:30px;">Cargando...</p>';
 
     try {
         let turnos = [];
@@ -1726,17 +1725,17 @@ async function cargarTurnosProfesional() {
         html += `
             <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);border-left:4px solid #4CAF50;">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-                    <h3 style="color:#555;margin:0;">📅 Citas del Día <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnos)?turnos.length:0} turnos)</span></h3>
+                    <h3 style="color:#555;margin:0;">Citas del Día <span style="color:#888;font-size:0.85rem;font-weight:normal;">(${Array.isArray(turnos)?turnos.length:0} turnos)</span></h3>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <label for="filtro-citas-fecha-prof" style="color:#888;font-size:0.88rem;">📅 Día a mostrar:</label>
+                        <label for="filtro-citas-fecha-prof" style="color:#888;font-size:0.88rem;">Día a mostrar:</label>
                         <input type="date" id="filtro-citas-fecha-prof" value="${fechaFiltro}" onchange="cargarTurnosProfesional()" style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-weight:600;color:#C06C84;background:white;">
-                        <button onclick="document.getElementById('filtro-citas-fecha-prof').value='';cargarTurnosProfesional();" class="btn-whatsapp-mini" style="padding:9px 12px;width:auto;background:#f5f5f5;color:#C06C84;">✖ Ver: ${esRecep ? 'Mañana' : 'Hoy'}</button>
+                        <button onclick="document.getElementById('filtro-citas-fecha-prof').value='';cargarTurnosProfesional();" class="btn-whatsapp-mini" style="padding:9px 12px;width:auto;background:#f5f5f5;color:#C06C84;">× Ver: ${esRecep ? 'Mañana' : 'Hoy'}</button>
                     </div>
                 </div>
         `;
 
         if (turnosFiltrados.length === 0) {
-            html += `<p style="color:#888;text-align:center;padding:20px;">📭 No hay citas agendadas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
+            html += `<p style="color:#888;text-align:center;padding:20px;">No hay citas agendadas para el ${fechaFiltro.split('-').reverse().join('/')}</p>`;
         } else if (esAdminORecep) {
             // Admin/Recepcionista: agrupar por profesional
             const porProf = {};
@@ -1748,7 +1747,7 @@ async function cargarTurnosProfesional() {
             html += Object.entries(porProf).map(([profNom, citas]) => `
                 <div style="margin-bottom:20px;">
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">
-                        <span style="background:#C06C84;color:white;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;">👩‍💼</span>
+                        <span style="background:#C06C84;color:white;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;">${profNom.charAt(0).toUpperCase()}</span>
                         <strong style="color:#C06C84;font-size:1rem;">${profNom}</strong>
                         <span style="background:#f9e4ee;color:#C06C84;padding:3px 10px;border-radius:20px;font-size:0.82rem;font-weight:700;">${citas.length} cita${citas.length!==1?'s':''}</span>
                     </div>
@@ -1766,18 +1765,17 @@ async function cargarTurnosProfesional() {
                             return `
                             <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
                                 <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
-                                    <span style="font-size:1.3rem;">👤</span>
                                     <div>
                                         <strong style="color:#333;display:block;">${nombre}</strong>
-                                        <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
+                                        <small style="color:#888;">${esc(t.telefono||'N/A')}</small>
                                     </div>
                                 </div>
                                 <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                                    <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${srv}</span>
-                                    <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${fecha}</span>
-                                    <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${hora}</span>
-                                    ${telWa ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;padding:6px 12px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.82rem;white-space:nowrap;">📲 WhatsApp</a>` : ''}
-                                    <button onclick="cancelarTurnoDesdeCitas(${t.id})" style="background:#e53935;color:white;padding:6px 12px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">✖ Cancelar</button>
+                                    <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${srv}</span>
+                                    <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${fecha}</span>
+                                    <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">${hora}</span>
+                                    ${telWa ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;padding:6px 12px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.82rem;white-space:nowrap;">WhatsApp</a>` : ''}
+                                    <button onclick="cancelarTurnoDesdeCitas(${t.id})" style="background:#e53935;color:white;padding:6px 12px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">× Cancelar</button>
                                 </div>
                             </div>`;
                         }).join('')}
@@ -1789,16 +1787,15 @@ async function cargarTurnosProfesional() {
                 ${turnosFiltrados.map(t => `
                     <div style="display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;padding:12px 16px;border-radius:10px;border-left:3px solid #4CAF50;flex-wrap:wrap;gap:8px;">
                         <div style="display:flex;align-items:center;gap:10px;min-width:150px;">
-                            <span style="font-size:1.3rem;">👤</span>
                             <div>
                                 <strong style="color:#333;display:block;">${esc(t.cliente_nombre||t.cliente||'N/A')}</strong>
-                                <small style="color:#888;">📞 ${esc(t.telefono||'N/A')}</small>
+                                <small style="color:#888;">${esc(t.telefono||'N/A')}</small>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">💆 ${esc(t.servicio||'N/A')}</span>
-                            <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">📅 ${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
-                            <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">🕐 ${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
+                            <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${esc(t.servicio||'N/A')}</span>
+                            <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
+                            <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
                         </div>
                     </div>`).join('')}
             </div>`;
@@ -1809,7 +1806,7 @@ async function cargarTurnosProfesional() {
 
     } catch (error) {
         console.error('Error:', error);
-        container.innerHTML = `<p class="error">❌ Error al cargar datos: ${error.message}</p>`;
+        container.innerHTML = `<p class="error">Error al cargar datos: ${error.message}</p>`;
     }
 }
 
@@ -1854,7 +1851,7 @@ async function abrirModalEditar(turnoId) {
         }
         document.getElementById('modal-editar-turno').style.display = 'flex';
     } catch (error) {
-        mostrarNotificacion('❌ Error', 'error');
+        mostrarNotificacion('Error', 'error');
     }
 }
 
@@ -1871,15 +1868,15 @@ async function borrarCobroTurno() {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Cobro revertido. Turno vuelve a pendiente.');
+            mostrarNotificacion('Cobro revertido. Turno vuelve a pendiente.');
             cerrarModalEditar();
             cargarTurnosCaja();
             cargarEstadoCaja();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -1934,7 +1931,7 @@ document.getElementById('form-editar-turno')?.addEventListener('submit', async (
     const fecha = document.getElementById('edit-turno-fecha').value;
     const hora = document.getElementById('edit-turno-hora').value;
     if (!servicioId || !profesionalId || !fecha || !hora) {
-        mostrarNotificacion('⚠️ Completa todos los campos', 'error');
+        mostrarNotificacion('Completa todos los campos', 'error');
         return;
     }
     try {
@@ -1944,35 +1941,35 @@ document.getElementById('form-editar-turno')?.addEventListener('submit', async (
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Turno actualizado');
+            mostrarNotificacion('Turno actualizado');
             cerrarModalEditar();
             cargarTodosLosTurnos();
         } else {
-            mostrarNotificacion('❌ Error', 'error');
+            mostrarNotificacion('Error', 'error');
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error', 'error');
+        mostrarNotificacion('Error', 'error');
     }
 });
 
 async function eliminarTurno(turnoId) {
-    if (!confirm('⚠️ ¿Eliminar este turno?')) return;
+    if (!confirm('¿Eliminar este turno?')) return;
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Eliminado');
+            mostrarNotificacion('Eliminado');
             cargarTodosLosTurnos();
         } else {
-            mostrarNotificacion('❌ Error', 'error');
+            mostrarNotificacion('Error', 'error');
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error', 'error');
+        mostrarNotificacion('Error', 'error');
     }
 }
 
 async function cancelarTurno(turnoId) {
-    if (!confirm('❌ ¿Cancelar este turno? Quedará registrado y no se contará en la caja.')) return;
+    if (!confirm('¿Cancelar este turno? Quedará registrado y no se contará en la caja.')) return;
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -1980,15 +1977,15 @@ async function cancelarTurno(turnoId) {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('❌ Turno cancelado correctamente');
+            mostrarNotificacion('Turno cancelado correctamente');
             cargarTodosLosTurnos();
             cargarTurnosCaja();
             cargarEstadoCaja();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -2002,13 +1999,13 @@ async function cancelarTurnoDesdeCitas(turnoId) {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('❌ Turno cancelado. El horario queda disponible.');
+            mostrarNotificacion('Turno cancelado. El horario queda disponible.');
             cargarTurnosProfesional();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (error) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -2033,14 +2030,14 @@ function llenarSelectServicios() {
 }
 
 async function cargarProfesionalesPorServicios(servicioIds) {
-    const selectPro  = document.getElementById('profesional-select');
+    const selectPro = document.getElementById('profesional-select');
     const inputFecha = document.getElementById('turno-fecha');
     const selectHora = document.getElementById('turno-hora');
     if (!selectPro) return;
 
     // Reset
     inputFecha.disabled = true;
-    inputFecha.value    = '';
+    inputFecha.value = '';
     selectHora.innerHTML = '<option value="">Primero seleccioná profesional...</option>';
     selectPro.disabled = true;
     selectPro.innerHTML = '<option value="">Primero seleccioná un servicio...</option>';
@@ -2070,11 +2067,11 @@ async function cargarProfesionalesPorServicios(servicioIds) {
                 await marcarFechasDisponibles(profId);
             } else {
                 inputFecha.disabled = true;
-                inputFecha.value    = '';
+                inputFecha.value = '';
             }
         };
     } catch (e) {
-        mostrarNotificacion('❌ Error al cargar profesionales', 'error');
+        mostrarNotificacion('Error al cargar profesionales', 'error');
     }
 }
 
@@ -2088,8 +2085,8 @@ function _servicioIdDisponibilidadForm() {
 
 async function cargarHorariosDisponibles() {
     const profesionalId = document.getElementById('profesional-select').value;
-    const fecha         = document.getElementById('turno-fecha').value;
-    const selectHora    = document.getElementById('turno-hora');
+    const fecha = document.getElementById('turno-fecha').value;
+    const selectHora = document.getElementById('turno-hora');
     if (!profesionalId || !fecha) return;
 
     selectHora.innerHTML = '<option value="">Cargando...</option>';
@@ -2104,7 +2101,7 @@ async function cargarHorariosDisponibles() {
 
         if (!Array.isArray(horas) || horas.length === 0) {
             selectHora.innerHTML = '<option value="">Sin horarios disponibles este día</option>';
-            mostrarNotificacion('⚠️ No hay horarios disponibles para esta fecha', 'error');
+            mostrarNotificacion('No hay horarios disponibles para esta fecha', 'error');
             return;
         }
 
@@ -2114,10 +2111,10 @@ async function cargarHorariosDisponibles() {
                 const hora = h.hora_inicio.substring(0, 5);
                 return `<option value="${hora}">${hora}</option>`;
             }).join('');
-        mostrarNotificacion(`✅ ${horas.length} horarios disponibles`);
+        mostrarNotificacion(`${horas.length} horarios disponibles`);
     } catch (error) {
         selectHora.innerHTML = '<option value="">Error al cargar</option>';
-        mostrarNotificacion('❌ Error al cargar horarios', 'error');
+        mostrarNotificacion('Error al cargar horarios', 'error');
         console.error(error);
     }
 }
@@ -2150,7 +2147,7 @@ async function marcarFechasDisponibles(profesionalId) {
         if (fechasFiltradas.length === 0) {
             inputFecha.disabled = true;
             if (infoFechas) {
-                infoFechas.textContent = '⚠️ Este profesional no tiene fechas disponibles';
+                infoFechas.textContent = 'Este profesional no tiene fechas disponibles';
             }
             return;
         }
@@ -2162,7 +2159,7 @@ async function marcarFechasDisponibles(profesionalId) {
         inputFecha.disabled = false;
 
         if (infoFechas) {
-            infoFechas.textContent = `📅 ${fechasFiltradas.length} fechas disponibles entre ${fechasFiltradas[0]} y ${fechasFiltradas[fechasFiltradas.length-1]}`;
+            infoFechas.textContent = `${fechasFiltradas.length} fechas disponibles entre ${fechasFiltradas[0]} y ${fechasFiltradas[fechasFiltradas.length-1]}`;
         }
 
         // Validar fecha elegida contra las disponibles
@@ -2170,7 +2167,7 @@ async function marcarFechasDisponibles(profesionalId) {
             const elegida = inputFecha.value;
             const disponibles = JSON.parse(inputFecha.dataset.fechasDisponibles || '[]');
             if (elegida && !disponibles.includes(elegida)) {
-                mostrarNotificacion('⚠️ Ese día no tiene horarios disponibles. Elegí otra fecha.', 'error');
+                mostrarNotificacion('Ese día no tiene horarios disponibles. Elegí otra fecha.', 'error');
                 inputFecha.value = '';
                 document.getElementById('turno-hora').innerHTML = '<option value="">Elegí una fecha válida...</option>';
                 return;
@@ -2186,17 +2183,17 @@ async function marcarFechasDisponibles(profesionalId) {
 document.getElementById('form-turno')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const usuario = obtenerUsuarioActual();
-    const clienteNombre   = (document.getElementById('cliente-nombre')?.value   || '').trim();
-    const clienteEmail    = (document.getElementById('cliente-email')?.value    || '').trim();
+    const clienteNombre = (document.getElementById('cliente-nombre')?.value || '').trim();
+    const clienteEmail = (document.getElementById('cliente-email')?.value || '').trim();
     const clienteTelefono = (document.getElementById('cliente-telefono')?.value || '').trim();
     const clienteFechaNac = (document.getElementById('cliente-fecha-nacimiento')?.value || '').trim();
-    const selectServ   = document.getElementById('servicio-select');
+    const selectServ = document.getElementById('servicio-select');
     const servicioIdsArr = Array.from(selectServ.selectedOptions).map(o => o.value).filter(v => v).map(Number);
     const profesionalId = document.getElementById('profesional-select').value;
     const fecha = document.getElementById('turno-fecha').value;
-    const hora  = document.getElementById('turno-hora').value;
-    if (!clienteNombre) { mostrarNotificacion('⚠️ Ingresá el Nombre Completo','error'); document.getElementById('cliente-nombre')?.focus(); return; }
-    if (!servicioIdsArr.length || !profesionalId || !fecha || !hora) { mostrarNotificacion('⚠️ Completa todos los campos','error'); return; }
+    const hora = document.getElementById('turno-hora').value;
+    if (!clienteNombre) { mostrarNotificacion('Ingresá el Nombre Completo','error'); document.getElementById('cliente-nombre')?.focus(); return; }
+    if (!servicioIdsArr.length || !profesionalId || !fecha || !hora) { mostrarNotificacion('Completa todos los campos','error'); return; }
     try {
         const res = await fetch(`${API_BASE}/turnos`, {
             method: 'POST', headers: {'Content-Type':'application/json'},
@@ -2212,8 +2209,8 @@ document.getElementById('form-turno')?.addEventListener('submit', async (e) => {
             const fFmt = new Date(fecha+'T00:00:00').toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
             mostrarConfirmacionTurno(clienteNombre, clienteTelefono, sNom, pNom, fFmt, hora, usuario.nombre);
             e.target.reset();
-        } else { mostrarNotificacion('❌ '+(data.message||'Error'),'error'); }
-    } catch(e2) { mostrarNotificacion('❌ Error al agendar','error'); }
+        } else { mostrarNotificacion((data.message||'Error'),'error'); }
+    } catch(e2) { mostrarNotificacion('Error al agendar','error'); }
 });
 
 function mostrarConfirmacionTurno(cn, tel, srv, prof, fecha, hora, regPor) {
@@ -2221,25 +2218,25 @@ function mostrarConfirmacionTurno(cn, tel, srv, prof, fecha, hora, regPor) {
     const m = document.createElement('div'); m.id='modal-confirm-turno';
     m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
     m.innerHTML=`<div style="background:white;border-radius:20px;padding:34px;max-width:450px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div style="font-size:3.5rem;margin-bottom:10px;">🎉</div>
+        <div style="font-size:3.5rem;margin-bottom:10px;"></div>
         <h2 style="color:#C06C84;margin:0 0 6px 0;">¡Turno Confirmado!</h2>
         <p style="color:#666;margin-bottom:18px;">La reserva fue registrada exitosamente</p>
         <div style="background:#f9e4ee;border-radius:12px;padding:16px;margin-bottom:16px;text-align:left;">
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>👤</span><div><small style="color:#888;display:block;">Cliente</small><strong>${esc(cn)}</strong></div></div>
-            ${tel?`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>📞</span><div><small style="color:#888;display:block;">Teléfono</small><strong>${esc(tel)}</strong></div></div>`:''}
-            ${regPor&&regPor!==cn?`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>🔑</span><div><small style="color:#888;display:block;">Registrado por</small><strong style="color:#777;font-size:0.9rem;">${esc(regPor)}</strong></div></div>`:''}
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>💆</span><div><small style="color:#888;display:block;">Servicio</small><strong>${esc(srv)}</strong></div></div>
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>👩‍💼</span><div><small style="color:#888;display:block;">Profesional</small><strong>${esc(prof)}</strong></div></div>
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><span>📅</span><div><small style="color:#888;display:block;">Fecha</small><strong>${esc(fecha)}</strong></div></div>
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;"><span>🕐</span><div><small style="color:#888;display:block;">Hora</small><strong style="color:#C06C84;font-size:1.2rem;">${esc(hora)}</strong></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><div><small style="color:#888;display:block;">Cliente</small><strong>${esc(cn)}</strong></div></div>
+            ${tel?`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><div><small style="color:#888;display:block;">Teléfono</small><strong>${esc(tel)}</strong></div></div>`:''}
+            ${regPor&&regPor!==cn?`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><div><small style="color:#888;display:block;">Registrado por</small><strong style="color:#777;font-size:0.9rem;">${esc(regPor)}</strong></div></div>`:''}
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><div><small style="color:#888;display:block;">Servicio</small><strong>${esc(srv)}</strong></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><div><small style="color:#888;display:block;">Profesional</small><strong>${esc(prof)}</strong></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #e8d0da;"><div><small style="color:#888;display:block;">Fecha</small><strong>${esc(fecha)}</strong></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;"><div><small style="color:#888;display:block;">Hora</small><strong style="color:#C06C84;font-size:1.2rem;">${esc(hora)}</strong></div></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onclick="imprimirComprobante(event)" data-cn="${esc(cn)}" data-tel="${esc(tel)}" data-srv="${esc(srv)}" data-prof="${esc(prof)}" data-fecha="${esc(fecha)}" data-hora="${esc(hora)}" data-regpor="${esc(regPor)}"
-                    style="flex:1;min-width:100px;background:#c0392b;color:white;padding:10px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.85rem;">🖨️ PDF</button>
+                    style="flex:1;min-width:100px;background:#c0392b;color:white;padding:10px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.85rem;">PDF</button>
             <button onclick="document.getElementById('modal-confirm-turno').remove();showSection('mis-turnos-cliente');"
-                    style="flex:1;min-width:100px;background:#C06C84;color:white;padding:10px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">📋 Ver</button>
+                    style="flex:1;min-width:100px;background:#C06C84;color:white;padding:10px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Ver</button>
             <button onclick="document.getElementById('modal-confirm-turno').remove();"
-                    style="flex:1;min-width:50px;background:#f0f0f0;color:#555;padding:10px;border:none;border-radius:9px;cursor:pointer;">✖</button>
+                    style="flex:1;min-width:50px;background:#f0f0f0;color:#555;padding:10px;border:none;border-radius:9px;cursor:pointer;">×</button>
         </div>
     </div>`;
     document.body.appendChild(m);
@@ -2256,14 +2253,14 @@ function imprimirComprobante(event) {
     h1{color:#C06C84;text-align:center;}.sub{text-align:center;color:#888;margin-bottom:22px;}
     .f{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0e0ea;}
     .footer{text-align:center;margin-top:28px;color:#aaa;font-size:0.8rem;}@media print{body{padding:20px;}}</style></head><body>
-    <h1>💅 CHAMAS SPA</h1><p class="sub">Comprobante de Turno Confirmado</p>
-    <div class="f"><span>👤 Cliente</span><strong>${escCN}</strong></div>
-    ${escTel?`<div class="f"><span>📞 Teléfono</span><strong>${escTel}</strong></div>`:''}
-    <div class="f"><span>💆 Servicio</span><strong>${escSRV}</strong></div>
-    <div class="f"><span>👩‍💼 Profesional</span><strong>${escPROF}</strong></div>
-    <div class="f"><span>📅 Fecha</span><strong>${escF}</strong></div>
-    <div class="f"><span>🕐 Hora</span><strong style="color:#C06C84;">${escH}</strong></div>
-    <div class="f"><span>🔑 Registrado por</span><strong>${escRP}</strong></div>
+    <h1>CHAMAS SPA</h1><p class="sub">Comprobante de Turno Confirmado</p>
+    <div class="f"><span>Cliente</span><strong>${escCN}</strong></div>
+    ${escTel?`<div class="f"><span>Teléfono</span><strong>${escTel}</strong></div>`:''}
+    <div class="f"><span>Servicio</span><strong>${escSRV}</strong></div>
+    <div class="f"><span>Profesional</span><strong>${escPROF}</strong></div>
+    <div class="f"><span>Fecha</span><strong>${escF}</strong></div>
+    <div class="f"><span>Hora</span><strong style="color:#C06C84;">${escH}</strong></div>
+    <div class="f"><span>Registrado por</span><strong>${escRP}</strong></div>
     <div class="footer">Generado el ${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
     <script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
     win.document.close();
@@ -2298,8 +2295,8 @@ async function obtenerWhatsappLocal() {
         const tel = (cfg.local_telefono || '').replace(/[^\d]/g, '');
         if (!tel) return null;
         // Normalizar a formato internacional:
-        //  - "011..." o "0..." → quitar el 0 y usar 54 + 9 (celular Argentina)
-        //  - ya empieza con 54 → dejar igual
+        // - "011..." o "0..." → quitar el 0 y usar 54 + 9 (celular Argentina)
+        // - ya empieza con 54 → dejar igual
         let num = tel;
         if (num.startsWith('549')) { _whatsappLocal = num; return num; }
         if (num.startsWith('54')) { _whatsappLocal = num; return num; }
@@ -2315,9 +2312,9 @@ async function obtenerWhatsappLocal() {
 // Abre WhatsApp con un mensaje preformado para preguntar por un servicio
 async function reservarPorWhatsApp(servicioId) {
     const num = await obtenerWhatsappLocal();
-    if (!num) { mostrarNotificacion('⚠️ Configurá el teléfono del local en Caja → config', 'error'); return; }
+    if (!num) { mostrarNotificacion('Configurá el teléfono del local en Caja → config', 'error'); return; }
     const s = servicios.find(x => String(x.id) === String(servicioId));
-    const msj = encodeURIComponent(`Hola! Me gustaría hacer una reserva en *CHAMAS SPA*.\n💆 Servicio: ${s ? s.nombre : ''}\n📅 ¿Tenés turnos disponibles?`);
+    const msj = encodeURIComponent(`Hola! Me gustaría hacer una reserva en *CHAMAS SPA*.\nServicio: ${s ? s.nombre : ''}\n¿Tenés turnos disponibles?`);
     window.open(`https://wa.me/${num}?text=${msj}`, '_blank');
 }
 
@@ -2337,22 +2334,21 @@ function abrirAsistenteWhatsApp() {
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;display:flex;flex-direction:column;height:560px;">
             <div style="background:linear-gradient(135deg,#25D366,#1ebea5);color:white;padding:14px 18px;display:flex;align-items:center;gap:10px;">
-                <span style="font-size:1.4rem;">📲</span>
                 <div>
                     <strong style="display:block;">¿Cómo querés reservar?</strong>
                     <small style="opacity:0.9;">Asistente de reserva · CHAMAS SPA</small>
                 </div>
-                <button onclick="document.getElementById('modal-asistente').remove();" style="margin-left:auto;background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;">✖</button>
+                <button onclick="document.getElementById('modal-asistente').remove();" style="margin-left:auto;background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;">×</button>
             </div>
             <div id="asistente-burbujas" style="flex:1;overflow-y:auto;padding:16px;background:#efe7dd;display:flex;flex-direction:column;gap:8px;"></div>
             <div id="asistente-input" style="padding:12px;background:white;border-top:1px solid #eee;"></div>
         </div>`;
     document.body.appendChild(modal);
     modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
-    _asistenteBurbuja('bot', '🙋‍♀️ ¡Hola! Soy el asistente de CHAMAS. Voy a ayudarte a reservar tu turno en pocos pasos. ¿Qué servicio querés?');
+    _asistenteBurbuja('bot', '¡Hola! Soy el asistente de CHAMAS. Voy a ayudarte a reservar tu turno en pocos pasos. ¿Qué servicio querés?');
     // Mostrar servicios como opciones
     _asistenteBurbuja('opciones', serviciosActivos.map(s =>
-        `<button onclick="asistenteElegirServicio(${s.id})" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">💆 ${s.nombre} · <strong>$${s.precio.toLocaleString()}</strong></button>`).join(''));
+        `<button onclick="asistenteElegirServicio(${s.id})" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">${s.nombre} · <strong>$${s.precio.toLocaleString()}</strong></button>`).join(''));
 }
 
 function asistenteBurbujaDom(tipo, contenidoHtml) {
@@ -2375,19 +2371,19 @@ async function asistenteElegirServicio(id) {
     const s = servicios.find(x => String(x.id) === String(id));
     if (!s) return;
     _asistenteEstado.servicio = s;
-    _asistenteBurbuja('user', `💆 ${s.nombre} ($${s.precio.toLocaleString()})`);
+    _asistenteBurbuja('user', `${s.nombre} ($${s.precio.toLocaleString()})`);
     _asistenteBurbuja('bot', '¿Con qué profesional querés el turno?');
-    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando profesionales...</p>';
+    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">Cargando profesionales...</p>';
     try {
         const res = await fetch(`${API_BASE}/profesionales/servicio/${id}`);
         const profs = await res.json();
         document.getElementById('asistente-input').innerHTML = '';
-        if (!profs.length) { _asistenteBurbuja('bot', '😕 No hay profesionales para ese servicio por ahora.'); return; }
+        if (!profs.length) { _asistenteBurbuja('bot', 'No hay profesionales para ese servicio por ahora.'); return; }
         _asistenteBurbuja('opciones', profs.map(p =>
-            `<button onclick="asistenteElegirProfesional(${p.id})" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">👩‍💼 ${p.nombre}</button>`).join(''));
+            `<button onclick="asistenteElegirProfesional(${p.id})" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">${p.nombre}</button>`).join(''));
     } catch (e) {
         document.getElementById('asistente-input').innerHTML = '';
-        _asistenteBurbuja('bot', '😕 Error al cargar profesionales.');
+        _asistenteBurbuja('bot', 'Error al cargar profesionales.');
     }
 }
 
@@ -2397,9 +2393,9 @@ async function asistenteElegirProfesional(id) {
     const p = all.find(x => String(x.id) === String(id));
     if (!p) return;
     _asistenteEstado.profesional = p;
-    _asistenteBurbuja('user', `👩‍💼 ${p.nombre}`);
+    _asistenteBurbuja('user', `${p.nombre}`);
     _asistenteBurbuja('bot', '¿Para qué día? Elegí una fecha disponible:');
-    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando fechas...</p>';
+    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">Cargando fechas...</p>';
     try {
         const servId = _asistenteEstado.servicio && String(_asistenteEstado.servicio.id) === String(SERVICIO_DEPILACION) ? SERVICIO_DEPILACION : 0;
         const rango = await fetch(`${API_BASE}/disponibilidad/rango/${id}?servicio_id=${servId}`);
@@ -2407,26 +2403,26 @@ async function asistenteElegirProfesional(id) {
         document.getElementById('asistente-input').innerHTML = '';
 
         if (!fechas.length) {
-            _asistenteBurbuja('bot', '😕 No hay fechas disponibles para esta profesional. Probá con otra.');
+            _asistenteBurbuja('bot', 'No hay fechas disponibles para esta profesional. Probá con otra.');
             return;
         }
         _asistenteBurbuja('opciones', fechas.slice(0, 10).map(f => {
             const d = new Date(f + 'T00:00:00');
             const label = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-            return `<button onclick="asistenteElegirFecha('${f}')" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">📅 ${label}</button>`;
+            return `<button onclick="asistenteElegirFecha('${f}')" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">${label}</button>`;
         }).join('') + (fechas.length > 10 ? `<p style="color:#888;font-size:0.8rem;text-align:center;margin-top:6px;">y ${fechas.length - 10} más días disponibles</p>` : ''));
     } catch (e) {
         document.getElementById('asistente-input').innerHTML = '';
-        _asistenteBurbuja('bot', '😕 Error al cargar fechas.');
+        _asistenteBurbuja('bot', 'Error al cargar fechas.');
     }
 }
 
 async function asistenteElegirFecha(fecha) {
     _asistenteEstado.fecha = fecha;
     const d = new Date(fecha + 'T00:00:00');
-    _asistenteBurbuja('user', `📅 ${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`);
+    _asistenteBurbuja('user', `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`);
     _asistenteBurbuja('bot', '¿A qué hora?');
-    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">⏳ Cargando horarios...</p>';
+    document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">Cargando horarios...</p>';
     try {
         const servId = _asistenteEstado.servicio && String(_asistenteEstado.servicio.id) === String(SERVICIO_DEPILACION) ? SERVICIO_DEPILACION : 0;
         const res = await fetch(`${API_BASE}/disponibilidad/${_asistenteEstado.profesional.id}/${fecha}?servicio_id=${servId}`);
@@ -2471,18 +2467,18 @@ async function asistenteElegirFecha(fecha) {
             lista = lista.filter(h => !ocupados.has(h));
         }
 
-        if (!lista.length) { _asistenteBurbuja('bot', '😕 No hay horarios libres ese día. Elegí otra fecha.'); return; }
+        if (!lista.length) { _asistenteBurbuja('bot', 'No hay horarios libres ese día. Elegí otra fecha.'); return; }
         _asistenteBurbuja('opciones', lista.map(h =>
-            `<button onclick="asistenteElegirHora('${h}')" style="display:inline-block;padding:10px 14px;margin:4px;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:700;">🕐 ${h}</button>`).join(''));
+            `<button onclick="asistenteElegirHora('${h}')" style="display:inline-block;padding:10px 14px;margin:4px;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:700;">${h}</button>`).join(''));
     } catch (e) {
         document.getElementById('asistente-input').innerHTML = '';
-        _asistenteBurbuja('bot', '😕 Error al cargar horarios.');
+        _asistenteBurbuja('bot', 'Error al cargar horarios.');
     }
 }
 
 async function asistenteElegirHora(hora) {
     _asistenteEstado.hora = hora;
-    _asistenteBurbuja('user', `🕐 ${hora}`);
+    _asistenteBurbuja('user', `${hora}`);
     _asistenteBurbuja('bot', '¡Perfecto! ¿Cuál es tu nombre?');
     document.getElementById('asistente-input').innerHTML =
         `<input type="text" id="asistente-nombre" placeholder="Ej: María González" style="width:100%;padding:12px;border:2px solid #25D366;border-radius:10px;box-sizing:border-box;font-size:1rem;">
@@ -2492,9 +2488,9 @@ async function asistenteElegirHora(hora) {
 
 function asistentePasoNombre() {
     const nombre = document.getElementById('asistente-nombre')?.value.trim();
-    if (!nombre) { mostrarNotificacion('⚠️ Ingresá tu nombre', 'error'); return; }
+    if (!nombre) { mostrarNotificacion('Ingresá tu nombre', 'error'); return; }
     _asistenteEstado.clienteNombre = nombre;
-    _asistenteBurbuja('user', `👤 ${nombre}`);
+    _asistenteBurbuja('user', `${nombre}`);
     _asistenteBurbuja('bot', 'Y tu teléfono (para confirmarte por WhatsApp):');
     document.getElementById('asistente-input').innerHTML =
         `<input type="tel" id="asistente-telefono" placeholder="Ej: 3865437108" style="width:100%;padding:12px;border:2px solid #25D366;border-radius:10px;box-sizing:border-box;font-size:1rem;">
@@ -2504,29 +2500,29 @@ function asistentePasoNombre() {
 
 async function asistentePasoTelefono() {
     const telefono = document.getElementById('asistente-telefono')?.value.trim();
-    if (!telefono) { mostrarNotificacion('⚠️ Ingresá tu teléfono', 'error'); return; }
+    if (!telefono) { mostrarNotificacion('Ingresá tu teléfono', 'error'); return; }
     _asistenteEstado.clienteTelefono = telefono;
-    _asistenteBurbuja('user', `📞 ${telefono}`);
-    _asistenteBurbuja('bot', '🎂 ¿Cuál es tu fecha de nacimiento? (opcional — para felicitarte en tu cumpleaños 🎁)');
+    _asistenteBurbuja('user', `${telefono}`);
+    _asistenteBurbuja('bot', '¿Cuál es tu fecha de nacimiento? (opcional — para felicitarte en tu cumpleaños )');
     document.getElementById('asistente-input').innerHTML =
         `<input type="date" id="asistente-fecha-nacimiento" style="width:100%;padding:12px;border:2px solid #25D366;border-radius:10px;box-sizing:border-box;font-size:1rem;">
          <button onclick="asistentePasoFechaNacimiento(false)" style="width:100%;margin-top:8px;background:#25D366;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Siguiente →</button>
-         <button onclick="asistentePasoFechaNacimiento(true)" style="width:100%;margin-top:6px;background:#f0f0f0;color:#666;padding:10px;border:1px solid #ddd;border-radius:10px;cursor:pointer;font-size:0.9rem;">⏭️ Omitir (no dar mi cumpleaños)</button>`;
+         <button onclick="asistentePasoFechaNacimiento(true)" style="width:100%;margin-top:6px;background:#f0f0f0;color:#666;padding:10px;border:1px solid #ddd;border-radius:10px;cursor:pointer;font-size:0.9rem;">Omitir (no dar mi cumpleaños)</button>`;
     setTimeout(() => document.getElementById('asistente-fecha-nacimiento')?.focus(), 80);
 }
 
 function asistentePasoFechaNacimiento(omitir) {
     const fn = omitir ? '' : (document.getElementById('asistente-fecha-nacimiento')?.value || '').trim();
-    if (!omitir && !fn) { mostrarNotificacion('⚠️ Elegí una fecha o presioná "Omitir"', 'error'); return; }
+    if (!omitir && !fn) { mostrarNotificacion('Elegí una fecha o presioná "Omitir"', 'error'); return; }
     _asistenteEstado.clienteFechaNacimiento = fn;
-    _asistenteBurbuja('user', fn ? `🎂 ${new Date(fn + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}` : '⏭️ Sin cumpleaños');
+    _asistenteBurbuja('user', fn ? `${new Date(fn + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Sin cumpleaños');
     asistenteConfirmarTurno();
 }
 
 async function asistenteConfirmarTurno() {
     const e = _asistenteEstado;
     const usuario = obtenerUsuarioActual();
-    _asistenteBurbuja('bot', `⏳ Confirmando tu turno...`);
+    _asistenteBurbuja('bot', `Confirmando tu turno...`);
 
     try {
         const res = await fetch(`${API_BASE}/turnos`, {
@@ -2545,19 +2541,19 @@ async function asistenteConfirmarTurno() {
         });
         const data = await res.json();
         if (data.success) {
-            _asistenteBurbuja('user', `✅ Turno confirmado para ${e.profesional.nombre} el ${e.fecha} a las ${e.hora}. ¡Gracias ${e.clienteNombre}!`);
+            _asistenteBurbuja('user', `Turno confirmado para ${e.profesional.nombre} el ${e.fecha} a las ${e.hora}. ¡Gracias ${e.clienteNombre}!`);
             const num = await obtenerWhatsappLocal();
             document.getElementById('asistente-input').innerHTML = num
-                ? `<p style="color:#555;font-size:0.85rem;text-align:center;margin-bottom:8px;">📲 Podés enviarnos la confirmación por WhatsApp:</p>
-                   <a href="https://wa.me/${num}?text=${encodeURIComponent(`Hola! Ya reservé: ${e.servicio.nombre} para el ${e.fecha} a las ${e.hora}. Soy ${e.clienteNombre}`)}" target="_blank" style="display:block;background:#25D366;color:white;text-align:center;padding:13px;border-radius:10px;text-decoration:none;font-weight:700;">📲 Enviar por WhatsApp</a>`
-                : '<p style="color:#555;font-size:0.85rem;text-align:center;">✅ ¡Turno confirmado!</p>';
+                ? `<p style="color:#555;font-size:0.85rem;text-align:center;margin-bottom:8px;">Podés enviarnos la confirmación por WhatsApp:</p>
+                   <a href="https://wa.me/${num}?text=${encodeURIComponent(`Hola! Ya reservé: ${e.servicio.nombre} para el ${e.fecha} a las ${e.hora}. Soy ${e.clienteNombre}`)}" target="_blank" style="display:block;background:#25D366;color:white;text-align:center;padding:13px;border-radius:10px;text-decoration:none;font-weight:700;">Enviar por WhatsApp</a>`
+                : '<p style="color:#555;font-size:0.85rem;text-align:center;">¡Turno confirmado!</p>';
             if (usuario) { setTimeout(() => { cargarTurnosCaja(); if (document.getElementById('caja').style.display !== 'none') cargarEstadoCaja(); }, 400); }
         } else {
-            _asistenteBurbuja('bot', '😕 ' + (data.message || 'No se pudo reservar. Probá con otro horario.'));
+            _asistenteBurbuja('bot', (data.message || 'No se pudo reservar. Probá con otro horario.'));
             document.getElementById('asistente-input').innerHTML = '';
         }
     } catch (e) {
-        _asistenteBurbuja('bot', '😕 Error de conexión al reservar.');
+        _asistenteBurbuja('bot', 'Error de conexión al reservar.');
         document.getElementById('asistente-input').innerHTML = '';
     }
 }
@@ -2570,9 +2566,9 @@ async function cargarEstadisticas() {
         const res = await fetch(`${API_BASE}/estadisticas`);
         const stats = await res.json();
         const elH=document.getElementById('stat-turnos-hoy'); if(elH) elH.textContent=stats.turnosHoy||0;
-        const elI=document.getElementById('stat-ingresos');   if(elI) elI.textContent='$'+(stats.ingresosMes||0).toLocaleString();
-        const elC=document.getElementById('stat-clientes');   if(elC) elC.textContent=stats.clientesUnicos||0;
-    } catch(e) { console.error('❌',e); }
+        const elI=document.getElementById('stat-ingresos'); if(elI) elI.textContent='$'+(stats.ingresosMes||0).toLocaleString();
+        const elC=document.getElementById('stat-clientes'); if(elC) elC.textContent=stats.clientesUnicos||0;
+    } catch(e) { console.error('',e); }
     if (document.getElementById('panel-ganancias')) return;
     const section = document.getElementById('admin');
     if (!section) return;
@@ -2580,20 +2576,20 @@ async function cargarEstadisticas() {
     const panel=document.createElement('div'); panel.id='panel-ganancias'; panel.style.marginTop='24px';
     panel.innerHTML=`
         <div style="background:white;border-radius:14px;padding:22px;margin-bottom:16px;box-shadow:0 2px 12px rgba(0,0,0,0.08);border-left:4px solid #C06C84;">
-            <h3 style="color:#C06C84;margin:0 0 14px 0;">🔍 Análisis de Ganancias</h3>
+            <h3 style="color:#C06C84;margin:0 0 14px 0;">Análisis de Ganancias</h3>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-                <div><label style="font-weight:600;color:#555;font-size:0.82rem;display:block;margin-bottom:3px;">📅 Desde</label>
+                <div><label style="font-weight:600;color:#555;font-size:0.82rem;display:block;margin-bottom:3px;">Desde</label>
                     <input type="date" id="g-desde" value="${p1}" style="padding:8px 11px;border:2px solid #C06C84;border-radius:7px;font-size:0.88rem;"></div>
-                <div><label style="font-weight:600;color:#555;font-size:0.82rem;display:block;margin-bottom:3px;">📅 Hasta</label>
+                <div><label style="font-weight:600;color:#555;font-size:0.82rem;display:block;margin-bottom:3px;">Hasta</label>
                     <input type="date" id="g-hasta" value="${hoyS}" style="padding:8px 11px;border:2px solid #C06C84;border-radius:7px;font-size:0.88rem;"></div>
-                <div><label style="font-weight:600;color:#555;font-size:0.82rem;display:block;margin-bottom:3px;">👩‍💼 Profesional</label>
+                <div><label style="font-weight:600;color:#555;font-size:0.82rem;display:block;margin-bottom:3px;">Profesional</label>
                     <select id="g-prof" style="padding:8px 11px;border:2px solid #C06C84;border-radius:7px;font-size:0.88rem;min-width:170px;">
                         <option value="">Todas</option></select></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button onclick="setG(1)"  style="background:#f9e4ee;color:#C06C84;padding:8px 11px;border:2px solid #C06C84;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.82rem;">Hoy</button>
-                    <button onclick="setG(7)"  style="background:#f9e4ee;color:#C06C84;padding:8px 11px;border:2px solid #C06C84;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.82rem;">Semana</button>
+                    <button onclick="setG(1)" style="background:#f9e4ee;color:#C06C84;padding:8px 11px;border:2px solid #C06C84;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.82rem;">Hoy</button>
+                    <button onclick="setG(7)" style="background:#f9e4ee;color:#C06C84;padding:8px 11px;border:2px solid #C06C84;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.82rem;">Semana</button>
                     <button onclick="setG(30)" style="background:#f9e4ee;color:#C06C84;padding:8px 11px;border:2px solid #C06C84;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.82rem;">Mes</button>
-                    <button onclick="calcG()"  style="background:#C06C84;color:white;padding:8px 16px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">🔍 Calcular</button>
+                    <button onclick="calcG()" style="background:#C06C84;color:white;padding:8px 16px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Calcular</button>
                 </div>
             </div>
         </div>
@@ -2624,14 +2620,14 @@ function ocultarEditorPrecios() {
 function showSection(sectionId) {
     const login = document.getElementById('login-screen');
     if (login) {
-        login.style.display    = 'none';
+        login.style.display = 'none';
         login.style.visibility = 'hidden';
         login.style.pointerEvents = 'none';
-        login.style.zIndex    = '-1';
+        login.style.zIndex = '-1';
     }
     const mainApp = document.getElementById('main-app');
     if (mainApp) {
-        mainApp.style.display    = 'block';
+        mainApp.style.display = 'block';
         mainApp.style.visibility = 'visible';
         mainApp.style.pointerEvents = 'auto';
     }
@@ -2659,7 +2655,7 @@ function showSection(sectionId) {
         cargarHistorialCajas();
         cargarClientesHabituales();
     }
-    if (sectionId === 'gestionar-horarios')      cargarGestionHorarios();
+    if (sectionId === 'gestionar-horarios') cargarGestionHorarios();
 
     if (sectionId === 'caja') {
         cargarEstadoCaja();
@@ -2718,7 +2714,7 @@ async function calcG() {
     const profId=document.getElementById('g-prof')?.value||'';
     const profNom=profId?(document.getElementById('g-prof')?.options[document.getElementById('g-prof').selectedIndex]?.text||''):'Todas';
     const cont=document.getElementById('g-resultados'); if(!cont) return;
-    cont.innerHTML='<p style="color:#888;text-align:center;padding:16px;">⏳ Calculando...</p>';
+    cont.innerHTML='<p style="color:#888;text-align:center;padding:16px;">Calculando...</p>';
     try {
         let url=`${API_BASE}/turnos/todos?`;
         if(desde) url+='fecha_desde='+desde+'&';
@@ -2739,19 +2735,19 @@ async function calcG() {
         cont.innerHTML=`
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
             <div style="background:white;padding:16px;border-radius:12px;text-align:center;border-left:4px solid #28a745;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                <p style="margin:0;color:#555;font-size:0.82rem;">💰 Ingresos</p>
+                <p style="margin:0;color:#555;font-size:0.82rem;">Ingresos</p>
                 <p style="margin:5px 0 0;font-size:1.7rem;font-weight:900;color:#28a745;">$${total.toLocaleString()}</p>
             </div>
             <div style="background:white;padding:16px;border-radius:12px;text-align:center;border-left:4px solid #1976D2;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                <p style="margin:0;color:#555;font-size:0.82rem;">📋 Turnos</p>
+                <p style="margin:0;color:#555;font-size:0.82rem;">Turnos</p>
                 <p style="margin:5px 0 0;font-size:1.7rem;font-weight:900;color:#1976D2;">${turnos.length}</p>
             </div>
         </div>
         <div style="background:white;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-                <h3 style="margin:0;color:#555;">📊 Por Profesional</h3>
+                <h3 style="margin:0;color:#555;">Por Profesional</h3>
                 <button onclick="rptGeneral(event)" data-desde="${esc(desde)}" data-hasta="${esc(hasta)}" data-prof="${esc(profNom)}"
-                        style="background:#c0392b;color:white;padding:8px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">🖨️ Reporte General PDF</button>
+                        style="background:#c0392b;color:white;padding:8px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">Reporte General PDF</button>
             </div>
             <table style="width:100%;border-collapse:collapse;">
                 <thead style="background:#C06C84;color:white;">
@@ -2772,13 +2768,13 @@ async function calcG() {
                             <button data-prof="${esc(n)}" data-desde="${esc(desde)}" data-hasta="${esc(hasta)}"
                                     data-turnos='${esc(JSON.stringify(d.lista))}'
                                     onclick="rptProf(this.dataset.prof,JSON.parse(this.dataset.turnos),this.dataset.desde,this.dataset.hasta)"
-                                    style="background:#C06C84;color:white;padding:5px 11px;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:700;">📄 Ver</button>
+                                    style="background:#C06C84;color:white;padding:5px 11px;border:none;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:700;">Ver</button>
                         </td>
                     </tr>`).join('')}
                 </tbody>
             </table>
         </div>`;
-    } catch(e){ cont.innerHTML='<p style="color:#dc3545;text-align:center;">❌ Error al cargar estadísticas</p>'; }
+    } catch(e){ cont.innerHTML='<p style="color:#dc3545;text-align:center;">Error al cargar estadísticas</p>'; }
 }
 
 function rptGeneral(event) {
@@ -2794,7 +2790,7 @@ function rptGeneral(event) {
     table{width:100%;border-collapse:collapse;}th{background:#C06C84;color:white;padding:9px 12px;text-align:left;}
     td{padding:9px 12px;border-bottom:1px solid #f0e0ea;}tr:nth-child(even){background:#fdf5f8;}
     .footer{margin-top:30px;color:#aaa;font-size:0.8rem;text-align:center;}@media print{body{padding:20px;}}</style></head><body>
-    <h1>📊 Reporte de Ganancias — CHAMAS SPA</h1>
+    <h1>Reporte de Ganancias — CHAMAS SPA</h1>
     <p>Período: <strong>${esc(desde)} → ${esc(hasta)}</strong> | Profesional: <strong>${esc(prof)}</strong></p>
     <p>Generado: ${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
     ${tabla}<div class="footer">CHAMAS - Sistema de Gestión de Turnos</div>
@@ -2810,21 +2806,21 @@ function rptProf(nombre, turnos, desde, hasta) {
     modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);overflow-y:auto;';
     modal.innerHTML=`
         <div style="background:white;border-radius:18px;padding:32px;max-width:560px;width:95%;margin:20px auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#C06C84;margin:0 0 4px 0;">📄 ${esc(nombre)}</h3>
+            <h3 style="color:#C06C84;margin:0 0 4px 0;">${esc(nombre)}</h3>
             <p style="color:#888;margin:0 0 18px 0;font-size:0.86rem;">Período: ${esc(desde)} → ${esc(hasta)}</p>
             <div style="background:#f9f4ff;border:2px solid #C06C84;border-radius:11px;padding:16px;margin-bottom:18px;">
-                <h4 style="color:#C06C84;margin:0 0 12px 0;">💼 Configurar Facturación</h4>
+                <h4 style="color:#C06C84;margin:0 0 12px 0;">Configurar Facturación</h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                    <div><label style="font-size:0.8rem;font-weight:600;color:#555;display:block;margin-bottom:2px;">🏢 Espacio (%)</label>
+                    <div><label style="font-size:0.8rem;font-weight:600;color:#555;display:block;margin-bottom:2px;">Espacio (%)</label>
                         <input type="number" id="pct-esp" value="20" min="0" oninput="calcFact(${bruto})"
                                style="width:100%;padding:7px;border:2px solid #e0e0e0;border-radius:7px;box-sizing:border-box;"></div>
-                    <div><label style="font-size:0.8rem;font-weight:600;color:#555;display:block;margin-bottom:2px;">📦 Materiales (%)</label>
+                    <div><label style="font-size:0.8rem;font-weight:600;color:#555;display:block;margin-bottom:2px;">Materiales (%)</label>
                         <input type="number" id="pct-mat" value="10" min="0" oninput="calcFact(${bruto})"
                                style="width:100%;padding:7px;border:2px solid #e0e0e0;border-radius:7px;box-sizing:border-box;"></div>
-                    <div><label style="font-size:0.8rem;font-weight:600;color:#555;display:block;margin-bottom:2px;">🧾 IVA (%)</label>
+                    <div><label style="font-size:0.8rem;font-weight:600;color:#555;display:block;margin-bottom:2px;">IVA (%)</label>
                         <input type="number" id="pct-iva" value="21" min="0" oninput="calcFact(${bruto})"
                                style="width:100%;padding:7px;border:2px solid #e0e0e0;border-radius:7px;box-sizing:border-box;"></div>
-                    <div><label style="font-size:0.8rem;font-weight:600;color:#555;display:block;margin-bottom:2px;">➕ Otros gastos ($)</label>
+                    <div><label style="font-size:0.8rem;font-weight:600;color:#555;display:block;margin-bottom:2px;">Otros gastos ($)</label>
                         <input type="number" id="otros-g" value="0" min="0" oninput="calcFact(${bruto})"
                                style="width:100%;padding:7px;border:2px solid #e0e0e0;border-radius:7px;box-sizing:border-box;"></div>
                 </div>
@@ -2853,9 +2849,9 @@ function rptProf(nombre, turnos, desde, hasta) {
             </div>
             <div style="display:flex;gap:10px;">
                 <button onclick="impRptProf(event)" data-nombre="${esc(nombre)}" data-desde="${esc(desde)}" data-hasta="${esc(hasta)}" data-bruto="${bruto}"
-                        style="flex:1;background:#c0392b;color:white;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">🖨️ Imprimir PDF</button>
+                        style="flex:1;background:#c0392b;color:white;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Imprimir PDF</button>
                 <button onclick="document.getElementById('modal-rpt-prof').remove();"
-                        style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">✖ Cerrar</button>
+                        style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">× Cerrar</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -2871,13 +2867,13 @@ function calcFact(bruto) {
     const esp=bruto*pE, mat=bruto*pM, iva=bruto*pI, neto=bruto-esp-mat-iva-oG;
     const r=document.getElementById('resumen-fact'); if(!r) return;
     r.innerHTML=`<div style="font-size:0.87rem;display:flex;flex-direction:column;gap:5px;">
-        <div style="display:flex;justify-content:space-between;"><span>💰 Ingresos brutos</span><strong>$${bruto.toLocaleString()}</strong></div>
-        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>🏢 Espacio</span><span>-$${esp.toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>📦 Materiales</span><span>-$${mat.toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>🧾 IVA</span><span>-$${iva.toLocaleString()}</span></div>
-        ${oG>0?`<div style="display:flex;justify-content:space-between;color:#e53935;"><span>➕ Otros</span><span>-$${oG.toLocaleString()}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;"><span>Ingresos brutos</span><strong>$${bruto.toLocaleString()}</strong></div>
+        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>Espacio</span><span>-$${esp.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>Materiales</span><span>-$${mat.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>IVA</span><span>-$${iva.toLocaleString()}</span></div>
+        ${oG>0?`<div style="display:flex;justify-content:space-between;color:#e53935;"><span>Otros</span><span>-$${oG.toLocaleString()}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;border-top:2px solid #C06C84;padding-top:7px;margin-top:4px;">
-            <strong style="color:#C06C84;">✅ Neto profesional</strong>
+            <strong style="color:#C06C84;">Neto profesional</strong>
             <strong style="color:#28a745;font-size:1.05rem;">$${neto.toLocaleString()}</strong>
         </div></div>`;
 }
@@ -2902,14 +2898,14 @@ function impRptProf(event) {
     .g{color:#e53935;}.n{color:#28a745;font-size:1.05rem;font-weight:bold;}
     .tot{border-top:3px solid #C06C84;padding-top:10px;margin-top:6px;}
     .footer{text-align:center;margin-top:30px;color:#aaa;font-size:0.8rem;}@media print{body{padding:20px;}}</style></head><body>
-    <h1>📄 CHAMAS SPA — Reporte Individual</h1>
+    <h1>CHAMAS SPA — Reporte Individual</h1>
     <p class="sub">Profesional: <strong>${escNombre}</strong><br>Período: ${escDesde} → ${escHasta}</p>
-    <div class="f"><span>💰 Ingresos brutos</span><strong>$${bruto.toLocaleString()}</strong></div>
-    <div class="f g"><span>🏢 Espacio (${(pE*100).toFixed(1)}%)</span><span>-$${esp.toLocaleString()}</span></div>
-    <div class="f g"><span>📦 Materiales (${(pM*100).toFixed(1)}%)</span><span>-$${mat.toLocaleString()}</span></div>
-    <div class="f g"><span>🧾 IVA (${(pI*100).toFixed(1)}%)</span><span>-$${iva.toLocaleString()}</span></div>
-    ${oG>0?`<div class="f g"><span>➕ Otros gastos</span><span>-$${oG.toLocaleString()}</span></div>`:''}
-    <div class="f tot"><span class="n">✅ Neto profesional</span><span class="n">$${neto.toLocaleString()}</span></div>
+    <div class="f"><span>Ingresos brutos</span><strong>$${bruto.toLocaleString()}</strong></div>
+    <div class="f g"><span>Espacio (${(pE*100).toFixed(1)}%)</span><span>-$${esp.toLocaleString()}</span></div>
+    <div class="f g"><span>Materiales (${(pM*100).toFixed(1)}%)</span><span>-$${mat.toLocaleString()}</span></div>
+    <div class="f g"><span>IVA (${(pI*100).toFixed(1)}%)</span><span>-$${iva.toLocaleString()}</span></div>
+    ${oG>0?`<div class="f g"><span>Otros gastos</span><span>-$${oG.toLocaleString()}</span></div>`:''}
+    <div class="f tot"><span class="n">Neto profesional</span><span class="n">$${neto.toLocaleString()}</span></div>
     <div class="footer">Generado: ${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}<br>CHAMAS - Sistema de Gestión de Turnos</div>
     <script>window.onload=()=>{window.print();}<\/script></body></html>`);
     win.document.close();
@@ -2943,7 +2939,7 @@ async function cargarTodosLosTurnos() {
         }
         const accionesHeader = esAdmin ? '<th style="padding:10px 8px;text-align:center;">Acciones</th>' : '';
         container.innerHTML = `
-            <div class="contador-turnos"><h3>📊 Total de Turnos</h3><div class="numero">${turnos.length}</div></div>
+            <div class="contador-turnos"><h3>Total de Turnos</h3><div class="numero">${turnos.length}</div></div>
             <div style="overflow-x:auto;margin-top:16px;">
             <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:650px;">
                 <thead><tr style="background:#C06C84;color:white;">
@@ -2962,36 +2958,36 @@ async function cargarTodosLosTurnos() {
                         <td style="padding:10px 8px;font-weight:700;color:#C06C84;">#${t.id}</td>
                         <td style="padding:10px 8px;">
                             <strong>${esc(t.cliente_nombre||t.cliente||'N/A')}</strong>
-                            ${t.telefono&&t.telefono!='N/A'?`<br><small style="color:#888;">📞 ${esc(t.telefono)}</small>`:''}
+                            ${t.telefono&&t.telefono!='N/A'?`<br><small style="color:#888;">${esc(t.telefono)}</small>`:''}
                         </td>
                         <td style="padding:10px 8px;font-size:0.8rem;color:#777;">
-                            🔑 ${esc(t.registrado_por||t.cliente||'N/A')}
-                            ${t.email?`<br><span style="color:#aaa;">📧 ${esc(t.email)}</span>`:''}
+                            ${esc(t.registrado_por||t.cliente||'N/A')}
+                            ${t.email?`<br><span style="color:#aaa;">${esc(t.email)}</span>`:''}
                         </td>
                         <td style="padding:10px 8px;">${esc(t.profesional||'N/A')}</td>
                         <td style="padding:10px 8px;">${esc(t.servicio||'N/A')}</td>
                         <td style="padding:10px 8px;white-space:nowrap;">${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
                         <td style="padding:10px 8px;white-space:nowrap;">
                             <span style="font-weight:700;">${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
-                            ${(t.estado||'') === 'cancelado' ? '<br><span style="display:inline-block;margin-top:3px;background:#dc3545;color:white;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700;">❌ Cancelado</span>' : ''}
+                            ${(t.estado||'') === 'cancelado' ? '<br><span style="display:inline-block;margin-top:3px;background:#dc3545;color:white;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700;">Cancelado</span>' : ''}
                         </td>
                         ${esAdmin ? `<td style="padding:8px;white-space:nowrap;">
                             <div style="display:flex;gap:4px;justify-content:center;">
                                 <button title="Editar" onclick="abrirModalEditar(${t.id})"
-                                    style="background:#4CAF50;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">✏️</button>
+                                    style="background:#4CAF50;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">Editar</button>
                                 <button title="Finalizar" onclick="abrirModalPago(event, ${t.id})" data-cliente="${esc(t.cliente_nombre||t.cliente||'')}" data-servicio="${esc(t.servicio||'')}" data-hora="${esc((t.hora_inicio||t.hora||'').substring(0,5))}" data-fecha="${esc(t.fecha?t.fecha.split('T')[0]:'')}"
-                                    style="background:#28a745;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">💳</button>
+                                    style="background:#28a745;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">Finalizar</button>
                                 <button title="Cancelar" onclick="cancelarTurno(${t.id})"
-                                    style="background:#ff9800;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">❌</button>
+                                    style="background:#ff9800;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">Cancelar</button>
                                 <button title="Eliminar" onclick="eliminarTurno(${t.id})"
-                                    style="background:#dc3545;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">🗑️</button>
+                                    style="background:#dc3545;color:white;padding:7px 10px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">Eliminar</button>
                             </div>
                         </td>` : ''}
                     </tr>`).join('')}
                 </tbody>
             </table></div>`;
     } catch (error) {
-        container.innerHTML = `<p class="error">❌ Error</p>`;
+        container.innerHTML = `<p class="error">Error</p>`;
     }
 }
 
@@ -3010,24 +3006,24 @@ function abrirModalPago(event, turnoId) {
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:34px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#28a745;margin:0 0 6px 0;">💳 Finalizar Turno #${turnoId}</h3>
-            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">👤 ${esc(clienteNombre)} | 💆 ${esc(servicio)} | 📅 ${esc(fecha)} ${esc(hora)}</p>
+            <h3 style="color:#28a745;margin:0 0 6px 0;">Finalizar Turno #${turnoId}</h3>
+            <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">${esc(clienteNombre)} | ${esc(servicio)} | ${esc(fecha)} ${esc(hora)}</p>
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto cobrado ($)</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Monto cobrado ($)</label>
                     <input type="number" id="pago-monto" placeholder="0.00" step="0.01" min="0"
                            style="width:100%;padding:10px 12px;border:2px solid #28a745;border-radius:9px;font-size:1rem;box-sizing:border-box;">
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💳 Método de pago</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Método de pago</label>
                     <select id="pago-metodo" style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
-                        <option value="efectivo">💵 Efectivo</option>
-                        <option value="transferencia">🏦 Transferencia</option>
-                        <option value="debito">💳 Débito</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="debito">Débito</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📝 Notas (opcional)</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Notas (opcional)</label>
                     <input type="text" id="pago-notas" placeholder="Ej: pagó con descuento..."
                            style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;box-sizing:border-box;">
                 </div>
@@ -3035,11 +3031,11 @@ function abrirModalPago(event, turnoId) {
             <div style="display:flex;gap:10px;margin-top:20px;">
                 <button onclick="confirmarPago(${turnoId})"
                         style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">
-                    ✅ Confirmar Pago
+                    Confirmar Pago
                 </button>
                 <button onclick="document.getElementById('modal-pago').remove();"
                         style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">
-                    ✖ Cancelar
+                    × Cancelar
                 </button>
             </div>
         </div>`;
@@ -3049,10 +3045,10 @@ function abrirModalPago(event, turnoId) {
 }
 
 async function confirmarPago(turnoId) {
-    const monto  = document.getElementById('pago-monto')?.value;
+    const monto = document.getElementById('pago-monto')?.value;
     const metodo = document.getElementById('pago-metodo')?.value || 'efectivo';
     if (!monto || parseFloat(monto) <= 0) {
-        mostrarNotificacion('⚠️ Ingresá el monto cobrado', 'error');
+        mostrarNotificacion('Ingresá el monto cobrado', 'error');
         return;
     }
     try {
@@ -3062,11 +3058,11 @@ async function confirmarPago(turnoId) {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Turno finalizado correctamente');
+            mostrarNotificacion('Turno finalizado correctamente');
             document.getElementById('modal-pago').remove();
             cargarTodosLosTurnos();
-        } else { mostrarNotificacion('❌ '+(data.message||'Error'),'error'); }
-    } catch(e) { mostrarNotificacion('❌ Error de conexión','error'); }
+        } else { mostrarNotificacion((data.message||'Error'),'error'); }
+    } catch(e) { mostrarNotificacion('Error de conexión','error'); }
 }
 
 // =====================================================
@@ -3083,27 +3079,27 @@ async function cargarListaProfesionalesAdmin() {
             return;
         }
         container.innerHTML = `
-            <h3 style="color:#C06C84;margin:0 0 14px 0;">👩‍💼 Profesionales Registradas (${profs.length})</h3>
+            <h3 style="color:#C06C84;margin:0 0 14px 0;">Profesionales Registradas (${profs.length})</h3>
             <div style="display:flex;flex-direction:column;gap:10px;">
             ${profs.map(p=>`
                 <div style="display:flex;align-items:center;justify-content:space-between;background:white;padding:14px 18px;border-radius:10px;border-left:3px solid #C06C84;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
                     <div>
                         <strong style="color:#333;">${esc(p.nombre)}</strong>
-                        <small style="color:#888;display:block;">📧 ${esc(p.email||'N/A')} &nbsp;📞 ${esc(p.telefono||'N/A')}</small>
+                        <small style="color:#888;display:block;">${esc(p.email||'N/A')} &nbsp;${esc(p.telefono||'N/A')}</small>
                     </div>
                     <div style="display:flex;gap:8px;">
                     <button onclick="abrirModalEditarProfesional(${p.id})"
                             style="background:#f39c12;color:white;padding:7px 13px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">
-                        ✏️ Editar
+                        Editar
                     </button>
                     <button onclick="eliminarProfesional(event, ${p.id})" data-nombre="${esc(p.nombre)}"
                             style="background:#dc3545;color:white;padding:7px 13px;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:0.85rem;">
-                        🗑️ Eliminar
+                        Eliminar
                     </button>
                     </div>
                 </div>`).join('')}
             </div>`;
-    } catch(e) { container.innerHTML = '<p style="color:#dc3545;">❌ Error al cargar</p>'; }
+    } catch(e) { container.innerHTML = '<p style="color:#dc3545;">Error al cargar</p>'; }
 }
 
 // Modal para editar un profesional existente
@@ -3112,7 +3108,7 @@ async function abrirModalEditarProfesional(id) {
     try {
         const res = await fetch(`${API_BASE}/usuarios/${id}`);
         const data = await res.json();
-        if (!data.success) { mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error'); return; }
+        if (!data.success) { mostrarNotificacion((data.message || 'Error'), 'error'); return; }
         const p = data.usuario;
 
         const modal = document.createElement('div');
@@ -3120,46 +3116,46 @@ async function abrirModalEditarProfesional(id) {
         modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
         modal.innerHTML = `
             <div style="background:white;border-radius:20px;padding:30px;max-width:440px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">
-                <h3 style="color:#C06C84;margin:0 0 18px 0;">✏️ Editar Profesional</h3>
+                <h3 style="color:#C06C84;margin:0 0 18px 0;">Editar Profesional</h3>
                 <div style="display:flex;flex-direction:column;gap:14px;">
                     <div>
-                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">👤 Nombre</label>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Nombre</label>
                         <input type="text" id="ep-nombre" value="${esc(p.nombre||'')}" required
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                     <div>
-                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📧 Email</label>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Email</label>
                         <input type="email" id="ep-email" value="${esc(p.email||'')}" required
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                     <div>
-                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📞 Teléfono</label>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Teléfono</label>
                         <input type="tel" id="ep-telefono" value="${esc(p.telefono||'')}"
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                     <div>
-                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💆 Servicios asignados (Ctrl/Cmd para varios)</label>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Servicios asignados (Ctrl/Cmd para varios)</label>
                         <select id="ep-servicios" multiple style="width:100%;min-height:120px;padding:8px;border:2px solid #e0e0e0;border-radius:9px;box-sizing:border-box;">
                             ${servicios.map(s => `<option value="${s.id}" ${(p.servicios||[]).includes(s.id) ? 'selected' : ''}>${esc(s.nombre)}</option>`).join('')}
                         </select>
                     </div>
                     <div>
-                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💸 Porcentaje de retiro de la profesional (%)</label>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Porcentaje de retiro de la profesional (%)</label>
                         <input type="number" id="ep-porcentaje" value="${p.porcentaje_retiro ?? 70}" min="0" max="100" step="1"
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     </div>
                 </div>
                 <div style="display:flex;gap:10px;margin-top:22px;">
                     <button onclick="guardarProfesional(${id})"
-                            style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Guardar</button>
+                            style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Guardar</button>
                     <button onclick="document.getElementById('modal-editar-profesional').remove();"
-                            style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+                            style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">× Cancelar</button>
                 </div>
             </div>`;
         document.body.appendChild(modal);
         modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
     } catch (e) {
-        mostrarNotificacion('❌ Error al cargar el profesional', 'error');
+        mostrarNotificacion('Error al cargar el profesional', 'error');
     }
 }
 
@@ -3169,7 +3165,7 @@ async function guardarProfesional(id) {
     const telefono = document.getElementById('ep-telefono')?.value.trim();
     const serviciosSel = Array.from(document.getElementById('ep-servicios')?.selectedOptions || []).map(o => parseInt(o.value));
 
-    if (!nombre || !email) { mostrarNotificacion('⚠️ Nombre y email son obligatorios', 'error'); return; }
+    if (!nombre || !email) { mostrarNotificacion('Nombre y email son obligatorios', 'error'); return; }
 
     const body = { nombre, email, telefono, servicios: serviciosSel, porcentaje_retiro: parseFloat(document.getElementById('ep-porcentaje')?.value) || 0 };
 
@@ -3181,13 +3177,13 @@ async function guardarProfesional(id) {
         const data = await res.json();
         if (data.success) {
             document.getElementById('modal-editar-profesional')?.remove();
-            mostrarNotificacion('✅ Profesional actualizado');
+            mostrarNotificacion('Profesional actualizado');
             cargarListaProfesionalesAdmin();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -3198,10 +3194,10 @@ async function eliminarProfesional(event, id) {
         const res = await fetch(`${API_BASE}/usuarios/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion(`🗑️ "${nombre}" eliminada`);
+            mostrarNotificacion(`"${nombre}" eliminada`);
             cargarListaProfesionalesAdmin();
-        } else { mostrarNotificacion('❌ '+(data.message||'Error'),'error'); }
-    } catch(e) { mostrarNotificacion('❌ Error de conexión','error'); }
+        } else { mostrarNotificacion((data.message||'Error'),'error'); }
+    } catch(e) { mostrarNotificacion('Error de conexión','error'); }
 }
 
 // ==========================================
@@ -3216,7 +3212,7 @@ async function obtenerHorasOcupadasAPI(profesionalId, fecha) {
         // Devolvemos un array de horas: ["08:00", "12:00"]
         return Array.isArray(turnosOcupados) ? turnosOcupados.map(t => t.hora) : [];
     } catch (error) {
-        console.error('❌ Error al obtener turnos ocupados:', error);
+        console.error('Error al obtener turnos ocupados:', error);
         return [];
     }
 }
@@ -3238,7 +3234,7 @@ async function actualizarHorariosEnTarjeta(profesionalId, fecha) {
     if (contenedor) {
         contenedor.innerHTML = '<option value="">Seleccionar hora...</option>' + 
             disponibles.map(h => `<option value="${h}">${h}</option>`).join('');
-        debugLog(`✅ Se cargaron ${disponibles.length} horarios libres para la fecha ${fecha}`);
+        debugLog(`Se cargaron ${disponibles.length} horarios libres para la fecha ${fecha}`);
     }
 }
 
@@ -3257,7 +3253,7 @@ function conectarFiltrosDeTurnos() {
             const fecha = inputFecha.value;
 
             if (profesionalId && fecha) {
-                debugLog(`🔍 Filtrando horas para Profe: ${profesionalId} en Fecha: ${fecha}`);
+                debugLog(`Filtrando horas para Profe: ${profesionalId} en Fecha: ${fecha}`);
                 
                 // Llamamos a la función que ya agregaste antes
                 // Pero corregimos el ID del contenedor a 'servicio-turno-hora'
@@ -3289,7 +3285,7 @@ async function filtrarHorariosOcupados() {
     const selectHora = document.getElementById('servicio-turno-hora');
 
     if (!selectProfe || !inputFecha || !selectHora) {
-        console.error("❌ No se encuentran los IDs en el HTML");
+        console.error("No se encuentran los IDs en el HTML");
         return;
     }
 
@@ -3297,7 +3293,7 @@ async function filtrarHorariosOcupados() {
     const fecha = inputFecha.value;
 
     if (profeId && fecha) {
-        debugLog(`🔍 Filtrando para: Profe ${profeId} - Fecha ${fecha}`);
+        debugLog(`Filtrando para: Profe ${profeId} - Fecha ${fecha}`);
         
         // 1. Pedimos los turnos que ya existen
         const ocupados = await obtenerHorasOcupadasAPI(profeId, fecha);
@@ -3312,7 +3308,7 @@ async function filtrarHorariosOcupados() {
         selectHora.innerHTML = '<option value="">Seleccionar hora...</option>' + 
             disponibles.map(h => `<option value="${h}">${h}</option>`).join('');
         
-        debugLog("✅ Horarios libres cargados:", disponibles);
+        debugLog("Horarios libres cargados:", disponibles);
     }
 }
 
@@ -3324,16 +3320,16 @@ document.addEventListener('change', (e) => {
 });
 
 // =====================================================
-// 💵 MÓDULO DE CAJA — turnos del día, cobro y ticket
+// MÓDULO DE CAJA — turnos del día, cobro y ticket
 // =====================================================
 
 // =============================================
-// 📲 RECORDATORIOS WHATSAPP (ADMIN / CAJA)
+// RECORDATORIOS WHATSAPP (ADMIN / CAJA)
 // =============================================
 async function cargarRecordatorios() {
     const cont = document.getElementById('recordatorios-lista');
     if (!cont) return;
-    cont.innerHTML = '<p style="color:#888;">⏳ Cargando recordatorios...</p>';
+    cont.innerHTML = '<p style="color:#888;">Cargando recordatorios...</p>';
     try {
         const res = await fetch(`${API_BASE}/recordatorios`);
         const turnos = await res.json();
@@ -3345,7 +3341,7 @@ async function cargarRecordatorios() {
         const turnosManiana = Array.isArray(turnos) ? turnos.filter(t => fechaRaw(t) === manianaISO) : [];
 
         if (!turnosManiana.length) {
-            cont.innerHTML = '<p style="color:#888;">✅ No hay clientes con turno para mañana. Los recordatorios se envían 1 día antes.</p>';
+            cont.innerHTML = '<p style="color:#888;">No hay clientes con turno para mañana. Los recordatorios se envían 1 día antes.</p>';
             return;
         }
 
@@ -3355,19 +3351,19 @@ async function cargarRecordatorios() {
             const tel = (t.cliente_telefono || '').replace(/[^\d]/g, '');
             let waNum = tel;
             if (waNum.startsWith('549')) { } else if (waNum.startsWith('54')) { } else if (waNum.startsWith('0')) waNum = '549' + waNum.slice(1); else waNum = '549' + waNum;
-            const msj = encodeURIComponent(`Hola ${t.cliente_nombre || ''}! 👋 Te recordamos tu turno en *CHAMAS SPA*:\n📅 ${fechaLabel}\n🕐 ${t.hora_inicio}\n👩‍💼 ${t.profesional}\n\n¡Te esperamos mañana! 💆‍♀️`);
+            const msj = encodeURIComponent(`Hola ${t.cliente_nombre || ''}! Te recordamos tu turno en *CHAMAS SPA*:\n${fechaLabel}\n${t.hora_inicio}\n${t.profesional}\n\n¡Te esperamos mañana! `);
             return `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #eef2e6;flex-wrap:wrap;">
                     <div style="flex:1;min-width:220px;">
                         <strong>${esc(t.cliente_nombre || 'Sin nombre')}</strong>
                         <small style="display:block;color:#888;">${esc(fechaLabel)} · ${esc(t.hora_inicio)} · ${esc(t.profesional)}</small>
-                        <small style="display:block;color:#666;">📞 ${esc(t.cliente_telefono || 'Sin teléfono')}</small>
+                        <small style="display:block;color:#666;">${esc(t.cliente_telefono || 'Sin teléfono')}</small>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         ${t.recordatorio_enviado
-                            ? '<span style="color:#28a745;font-size:0.85rem;font-weight:700;">✅ Enviado</span>'
+                            ? '<span style="color:#28a745;font-size:0.85rem;font-weight:700;">Enviado</span>'
                             : (waNum
-                                ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" onclick="marcarRecordatorioEnviado(${t.id})" style="background:#25D366;color:white;padding:10px 16px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Enviar recordatorio</a>`
+                                ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" onclick="marcarRecordatorioEnviado(${t.id})" style="background:#25D366;color:white;padding:10px 16px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">Enviar recordatorio</a>`
                                 : '<span style="color:#888;font-size:0.85rem;">Sin teléfono</span>')}
                     </div>
                 </div>`;
@@ -3381,7 +3377,6 @@ async function cargarRecordatorios() {
         if (pendientes.length) {
             html += `<div style="background:#fff3cd;border:2px solid #f1c40f;border-radius:12px;padding:14px;margin-bottom:16px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                    <span style="font-size:1.3rem;">📆</span>
                     <strong style="color:#B7950B;">CLIENTES CON TURNO MAÑANA — enviar recordatorio hoy (1 día antes):</strong>
                 </div>
                 ${pendientes.map(t => htmlTurno(t)).join('')}
@@ -3391,7 +3386,6 @@ async function cargarRecordatorios() {
         if (enviados.length) {
             html += `<div style="background:#fff;border:2px solid #ddd;border-radius:12px;padding:14px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                    <span style="font-size:1.3rem;">✅</span>
                     <strong style="color:#444;">Recordatorios ya enviados (${enviados.length}):</strong>
                 </div>
                 ${enviados.map(t => htmlTurno(t)).join('')}
@@ -3400,7 +3394,7 @@ async function cargarRecordatorios() {
 
         cont.innerHTML = html;
     } catch (e) {
-        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar recordatorios.</p>';
+        cont.innerHTML = '<p style="color:#c0392b;">Error al cargar recordatorios.</p>';
     }
 }
 
@@ -3409,23 +3403,23 @@ async function marcarRecordatorioEnviado(turnoId) {
         const res = await fetch(`${API_BASE}/recordatorios/${turnoId}/enviado`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Recordatorio marcado como enviado');
+            mostrarNotificacion('Recordatorio marcado como enviado');
             cargarRecordatorios();
         } else {
-            mostrarNotificacion('❌ No se pudo marcar', 'error');
+            mostrarNotificacion('No se pudo marcar', 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
 // =============================================
-// 💸 RETIROS DE PROFESIONALES
+// RETIROS DE PROFESIONALES
 // =============================================
 async function cargarRetiros() {
     const cont = document.getElementById('retiros-lista');
     if (!cont) return;
-    cont.innerHTML = '<p style="color:#888;">⏳ Cargando retiros...</p>';
+    cont.innerHTML = '<p style="color:#888;">Cargando retiros...</p>';
     try {
         const res = await fetch(`${API_BASE}/caja/retiros`);
         const data = await res.json();
@@ -3437,19 +3431,19 @@ async function cargarRetiros() {
         // Retiros ya registrados
         if (retiros.length) {
             html += `<div style="margin-bottom:16px;">
-                <strong style="color:#555;">✅ Retiros registrados hoy:</strong>
+                <strong style="color:#555;">Retiros registrados hoy:</strong>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                 ${retiros.map(r => `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:${r.deshecho ? '#f0f0f0' : '#fdf5f8'};border-left:3px solid ${r.deshecho ? '#999' : '#C06C84'};border-radius:8px;padding:10px 12px;flex-wrap:wrap;${r.deshecho ? 'opacity:0.75;' : ''}">
                         <div>
                             <strong>${esc(r.profesional_nombre)}</strong>
-                            <small style="display:block;color:#888;">${r.metodo_retiro === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'} · Bruto del día: $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: $${parseFloat(r.monto_estetica).toFixed(2)}</small>
+                            <small style="display:block;color:#888;">${r.metodo_retiro === 'transferencia' ? 'Transferencia' : 'Efectivo'} · Bruto del día: $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: $${parseFloat(r.monto_estetica).toFixed(2)}</small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</strong>
                             ${r.deshecho
-                                ? '<span style="background:#999;color:white;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:700;">↩ DESHECHO</span>'
-                                : (esAdmin() ? '<button onclick="deshacerRetiro(' + r.id + ')" style="background:#f0f0f0;color:#C06C84;padding:4px 10px;border:1px solid #C06C84;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;">↩ Deshacer</button>' : '')}
+                                ? '<span style="background:#999;color:white;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:700;">DESHECHO</span>'
+                                : (esAdmin() ? '<button onclick="deshacerRetiro(' + r.id + ')" style="background:#f0f0f0;color:#C06C84;padding:4px 10px;border:1px solid #C06C84;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;">Deshacer</button>' : '')}
                         </div>
                     </div>`).join('')}
                 </div>
@@ -3460,7 +3454,7 @@ async function cargarRetiros() {
         const retiradosIds = new Set(retiros.map(r => r.profesional_id));
         const pendientes = sugerencias.filter(s => !retiradosIds.has(s.profesional_id));
         if (pendientes.length) {
-            html += `<strong style="color:#555;">💡 Profesionales con cobros de hoy (sugerencia de retiro):</strong>
+            html += `<strong style="color:#555;">Profesionales con cobros de hoy (sugerencia de retiro):</strong>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                 ${pendientes.map(s => {
                     const montoMax = (parseFloat(s.cobrado_hoy) * (parseFloat(s.porcentaje_retiro)||70) / 100).toFixed(2);
@@ -3472,10 +3466,10 @@ async function cargarRetiros() {
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <select id="metodo-retiro-${s.profesional_id}" style="padding:8px 10px;border:2px solid #e0e0e0;border-radius:8px;font-size:0.85rem;background:white;">
-                                <option value="efectivo">💵 Efectivo</option>
-                                <option value="transferencia">🏦 Transferencia</option>
+                                <option value="efectivo">Efectivo</option>
+                                <option value="transferencia">Transferencia</option>
                             </select>
-                            <button onclick="registrarRetiro(event, ${s.profesional_id})" data-nombre="${esc(s.profesional_nombre||'')}" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">💸 Registrar retiro</button>
+                            <button onclick="registrarRetiro(event, ${s.profesional_id})" data-nombre="${esc(s.profesional_nombre||'')}" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">Registrar retiro</button>
                         </div>
                     </div>`;
                 }).join('')}
@@ -3483,19 +3477,19 @@ async function cargarRetiros() {
         }
 
         if (!html) {
-            html = '<p style="color:#888;">✅ No hay retiros pendientes. Los retiros aparecen acá cuando una profesional tenga turnos cobrados en el día.</p>';
+            html = '<p style="color:#888;">No hay retiros pendientes. Los retiros aparecen acá cuando una profesional tenga turnos cobrados en el día.</p>';
         }
         cont.innerHTML = html;
     } catch (e) {
-        console.error('❌ Error retiros:', e);
-        cont.innerHTML = '<p style="color:#dc3545;">❌ Error al cargar retiros</p>';
+        console.error('Error retiros:', e);
+        cont.innerHTML = '<p style="color:#dc3545;">Error al cargar retiros</p>';
     }
 }
 
 async function registrarRetiro(event, profesionalId) {
     const nombre = event.currentTarget.dataset.nombre || '';
     const metodo = document.getElementById('metodo-retiro-'+profesionalId)?.value || 'efectivo';
-    if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${metodo === 'transferencia' ? '🏦 Transferencia' : '💵 Efectivo'}\nSe descontará de la caja de hoy.`)) return;
+    if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${metodo === 'transferencia' ? 'Transferencia' : 'Efectivo'}\nSe descontará de la caja de hoy.`)) return;
     event.currentTarget.disabled = true;
     const btnText = event.currentTarget.textContent;
     event.currentTarget.textContent = 'Registrando...';
@@ -3506,14 +3500,14 @@ async function registrarRetiro(event, profesionalId) {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion(data.mensaje || '✅ Retiro registrado');
+            mostrarNotificacion(data.mensaje || 'Retiro registrado');
             cargarRetiros();
             cargarEstadoCaja();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     } finally {
         event.currentTarget.disabled = false;
         event.currentTarget.textContent = btnText;
@@ -3521,14 +3515,14 @@ async function registrarRetiro(event, profesionalId) {
 }
 
 async function deshacerRetiro(retiroId) {
-    if (!esAdmin()) { mostrarNotificacion('⛔ Solo el admin puede deshacer retiros', 'error'); return; }
+    if (!esAdmin()) { mostrarNotificacion('Solo el admin puede deshacer retiros', 'error'); return; }
     if (!confirm('¿Deshacer este retiro? Se restaurará el monto a la caja de hoy. El registro se conserva.')) return;
     try {
         const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}/deshacer`, { method: 'POST' });
         const data = await res.json();
-        if (data.success) { mostrarNotificacion('✅ Retiro deshecho y dinero restaurado'); cargarRetiros(); }
-        else { mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error'); }
-    } catch (e) { mostrarNotificacion('❌ Error de conexión', 'error'); }
+        if (data.success) { mostrarNotificacion('Retiro deshecho y dinero restaurado'); cargarRetiros(); }
+        else { mostrarNotificacion((data.message || 'Error'), 'error'); }
+    } catch (e) { mostrarNotificacion('Error de conexión', 'error'); }
 }
 
 // Carga los turnos del día para el panel de caja
@@ -3536,7 +3530,7 @@ async function deshacerRetiro(retiroId) {
 async function cargarEstadoCaja() {
     const cont = document.getElementById('caja-estado');
     if (!cont) return;
-    cont.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">⏳ Cargando estado de caja...</p>';
+    cont.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">Cargando estado de caja...</p>';
     try {
         const res = await fetch(`${API_BASE}/caja/estado`);
         if (!res.ok) throw new Error('Error');
@@ -3545,29 +3539,28 @@ async function cargarEstadoCaja() {
             cont.innerHTML = `
                 <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #C06C84;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
                     <div>
-                        <h3 style="margin:0;color:#C06C84;">🔴 Caja Cerrada</h3>
+                        <h3 style="margin:0;color:#C06C84;">Caja Cerrada</h3>
                         <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">Abrí la caja para registrar los cobros del día y poder cerrarla al final de la jornada con el arqueo.</p>
                     </div>
-                    <button onclick="abrirCajaModal()" style="background:#C06C84;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔓 Abrir Caja</button>
+                    <button onclick="abrirCajaModal()" style="background:#C06C84;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Abrir Caja</button>
                 </div>`;
         } else {
             const c = data.caja;
             const avisoAnterior = data.dia_anterior ? `
                 <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="font-size:1.6rem;">⚠️</span>
                         <div>
                             <strong style="color:#856404;display:block;">Quedó abierta la caja del día ${String(c.fecha_larga || '').split('-').reverse().join('/')}</strong>
                             <small style="color:#997404;">Debés hacer el arqueo de esa caja y cerrarla antes de abrir la de hoy.</small>
                         </div>
                     </div>
-                    <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:10px 18px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">🔒 Arqueo y Cierre</button>
+                    <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:10px 18px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Arqueo y Cierre</button>
                 </div>` : '';
             cont.innerHTML = avisoAnterior + renderizarAperturaCaja(data);
         }
     } catch (e) {
-        console.error('❌ Error estado caja:', e);
-        cont.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar el estado de la caja</p>';
+        console.error('Error estado caja:', e);
+        cont.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el estado de la caja</p>';
     }
 }
 
@@ -3577,7 +3570,7 @@ function renderizarAperturaCaja(data) {
     const tickets = data.tickets || [];
     const gastos = data.gastos || [];
     const retiros = data.retiros || [];
-    const metodoIcon = (m) => m === 'efectivo' ? '💵' : m === 'transferencia' ? '🏦' : '💳';
+    const metodoIcon = (m) => nombreMetodoPago(m);
     const itemsLegibles = (jsonStr) => {
         try {
             const arr = JSON.parse(jsonStr);
@@ -3589,50 +3582,50 @@ function renderizarAperturaCaja(data) {
     const pagosHtml = tickets.length ? tickets.map((t, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
             <span style="color:#444;"><strong>#${t.numero}</strong> <small style="color:#aaa;">${t.hora}hs</small> · ${esc(t.cliente_nombre || 'Cliente')}${t.profesional_nombre ? ' · <span style="color:#C06C84;">' + esc(t.profesional_nombre) + '</span>' : ''}<br><small style="color:#777;">${esc(itemsLegibles(t.items))}</small></span>
-            <span><strong>${metodoIcon(t.metodo_pago)} $${parseFloat(t.total).toFixed(2)}</strong></span>
-        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">📭 Todavía no se cobró ningún turno del día.</p>';
+            <span><strong>${etiquetaPago(t)} $${parseFloat(t.total).toFixed(2)}</strong></span>
+        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Todavía no se cobró ningún turno del día.</p>';
 
     const gastosHtml = gastos.length ? gastos.map((g, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;">
-            <span style="color:#555;"><strong>${g.tipo === 'fijo' ? '📌' : '🛒'} ${g.descripcion}</strong><br><small style="color:#aaa;">${metodoIcon(g.metodo_pago)} ${g.metodo_pago}</small></span>
+            <span style="color:#555;"><strong>${g.tipo === 'fijo' ? '' : ''} ${g.descripcion}</strong><br><small style="color:#aaa;">${metodoIcon(g.metodo_pago)}</small></span>
             <span style="font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</span>
-        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">✅ Sin gastos registrados.</p>';
+        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Sin gastos registrados.</p>';
 
     const retirosHtml = retiros.length ? retiros.map((r, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
             <span style="color:#555;"><strong>${esc(r.profesional_nombre)}</strong><br><small style="color:#aaa;">Bruto $${parseFloat(r.monto_bruto).toFixed(2)} · Retira ${r.porcentaje_retiro}%</small></span>
             <span style="font-weight:700;color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(2)}</span>
-        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">💡 Aún no se retiraron porcentajes. Se sugieren abajo según los cobros del día.</p>';
+        </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Aún no se retiraron porcentajes. Se sugieren abajo según los cobros del día.</p>';
 
     return `
         <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #28a745;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px dashed #ddd;padding-bottom:12px;">
                 <div>
-                    <h3 style="margin:0;color:#28a745;">🟢 Apertura de Caja del Día</h3>
+                    <h3 style="margin:0;color:#28a745;">Apertura de Caja del Día</h3>
                     <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">
                         Fondo inicial: <strong>$${c.monto_inicial ? parseFloat(c.monto_inicial).toFixed(2) : '0.00'}</strong> ·
                         Cobrado: <strong style="color:#28a745;">$${(parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0)).toFixed(2)}</strong>
-                        ${c.cajero_nombre ? ' · 👤 ' + c.cajero_nombre : ''}
+                        ${c.cajero_nombre ? ' · ' + c.cajero_nombre : ''}
                     </p>
                 </div>
-                <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🔒 Arqueo y Cierre</button>
+                <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Arqueo y Cierre</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:14px 0;">
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💵 Efectivo</small><br><strong>$${parseFloat(c.total_efectivo || 0).toFixed(2)}</strong></div>
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">🏦 Transferencia</small><br><strong>$${parseFloat(c.total_transferencia || 0).toFixed(2)}</strong></div>
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">💳 Débito</small><br><strong>$${parseFloat(c.total_debito || 0).toFixed(2)}</strong></div>
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Efectivo</small><br><strong>$${parseFloat(c.total_efectivo || 0).toFixed(2)}</strong></div>
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Transferencia</small><br><strong>$${parseFloat(c.total_transferencia || 0).toFixed(2)}</strong></div>
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Débito</small><br><strong>$${parseFloat(c.total_debito || 0).toFixed(2)}</strong></div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
                 <div>
-                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">💳 Pagos de clientes (${tickets.length})</h4>
+                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">Pagos de clientes (${tickets.length})</h4>
                     ${pagosHtml}
                 </div>
                 <div>
-                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">${gastos.length ? '🧾 Gastos (' + gastos.length + ')' : '🧾 Gastos del día'}</h4>
+                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">${gastos.length ? 'Gastos (' + gastos.length + ')' : 'Gastos del día'}</h4>
                     ${gastosHtml}
                 </div>
                 <div>
-                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">💸 Retiros de profesionales (${retiros.length})</h4>
+                    <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">Retiros de profesionales (${retiros.length})</h4>
                     ${retirosHtml}
                 </div>
             </div>
@@ -3646,18 +3639,18 @@ function abrirCajaModal() {
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#C06C84;margin:0 0 6px 0;">🔓 Abrir Caja del Día</h3>
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">Abrir Caja del Día</h3>
             <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">Registrá el dinero con el que se abre la caja (fondo de cambio).</p>
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Fondo inicial ($)</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Fondo inicial ($)</label>
                     <input type="number" id="abrir-caja-monto" value="0" step="0.01" min="0"
                            style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
                 </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;">
-                <button onclick="confirmarAbrirCaja()" style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Abrir Caja</button>
-                <button onclick="document.getElementById('modal-abrir-caja').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+                <button onclick="confirmarAbrirCaja()" style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Abrir Caja</button>
+                <button onclick="document.getElementById('modal-abrir-caja').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">× Cancelar</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3675,14 +3668,14 @@ async function confirmarAbrirCaja() {
         const data = await res.json();
         document.getElementById('modal-abrir-caja')?.remove();
         if (data.success) {
-            mostrarNotificacion('✅ Caja abierta correctamente');
+            mostrarNotificacion('Caja abierta correctamente');
             cargarEstadoCaja();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
             cargarEstadoCaja();
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error al abrir la caja', 'error');
+        mostrarNotificacion('Error al abrir la caja', 'error');
     }
 }
 
@@ -3694,26 +3687,26 @@ function cerrarCajaModal() {
     const billetes = [20000, 10000, 2000, 1000, 500, 100];
     const fila = (v, tipo) => `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;">
-            <span style="font-weight:600;color:#555;min-width:90px;">💵 $${v}</span>
+            <span style="font-weight:600;color:#555;min-width:90px;">$${v}</span>
             <input type="number" min="0" step="1" value="0" data-denom="${v}" data-tipo="billete" oninput="actualizarTotalArqueo()"
                    style="width:80px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
             <span class="subtotal-arqueo" data-denom="${v}" style="font-weight:700;color:#28a745;min-width:70px;text-align:right;">$0.00</span>
         </div>`;
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:28px;max-width:460px;width:94%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#C06C84;margin:0 0 6px 0;">🔒 Arqueo y Cierre de Caja</h3>
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">Arqueo y Cierre de Caja</h3>
             <p style="color:#888;margin:0 0 16px;font-size:0.88rem;">Contá el dinero real en la caja cargando las cantidades por denominación. El total se calcula automáticamente.</p>
             <div style="max-height:40vh;overflow-y:auto;padding-right:4px;">
-                <h4 style="margin:8px 0 6px;color:#555;font-size:0.9rem;">💵 Billetes</h4>
+                <h4 style="margin:8px 0 6px;color:#555;font-size:0.9rem;">Billetes</h4>
                 ${billetes.map(b => fila(b, 'billete')).join('')}
             </div>
             <div style="margin-top:14px;background:#f9f9f9;border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-weight:700;color:#555;">💵 Total contado</span>
+                <span style="font-weight:700;color:#555;">Total contado</span>
                 <strong id="arqueo-total" style="color:#28a745;font-size:1.25rem;">$0.00</strong>
             </div>
             <div style="display:flex;gap:10px;margin-top:16px;">
-                <button onclick="confirmarCerrarCaja()" id="btn-confirmar-arqueo" style="flex:1;background:#e74c3c;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Arqueo y Cerrar Caja</button>
-                <button onclick="document.getElementById('modal-cerrar-caja').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+                <button onclick="confirmarCerrarCaja()" id="btn-confirmar-arqueo" style="flex:1;background:#e74c3c;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Arqueo y Cerrar Caja</button>
+                <button onclick="document.getElementById('modal-cerrar-caja').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">× Cancelar</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3760,10 +3753,10 @@ async function confirmarCerrarCaja() {
             cargarEstadoCaja();
         } else {
             document.getElementById('modal-cerrar-caja')?.remove();
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error al cerrar la caja', 'error');
+        mostrarNotificacion('Error al cerrar la caja', 'error');
     }
 }
 
@@ -3774,22 +3767,22 @@ function mostrarResumenCierre(r) {
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#C06C84;margin:0 0 16px 0;text-align:center;">🧾 Cierre de Caja</h3>
+            <h3 style="color:#C06C84;margin:0 0 16px 0;text-align:center;">Cierre de Caja</h3>
             <div style="background:#f9f9f9;border-radius:12px;padding:16px;font-size:0.92rem;">
                 <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Fondo inicial</span><strong>$${r.monto_inicial.toFixed(2)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💵 Efectivo</span><strong>$${r.total_efectivo.toFixed(2)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">🏦 Transferencia</span><strong>$${r.total_transferencia.toFixed(2)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💳 Débito</span><strong>$${r.total_debito.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Efectivo</span><strong>$${r.total_efectivo.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Transferencia</span><strong>$${r.total_transferencia.toFixed(2)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Débito</span><strong>$${r.total_debito.toFixed(2)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed #ccc;margin-top:4px;"><span style="color:#555;font-weight:700;">Total ventas</span><strong style="color:#28a745;">$${r.total_ventas.toFixed(2)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">💸 Retiros de profesionales</span><strong style="color:#C06C84;">-$${(r.total_retiros||0).toFixed(2)}</strong></div>
-                ${r.total_gastos ? `<div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">🧾 Gastos del local</span><strong style="color:#dc3545;">-$${(r.total_gastos||0).toFixed(2)}</strong></div>` : ''}
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Retiros de profesionales</span><strong style="color:#C06C84;">-$${(r.total_retiros||0).toFixed(2)}</strong></div>
+                ${r.total_gastos ? `<div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Gastos del local</span><strong style="color:#dc3545;">-$${(r.total_gastos||0).toFixed(2)}</strong></div>` : ''}
                 ${(r.arqueo && r.arqueo.length) ? `
                 <div style="border-top:1px dashed #ccc;margin-top:4px;padding-top:6px;">
-                    <span style="color:#555;font-weight:700;">🧮 Arqueo</span>
+                    <span style="color:#555;font-weight:700;">Arqueo</span>
                     <div style="margin-top:4px;">
                     ${r.arqueo.map(a => `
                         <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:0.85rem;">
-                            <span style="color:#888;">${a.tipo === 'moneda' ? '🪙' : '💵'} $${a.denominacion} × ${a.cantidad}</span><strong>$${a.subtotal.toFixed(2)}</strong>
+                            <span style="color:#888;">${a.tipo === 'moneda' ? '' : ''} $${a.denominacion} × ${a.cantidad}</span><strong>$${a.subtotal.toFixed(2)}</strong>
                         </div>`).join('')}
                     </div>
                 </div>` : ''}
@@ -3803,8 +3796,8 @@ function mostrarResumenCierre(r) {
                 </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;">
-                <button onclick="abrirModalPlanillaCierre(event)" data-json="${esc(JSON.stringify(r))}" style="flex:1;background:#C06C84;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">🖨️ Imprimir Planilla</button>
-                <button onclick="document.getElementById('modal-resumen-cierre').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cerrar</button>
+                <button onclick="abrirModalPlanillaCierre(event)" data-json="${esc(JSON.stringify(r))}" style="flex:1;background:#C06C84;color:white;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Imprimir Planilla</button>
+                <button onclick="document.getElementById('modal-resumen-cierre').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:12px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">× Cerrar</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3835,8 +3828,8 @@ function abrirModalPlanillaCierre(event) {
   <div class="row"><span>Transferencia</span><span>$${r.total_transferencia.toFixed(2)}</span></div>
   <div class="row"><span>Débito</span><span>$${r.total_debito.toFixed(2)}</span></div>
   <div class="row"><span>Total ventas</span><span>$${r.total_ventas.toFixed(2)}</span></div>
-  <div class="row"><span>💸 Retiros</span><span>-$${(r.total_retiros||0).toFixed(2)}</span></div>
-  ${r.total_gastos ? `<div class="row"><span>🧾 Gastos local</span><span>-$${r.total_gastos.toFixed(2)}</span></div>` : ''}
+  <div class="row"><span>Retiros</span><span>-$${(r.total_retiros||0).toFixed(2)}</span></div>
+  ${r.total_gastos ? `<div class="row"><span>Gastos local</span><span>-$${r.total_gastos.toFixed(2)}</span></div>` : ''}
   <hr>
   ${(r.arqueo && r.arqueo.length) ? `
   <div class="center bold" style="margin:4px 0;">-- ARQUEO --</div>
@@ -3856,13 +3849,13 @@ function abrirModalPlanillaCierre(event) {
 async function cargarTurnosCaja() {
     const container = document.getElementById('caja-turnos-dia');
     if (!container) return;
-    container.innerHTML = '<p style="color:#888;text-align:center;padding:24px;">⏳ Cargando turnos del día...</p>';
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:24px;">Cargando turnos del día...</p>';
     try {
         const res = await fetch(`${API_BASE}/caja/dia`);
         if (!res.ok) throw new Error('Error');
         const turnos = await res.json();
         if (!Array.isArray(turnos) || !turnos.length) {
-            container.innerHTML = '<div style="background:white;border-radius:14px;padding:28px;text-align:center;color:#888;box-shadow:0 2px 10px rgba(0,0,0,0.06);">📭 No hay turnos para hoy.</div>';
+            container.innerHTML = '<div style="background:white;border-radius:14px;padding:28px;text-align:center;color:#888;box-shadow:0 2px 10px rgba(0,0,0,0.06);">No hay turnos para hoy.</div>';
             return;
         }
 
@@ -3879,17 +3872,17 @@ async function cargarTurnosCaja() {
                         <strong style="color:${t.tipo === 'sobreturno' ? '#6C3483' : '#C06C84'};font-size:1.1rem;">${t.hora_inicio}</strong>
                     </div>
                     <div>
-                        <strong style="color:#333;">${esc(t.cliente_nombre || 'Cliente')}${t.tipo === 'sobreturno' ? ' <span style="background:#8E44AD;color:white;font-size:0.7rem;border-radius:6px;padding:2px 6px;font-weight:700;vertical-align:middle;">⏱️ SOBRETURNO</span>' : ''}</strong>
-                        <small style="color:#888;display:block;">💆 ${esc(t.servicio)}${parseInt(t.cant_items||1) > 1 ? ` <span style="background:#fdf0f4;color:#C06C84;border-radius:6px;padding:1px 6px;font-weight:700;">+${parseInt(t.cant_items)-1}</span>` : ''} · 👩‍💼 ${esc(t.profesional || 'Sin profesional')}${t.cliente_telefono ? ' · 📞 ' + esc(t.cliente_telefono) : ''}</small>
+                        <strong style="color:#333;">${esc(t.cliente_nombre || 'Cliente')}${t.tipo === 'sobreturno' ? ' <span style="background:#8E44AD;color:white;font-size:0.7rem;border-radius:6px;padding:2px 6px;font-weight:700;vertical-align:middle;">SOBRETURNO</span>' : ''}</strong>
+                        <small style="color:#888;display:block;">${esc(t.servicio)}${parseInt(t.cant_items||1) > 1 ? ` <span style="background:#fdf0f4;color:#C06C84;border-radius:6px;padding:1px 6px;font-weight:700;">+${parseInt(t.cant_items)-1}</span>` : ''} · ${esc(t.profesional || 'Sin profesional')}${t.cliente_telefono ? ' · ' + esc(t.cliente_telefono) : ''}</small>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;">
                     <strong style="color:#28a745;font-size:1.15rem;">$${parseFloat(t.precio || 0).toFixed(2)}</strong>
                     ${esCobrado
-                        ? `<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">✔ Cobrado</span>
-                        <button onclick="abrirModalEditar(${t.id})" title="Editar turno" style="background:#6c757d;color:white;padding:6px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">✏️ Editar</button>`
-                        : `<button onclick="abrirModalCobro(event, ${t.id})" data-cliente="${esc(t.cliente_nombre||'')}" data-precio="${t.precio||0}" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">💳 Cobrar</button>
-                        <button onclick="cancelarTurno(${t.id})" style="background:#dc3545;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">❌ Cancelar</button>`}
+                        ? `<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">Cobrado</span>
+                        <button onclick="abrirModalEditar(${t.id})" title="Editar turno" style="background:#6c757d;color:white;padding:6px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">Editar</button>`
+                        : `<button onclick="abrirModalCobro(event, ${t.id})" data-cliente="${esc(t.cliente_nombre||'')}" data-precio="${t.precio||0}" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Cobrar</button>
+                        <button onclick="cancelarTurno(${t.id})" style="background:#dc3545;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Cancelar</button>`}
                 </div>
             </div>`;
 
@@ -3901,15 +3894,15 @@ async function cargarTurnosCaja() {
                     </div>
                     <div>
                         <strong style="color:#777;">${esc(t.cliente_nombre || 'Cliente')}</strong>
-                        <small style="color:#aaa;display:block;">💆 ${esc(t.servicio)} · 👩‍💼 ${esc(t.profesional || 'Sin profesional')}</small>
+                        <small style="color:#aaa;display:block;">${esc(t.servicio)} · ${esc(t.profesional || 'Sin profesional')}</small>
                     </div>
                 </div>
-                <span style="background:#dc3545;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">❌ Cancelado</span>
+                <span style="background:#dc3545;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">Cancelado</span>
             </div>`;
 
         container.innerHTML = `
             <div style="background:white;border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;">
-                <h3 style="margin:0;color:#C06C84;text-transform:capitalize;">📅 ${hoy}</h3>
+                <h3 style="margin:0;color:#C06C84;text-transform:capitalize;">${hoy}</h3>
                 <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">${pendientes.length} pendientes · ${cobrados.length} cobrados${cancelados.length ? ` · ${cancelados.length} cancelados` : ''}</p>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;">
@@ -3918,19 +3911,19 @@ async function cargarTurnosCaja() {
             </div>
             ${cancelados.length ? `
                 <div style="margin-top:24px;">
-                    <h4 style="color:#777;margin:0 0 10px 0;font-size:0.95rem;">❌ Turnos Cancelados (no afectan la caja)</h4>
+                    <h4 style="color:#777;margin:0 0 10px 0;font-size:0.95rem;">Turnos Cancelados (no afectan la caja)</h4>
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         ${cancelados.map(t => tarjetaCancelada(t)).join('')}
                     </div>
                 </div>` : ''}`;
     } catch (e) {
-        console.error('❌ Error caja:', e);
-        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:20px;">❌ Error al cargar los turnos del día</p>';
+        console.error('Error caja:', e);
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:20px;">Error al cargar los turnos del día</p>';
     }
 }
 
 // =====================================================
-// 🧾 GASTOS DEL LOCAL (fijos y compras)
+// GASTOS DEL LOCAL (fijos y compras)
 // =====================================================
 function abrirModalGasto() {
     const modal = document.createElement('div');
@@ -3939,40 +3932,40 @@ function abrirModalGasto() {
     const hoy = new Date().toLocaleDateString('en-CA');
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:30px;max-width:440px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <h3 style="color:#C06C84;margin:0 0 6px 0;">🧾 Registrar Gasto del Local</h3>
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">Registrar Gasto del Local</h3>
             <p style="color:#888;margin:0 0 18px 0;font-size:0.88rem;">Registrá gastos fijos (alquiler, sueldos, servicios) o compras del local. Todo queda registrado.</p>
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">🗂️ Tipo de gasto</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Tipo de gasto</label>
                     <select id="gasto-tipo" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
-                        <option value="compra">🛒 Compra del local</option>
-                        <option value="fijo">📌 Gasto fijo</option>
+                        <option value="compra">Compra del local</option>
+                        <option value="fijo">Gasto fijo</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📝 Descripción</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Descripción</label>
                     <input type="text" id="gasto-descripcion" placeholder="Ej: Alquiler del local, Productos de cosmetica..." style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto ($)</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Monto ($)</label>
                     <input type="number" id="gasto-monto" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💳 Método de pago</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Método de pago</label>
                     <select id="gasto-metodo" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
-                        <option value="efectivo">💵 Efectivo</option>
-                        <option value="transferencia">🏦 Transferencia</option>
-                        <option value="debito">💳 Débito</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="debito">Débito</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">📅 Fecha</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Fecha</label>
                     <input type="date" id="gasto-fecha" value="${hoy}" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
                 </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;">
-                <button onclick="confirmarRegistrarGasto()" style="flex:1;background:#8E44AD;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">✅ Registrar Gasto</button>
-                <button onclick="document.getElementById('modal-gasto').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">✖ Cancelar</button>
+                <button onclick="confirmarRegistrarGasto()" style="flex:1;background:#8E44AD;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Registrar Gasto</button>
+                <button onclick="document.getElementById('modal-gasto').remove();" style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">× Cancelar</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -3984,7 +3977,7 @@ async function confirmarRegistrarGasto() {
     const descripcion = document.getElementById('gasto-descripcion')?.value.trim();
     const monto = parseFloat(document.getElementById('gasto-monto')?.value);
     if (!descripcion || !monto || monto <= 0) {
-        mostrarNotificacion('❌ Completá la descripción y un monto válido', 'error');
+        mostrarNotificacion('Completá la descripción y un monto válido', 'error');
         return;
     }
     const payload = {
@@ -4002,33 +3995,33 @@ async function confirmarRegistrarGasto() {
         const data = await res.json();
         if (data.success) {
             document.getElementById('modal-gasto')?.remove();
-            mostrarNotificacion('✅ Gasto registrado correctamente');
+            mostrarNotificacion('Gasto registrado correctamente');
             cargarGastosAdmin();
             cargarGastosCaja();
             cargarEstadoCaja();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
 async function eliminarGasto(id) {
-    if (!confirm('⚠️ ¿Eliminar este gasto? El dinero vuelve a la caja si sigue abierta.')) return;
+    if (!confirm('¿Eliminar este gasto? El dinero vuelve a la caja si sigue abierta.')) return;
     try {
         const res = await fetch(`${API_BASE}/gastos/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ Gasto eliminado');
+            mostrarNotificacion('Gasto eliminado');
             cargarGastosAdmin();
             cargarGastosCaja();
             cargarEstadoCaja();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -4044,7 +4037,7 @@ async function cargarGastosAdmin() {
     if (hasta) params.append('hasta', hasta);
     if (tipo) params.append('tipo', tipo);
     if (params.toString()) url += '?' + params.toString();
-    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">⏳ Cargando gastos...</p>';
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">Cargando gastos...</p>';
     try {
         const res = await fetch(url);
         const gastos = await res.json();
@@ -4071,12 +4064,12 @@ async function cargarGastosAdmin() {
                     ${gastos.map((g, i) => `
                         <tr style="background:${i % 2 === 0 ? 'white' : '#f6f0f8'};border-bottom:1px solid #eee;">
                             <td style="padding:10px 8px;white-space:nowrap;">${String(g.fecha).slice(0, 10).split('-').reverse().join('/')}</td>
-                            <td style="padding:10px 8px;">${g.tipo === 'fijo' ? '📌 Fijo' : '🛒 Compra'}</td>
+                            <td style="padding:10px 8px;">${g.tipo === 'fijo' ? 'Fijo' : 'Compra'}</td>
                             <td style="padding:10px 8px;"><strong>${g.descripcion}</strong></td>
                             <td style="padding:10px 8px;">${g.metodo_pago}</td>
                             <td style="padding:10px 8px;color:#777;font-size:0.8rem;">${g.cajero_nombre || g.registrado_por_nombre || '—'}</td>
                             <td style="padding:10px 8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</td>
-                            ${esAdmin ? `<td style="padding:10px 8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;">🗑️</button></td>` : ''}
+                            ${esAdmin ? `<td style="padding:10px 8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;">×</button></td>` : ''}
                         </tr>`).join('')}
                     </tbody>
                 </table>
@@ -4086,21 +4079,21 @@ async function cargarGastosAdmin() {
                 </div>
             </div>`;
     } catch (e) {
-        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar los gastos</p>';
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar los gastos</p>';
     }
 }
 
 async function cargarGastosCaja() {
     const container = document.getElementById('gastos-caja-lista');
     if (!container) return;
-    container.innerHTML = '<p style="color:#888;text-align:center;padding:12px;">⏳ Cargando gastos...</p>';
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:12px;">Cargando gastos...</p>';
     try {
         const res = await fetch(`${API_BASE}/gastos`);
         const gastos = await res.json();
         const hoy = new Date().toLocaleDateString('en-CA');
         const deHoy = (Array.isArray(gastos) ? gastos : []).filter(g => String(g.fecha).slice(0, 10) === hoy);
         if (!deHoy.length) {
-            container.innerHTML = '<p style="color:#888;text-align:center;padding:12px;font-size:0.9rem;">📭 No hay gastos registrados hoy.</p>';
+            container.innerHTML = '<p style="color:#888;text-align:center;padding:12px;font-size:0.9rem;">No hay gastos registrados hoy.</p>';
             return;
         }
         const total = deHoy.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
@@ -4119,11 +4112,11 @@ async function cargarGastosCaja() {
                     <tbody>
                     ${deHoy.map((g, i) => `
                         <tr style="background:${i % 2 === 0 ? 'white' : '#f6f0f8'};border-bottom:1px solid #eee;">
-                            <td style="padding:8px;">${g.tipo === 'fijo' ? '📌 Fijo' : '🛒 Compra'}</td>
+                            <td style="padding:8px;">${g.tipo === 'fijo' ? 'Fijo' : 'Compra'}</td>
                             <td style="padding:8px;"><strong>${g.descripcion}</strong></td>
                             <td style="padding:8px;">${g.metodo_pago}</td>
                             <td style="padding:8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</td>
-                            ${esAdmin ? `<td style="padding:8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:5px 9px;border:none;border-radius:6px;cursor:pointer;">🗑️</button></td>` : ''}
+                            ${esAdmin ? `<td style="padding:8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:5px 9px;border:none;border-radius:6px;cursor:pointer;">×</button></td>` : ''}
                         </tr>`).join('')}
                     </tbody>
                 </table>
@@ -4133,18 +4126,18 @@ async function cargarGastosCaja() {
                 </div>
             </div>`;
     } catch (e) {
-        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:12px;">❌ Error al cargar los gastos</p>';
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:12px;">Error al cargar los gastos</p>';
     }
 }
 
 // =====================================================
-// 📊 REPORTE DE COBRANZAS (diario / semanal / mensual)
+// REPORTE DE COBRANZAS (diario / semanal / mensual)
 // =====================================================
 async function cargarReporteCaja() {
     const container = document.getElementById('reporte-caja-lista');
     if (!container) return;
     const periodo = document.getElementById('reporte-periodo')?.value || 'diario';
-    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">⏳ Cargando reporte...</p>';
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">Cargando reporte...</p>';
     try {
         const res = await fetch(`${API_BASE}/caja/reporte?periodo=${periodo}`);
         const data = await res.json();
@@ -4176,13 +4169,13 @@ async function cargarReporteCaja() {
                 <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:760px;">
                     <thead><tr style="background:#C06C84;color:white;">
                         <th style="padding:10px 8px;">Período</th>
-                        <th style="padding:10px 8px;">💵 Efectivo</th>
-                        <th style="padding:10px 8px;">🏦 Transf.</th>
-                        <th style="padding:10px 8px;">💳 Débito</th>
-                        <th style="padding:10px 8px;">💰 Total Cobrado</th>
-                        <th style="padding:10px 8px;">🧾 Gastos</th>
-                        <th style="padding:10px 8px;">💸 Retiros</th>
-                        <th style="padding:10px 8px;">✅ Neto</th>
+                        <th style="padding:10px 8px;">Efectivo</th>
+                        <th style="padding:10px 8px;">Transf.</th>
+                        <th style="padding:10px 8px;">Débito</th>
+                        <th style="padding:10px 8px;">Total Cobrado</th>
+                        <th style="padding:10px 8px;">Gastos</th>
+                        <th style="padding:10px 8px;">Retiros</th>
+                        <th style="padding:10px 8px;">Neto</th>
                     </tr></thead>
                     <tbody>
                     ${filas.map((r, i) => `
@@ -4212,19 +4205,19 @@ async function cargarReporteCaja() {
                 </table>
             </div>`;
     } catch (e) {
-        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar el reporte</p>';
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el reporte</p>';
     }
 }
 
 // =====================================================
-// 🏦 APERTURAS Y CIERRES DE CAJA (historial por día)
+// APERTURAS Y CIERRES DE CAJA (historial por día)
 // =====================================================
 const cacheDetalleCajas = {};
 
 async function cargarHistorialCajas() {
     const container = document.getElementById('historial-cajas');
     if (!container) return;
-    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">⏳ Cargando historial...</p>';
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">Cargando historial...</p>';
     try {
         const res = await fetch(`${API_BASE}/caja/historial`);
         const cajas = await res.json();
@@ -4242,20 +4235,20 @@ async function cargarHistorialCajas() {
                         <th style="padding:10px 8px;">Estado</th>
                         <th style="padding:10px 8px;">Cajera</th>
                         <th style="padding:10px 8px;">Apertura</th>
-                        <th style="padding:10px 8px;">💵 Efect.</th>
-                        <th style="padding:10px 8px;">🏦 Transf.</th>
-                        <th style="padding:10px 8px;">💳 Débito</th>
-                        <th style="padding:10px 8px;">💰 Cobrado</th>
-                        <th style="padding:10px 8px;">🧾 Gastos</th>
-                        <th style="padding:10px 8px;">💸 Retiros</th>
-                        <th style="padding:10px 8px;">🔒 Cierre</th>
+                        <th style="padding:10px 8px;">Efect.</th>
+                        <th style="padding:10px 8px;">Transf.</th>
+                        <th style="padding:10px 8px;">Débito</th>
+                        <th style="padding:10px 8px;">Cobrado</th>
+                        <th style="padding:10px 8px;">Gastos</th>
+                        <th style="padding:10px 8px;">Retiros</th>
+                        <th style="padding:10px 8px;">Cierre</th>
                         <th style="padding:10px 8px;"></th>
                     </tr></thead>
                     <tbody>
                     ${cajas.map((c, i) => `
                         <tr style="background:${i % 2 === 0 ? 'white' : '#fdf7ea'};border-bottom:1px solid #f0e0ea;">
                             <td style="padding:10px 8px;font-weight:700;color:#B9770E;">${fmt(c.fecha)}</td>
-                            <td style="padding:10px 8px;">${c.estado === 'abierta' ? '<span style="background:#e8f8f0;color:#1aa851;padding:3px 8px;border-radius:6px;font-weight:700;">🟢 Abierta</span>' : '<span style="background:#fdf5f8;color:#C06C84;padding:3px 8px;border-radius:6px;font-weight:700;">🔴 Cerrada</span>'}</td>
+                            <td style="padding:10px 8px;">${c.estado === 'abierta' ? '<span style="background:#e8f8f0;color:#1aa851;padding:3px 8px;border-radius:6px;font-weight:700;">Abierta</span>' : '<span style="background:#fdf5f8;color:#C06C84;padding:3px 8px;border-radius:6px;font-weight:700;">Cerrada</span>'}</td>
                             <td style="padding:10px 8px;">${c.cajero_nombre || '—'}<br><small style="color:#aaa;">${fmtHora(c.abierta_at)}hs</small></td>
                             <td style="padding:10px 8px;">$${parseFloat(c.monto_inicial || 0).toFixed(2)}</td>
                             <td style="padding:10px 8px;">$${parseFloat(c.efectivo || 0).toFixed(2)}</td>
@@ -4266,7 +4259,7 @@ async function cargarHistorialCajas() {
                             <td style="padding:10px 8px;color:#C06C84;">-$${Number(c.total_retiros || 0).toFixed(2)}</td>
                             <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? '$' + Number(c.monto_final || 0).toFixed(2) + '<br><small style="color:#aaa;font-weight:400;">' + fmtHora(c.cerrada_at) + 'hs</small>' : '—'}</td>
                             <td style="padding:10px 8px;">
-                                <button title="Ver detalle completo" onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">👁️ Ver</button>
+                                <button title="Ver detalle completo" onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Ver</button>
                             </td>
                         </tr>
                         <tr id="detalle-caja-${c.id}" style="display:none;">
@@ -4276,7 +4269,7 @@ async function cargarHistorialCajas() {
                 </table>
             </div>`;
     } catch (e) {
-        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">❌ Error al cargar el historial de cajas</p>';
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el historial de cajas</p>';
     }
 }
 
@@ -4292,13 +4285,13 @@ async function verDetalleCaja(cajaId) {
         row.style.display = 'table-row';
         return;
     }
-    td.innerHTML = '<p style="color:#888;text-align:center;padding:14px;">⏳ Cargando detalle...</p>';
+    td.innerHTML = '<p style="color:#888;text-align:center;padding:14px;">Cargando detalle...</p>';
     row.style.display = 'table-row';
     try {
         const res = await fetch(`${API_BASE}/caja/historial/${cajaId}`);
         const d = await res.json();
         const fmtHora = (f) => String(f || '').slice(11, 16);
-        const metodoIcon = (m) => m === 'efectivo' ? '💵' : m === 'transferencia' ? '🏦' : '💳';
+        const metodoIcon = (m) => nombreMetodoPago(m);
         const itemsLegibles = (jsonStr) => {
             try {
                 const arr = JSON.parse(jsonStr);
@@ -4309,12 +4302,12 @@ async function verDetalleCaja(cajaId) {
         const pagos = (d.tickets || []).map((t, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
                 <span style="color:#444;"><strong>#${t.numero}</strong> · ${esc(t.hora)}hs · ${esc(t.cliente_nombre || 'Cliente')} · ${esc(t.profesional_nombre || '')} ${esc(itemsLegibles(t.items))}</span>
-                <span><strong>${metodoIcon(t.metodo_pago)} $${parseFloat(t.total).toFixed(2)}</strong></span>
+                <span><strong>${etiquetaPago(t)} $${parseFloat(t.total).toFixed(2)}</strong></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin pagos.</p>';
 
         const gastos = (d.gastos || []).map((g, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
-                <span style="color:#444;"><strong>${g.tipo === 'fijo' ? '📌' : '🛒'} ${g.descripcion}</strong> · ${metodoIcon(g.metodo_pago)}</span>
+                <span style="color:#444;"><strong>${g.tipo === 'fijo' ? '' : ''} ${g.descripcion}</strong> · ${metodoIcon(g.metodo_pago)}</span>
                 <span><strong style="color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</strong></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin gastos.</p>';
 
@@ -4326,7 +4319,7 @@ async function verDetalleCaja(cajaId) {
 
         const arqueo = (d.arqueo || []).map((a, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;">
-                <span style="color:#444;">${a.tipo === 'moneda' ? '🪙' : '💵'} $${a.denominacion} × ${a.cantidad}</span>
+                <span style="color:#444;">${a.tipo === 'moneda' ? '' : ''} $${a.denominacion} × ${a.cantidad}</span>
                 <span><strong>$${parseFloat(a.subtotal).toFixed(2)}</strong></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin arqueo registrado.</p>';
 
@@ -4345,26 +4338,26 @@ async function verDetalleCaja(cajaId) {
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;">
                     <div>
-                        <strong style="color:#555;">💳 Pagos de clientes (${(d.tickets || []).length})</strong>
+                        <strong style="color:#555;">Pagos de clientes (${(d.tickets || []).length})</strong>
                         <div style="margin-top:6px;">${pagos}</div>
                     </div>
                     <div>
-                        <strong style="color:#555;">🧾 Gastos (${(d.gastos || []).length})</strong>
+                        <strong style="color:#555;">Gastos (${(d.gastos || []).length})</strong>
                         <div style="margin-top:6px;">${gastos}</div>
                     </div>
                     <div>
-                        <strong style="color:#555;">💸 Retiros (${(d.retiros || []).length})</strong>
+                        <strong style="color:#555;">Retiros (${(d.retiros || []).length})</strong>
                         <div style="margin-top:6px;">${retiros}</div>
                     </div>
                     <div>
-                        <strong style="color:#555;">🪙 Arqueo del cierre</strong>
+                        <strong style="color:#555;">Arqueo del cierre</strong>
                         <div style="margin-top:6px;">${arqueo}</div>
                     </div>
                 </div>
             </div>`;
         cacheDetalleCajas[cajaId] = td.innerHTML;
     } catch (e) {
-        td.innerHTML = '<p style="color:#dc3545;text-align:center;padding:14px;">❌ Error al cargar el detalle</p>';
+        td.innerHTML = '<p style="color:#dc3545;text-align:center;padding:14px;">Error al cargar el detalle</p>';
     }
 }
 
@@ -4372,10 +4365,149 @@ async function verDetalleCaja(cajaId) {
 let _turnoItemsActivos = [];
 
 // Modal de cobro: lista items multi-servicio y permite agregar/quitar servicios
+// =====================================================
+// COBRO: medios de pago (uno o varios combinados) y aviso de caja cerrada
+// =====================================================
+const NOMBRES_METODO_PAGO = { efectivo: 'Efectivo', transferencia: 'Transferencia', debito: 'Débito', mixto: 'Mixto', credito: 'Crédito' };
+
+function nombreMetodoPago(m) {
+    if (!m) return '';
+    const clave = String(m).toLowerCase();
+    if (NOMBRES_METODO_PAGO[clave]) return NOMBRES_METODO_PAGO[clave];
+    return String(m).charAt(0).toUpperCase() + String(m).slice(1);
+}
+
+// Etiqueta legible de un pago; si es mixto muestra el reparto por medio de pago
+function etiquetaPago(t) {
+    if (!t) return '';
+    const base = nombreMetodoPago(t.metodo_pago);
+    if (String(t.metodo_pago).toLowerCase() === 'mixto' && t.metodo_pago_detalle) {
+        try {
+            const d = JSON.parse(t.metodo_pago_detalle);
+            const partes = ['efectivo', 'transferencia', 'debito']
+                .filter(k => parseFloat(d[k]) > 0)
+                .map(k => `${nombreMetodoPago(k)} $${parseFloat(d[k]).toFixed(2)}`);
+            if (partes.length) return `${base} (${partes.join(' + ')})`;
+        } catch (e) {}
+    }
+    return base;
+}
+
+// Aviso mostrado cuando no se puede cobrar porque la caja no está abierta
+function mostrarAvisoCajaCerrada() {
+    document.getElementById('modal-aviso-caja')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'modal-aviso-caja';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:21000;display:flex;align-items:center;justify-content:center;background:rgba(46,21,32,0.62);';
+    modal.innerHTML = `
+        <div class="modal-box">
+            <h3>La caja no está abierta</h3>
+            <p>No se puede cobrar porque la caja del día todavía no se abrió. Abrí la caja desde el módulo de Caja para registrar los cobros.</p>
+            <p class="modal-msg"></p>
+            <button class="btn-modal" onclick="document.getElementById('modal-aviso-caja').remove(); showSection('caja'); abrirCajaModal();">Abrir caja del día</button>
+            <button class="btn-modal btn-ghost" style="margin-top:8px;" onclick="document.getElementById('modal-aviso-caja').remove();">Cerrar</button>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+}
+
+// Métodos de pago tildados en el modal de cobro
+function metodosSeleccionadosCobro() {
+    return Array.from(document.querySelectorAll('#cobro-metodos .cobro-metodo-chip.activo'))
+        .map(b => b.dataset.metodo);
+}
+
+function alternarMetodoCobro(metodo) {
+    const chip = Array.from(document.querySelectorAll('#cobro-metodos .cobro-metodo-chip'))
+        .find(c => c.dataset.metodo === metodo);
+    if (!chip) return;
+    if (chip.classList.contains('activo') && metodosSeleccionadosCobro().length === 1) {
+        mostrarNotificacion('Elegí al menos un método de pago', 'error');
+        return;
+    }
+    chip.classList.toggle('activo');
+    renderRepartoCobro();
+}
+
+// Arma los inputs de reparto cuando hay más de un método seleccionado
+function renderRepartoCobro() {
+    const cont = document.getElementById('cobro-reparto');
+    if (!cont) return;
+    const metodos = metodosSeleccionadosCobro();
+    if (metodos.length < 2) {
+        cont.style.display = 'none';
+        cont.innerHTML = '';
+        return;
+    }
+    const previos = {};
+    cont.querySelectorAll('[data-reparto-metodo]').forEach(inp => { previos[inp.dataset.repartoMetodo] = inp.value; });
+    const conPrevios = Object.keys(previos).length > 0;
+    const total = Math.round((parseFloat(document.getElementById('cobro-monto')?.value || 0) || 0) * 100) / 100;
+    cont.innerHTML = `
+        <p class="reparto-titulo">Repartí el total entre los métodos elegidos:</p>
+        ${metodos.map(m => `
+            <div class="reparto-fila">
+                <span>${nombreMetodoPago(m)}</span>
+                <input type="number" min="0" step="0.01" data-reparto-metodo="${m}"
+                       value="${previos[m] !== undefined ? previos[m] : ''}" placeholder="0.00"
+                       oninput="actualizarRepartoCobro()">
+            </div>`).join('')}
+        <p class="reparto-aviso" id="cobro-reparto-aviso"></p>`;
+    cont.style.display = 'block';
+    if (!conPrevios) {
+        // Reparto parejo, con el resto decimal en el primer método
+        const n = metodos.length;
+        const base = Math.floor((total / n) * 100) / 100;
+        const resto = Math.round((total - base * n) * 100) / 100;
+        cont.querySelectorAll('[data-reparto-metodo]').forEach((inp, i) => {
+            inp.value = (i === 0 ? base + resto : base).toFixed(2);
+        });
+    }
+    actualizarRepartoCobro();
+}
+
+// Valida el reparto contra el total y avisa si falta o sobra dinero
+function actualizarRepartoCobro() {
+    const cont = document.getElementById('cobro-reparto');
+    if (!cont || cont.style.display === 'none') return;
+    const total = Math.round((parseFloat(document.getElementById('cobro-monto')?.value || 0) || 0) * 100) / 100;
+    let suma = 0;
+    cont.querySelectorAll('[data-reparto-metodo]').forEach(inp => { suma += parseFloat(inp.value) || 0; });
+    suma = Math.round(suma * 100) / 100;
+    const dif = Math.round((total - suma) * 100) / 100;
+    const aviso = document.getElementById('cobro-reparto-aviso');
+    if (!aviso) return;
+    if (Math.abs(dif) <= 0.01) {
+        aviso.textContent = 'Reparto correcto: suma $' + total.toFixed(2);
+        aviso.classList.add('ok');
+        aviso.classList.remove('mal');
+    } else if (dif > 0) {
+        aviso.textContent = 'Falta repartir $' + dif.toFixed(2);
+        aviso.classList.add('mal');
+        aviso.classList.remove('ok');
+    } else {
+        aviso.textContent = 'Sobran $' + Math.abs(dif).toFixed(2);
+        aviso.classList.add('mal');
+        aviso.classList.remove('ok');
+    }
+}
+
 async function abrirModalCobro(event, turnoId) {
     const btn = event.currentTarget;
     const cliente = btn.dataset.cliente || '';
     const precio = parseFloat(btn.dataset.precio) || 0;
+
+    // No se permite cobrar si la caja del día no está abierta
+    let estadoCaja = null;
+    try {
+        const r = await fetch(`${API_BASE}/caja/estado`);
+        if (r.ok) estadoCaja = await r.json();
+    } catch (e) { estadoCaja = null; }
+    if (estadoCaja && !estadoCaja.abierta) {
+        mostrarAvisoCajaCerrada();
+        return;
+    }
+
     document.getElementById('modal-cobro')?.remove();
     const precioBase = (parseFloat(precio) || 0).toFixed(2);
     const modal = document.createElement('div');
@@ -4383,32 +4515,32 @@ async function abrirModalCobro(event, turnoId) {
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:28px;max-width:440px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">
-            <h3 style="color:#C06C84;margin:0 0 6px 0;">💵 Cobrar Turno #${turnoId}</h3>
-            <p style="color:#888;margin:0 0 14px 0;font-size:0.88rem;">👤 ${esc(cliente)}</p>
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">Cobrar Turno #${turnoId}</h3>
+            <p style="color:#888;margin:0 0 14px 0;font-size:0.88rem;">${esc(cliente)}</p>
             <div style="margin-bottom:10px;">
-                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">🗂️ Servicios del turno</label>
+                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">Servicios del turno</label>
                 <div id="cobro-items" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
                     <p style="color:#888;font-size:0.85rem;">Cargando servicios...</p>
                 </div>
                 <div style="display:flex;gap:8px;">
                     <select id="cobro-servicio-extra" style="flex:1;padding:8px 10px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;box-sizing:border-box;">
-                        <option value="">➕ Agregar servicio...</option>
+                        <option value="">Agregar servicio...</option>
                     </select>
                     <button onclick="agregarServicioAlTurno(${turnoId})" style="background:#C06C84;color:white;padding:8px 14px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Agregar</button>
                 </div>
             </div>
             <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">💎 Adicionales</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">Adicionales</label>
                     <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;">
-                        <span style="font-size:0.9rem;color:#333;">💅 Piedrería <small style="color:#888;">($1000/uña)</small></span>
+                        <span style="font-size:0.9rem;color:#333;">Piedrería <small style="color:#888;">($1000/uña)</small></span>
                         <input type="number" id="adicional-piedreria" min="0" step="1" value="0" placeholder="cant. uñas"
                                oninput="recalcularTotalModalCobro()"
                                style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-size:0.9rem;box-sizing:border-box;width:100%;">
                         <span id="subtotal-piedreria" style="font-weight:700;color:#28a745;text-align:right;min-width:70px;">$0.00</span>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-top:6px;">
-                        <span style="font-size:0.9rem;color:#333;">🎨 Diseños en manos <small style="color:#888;">($800/uña)</small></span>
+                        <span style="font-size:0.9rem;color:#333;">Diseños en manos <small style="color:#888;">($800/uña)</small></span>
                         <input type="number" id="adicional-disenos" min="0" step="1" value="0" placeholder="cant. uñas"
                                oninput="recalcularTotalModalCobro()"
                                style="padding:8px 10px;border:2px solid #C06C84;border-radius:9px;font-size:0.9rem;box-sizing:border-box;width:100%;">
@@ -4416,37 +4548,40 @@ async function abrirModalCobro(event, turnoId) {
                     </div>
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Descuento (%) — opcional</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Descuento (%) — opcional</label>
                     <input type="number" id="cobro-descuento" value="0" min="0" max="100" step="0.5" placeholder="0"
                            oninput="recalcularTotalModalCobro()"
                            style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
                     <small style="color:#888;font-size:0.78rem;display:block;margin-top:3px;">Aplicá % de descuento solo cuando corresponda (no todos los clientes lo tienen).</small>
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💰 Monto a cobrar ($)</label>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Monto a cobrar ($)</label>
                     <input type="number" id="cobro-monto" value="${precioBase}" step="0.01" min="0"
+                           oninput="actualizarRepartoCobro()"
                            style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
                 </div>
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">💳 Método de pago</label>
-                    <select id="cobro-metodo" style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
-                        <option value="efectivo">💵 Efectivo</option>
-                        <option value="transferencia">🏦 Transferencia</option>
-                        <option value="debito">💳 Débito</option>
-                    </select>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:6px;">Método de pago</label>
+                    <div class="cobro-metodos" id="cobro-metodos">
+                        <button type="button" class="cobro-metodo-chip activo" data-metodo="efectivo" onclick="alternarMetodoCobro('efectivo')">Efectivo</button>
+                        <button type="button" class="cobro-metodo-chip" data-metodo="transferencia" onclick="alternarMetodoCobro('transferencia')">Transferencia</button>
+                        <button type="button" class="cobro-metodo-chip" data-metodo="debito" onclick="alternarMetodoCobro('debito')">Débito</button>
+                    </div>
+                    <p style="color:#888;font-size:0.78rem;margin:5px 0 0;">Elegí más de un método si el cliente pagó combinado (ej: efectivo + transferencia).</p>
+                    <div id="cobro-reparto" class="cobro-reparto" style="display:none;"></div>
                 </div>
                 <label style="display:flex;align-items:center;gap:8px;color:#555;font-size:0.88rem;cursor:pointer;">
-                    <input type="checkbox" id="cobro-print" checked> 🖨️ Imprimir ticket al confirmar
+                    <input type="checkbox" id="cobro-print" checked> Imprimir ticket al confirmar
                 </label>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;">
                 <button onclick="confirmarCobro(${turnoId})"
                         style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">
-                    ✅ Confirmar Cobro
+                    Confirmar Cobro
                 </button>
                 <button onclick="document.getElementById('modal-cobro').remove();"
                         style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">
-                    ✖ Cancelar
+                    × Cancelar
                 </button>
             </div>
         </div>`;
@@ -4477,6 +4612,7 @@ function recalcularTotalModalCobro() {
     }
     const monto = document.getElementById('cobro-monto');
     if (monto) monto.value = total.toFixed(2);
+    actualizarRepartoCobro();
 }
 
 // Carga los items (servicios) del turno dentro del modal
@@ -4501,7 +4637,7 @@ async function cargarItemsModalCobro(turnoId) {
                 <span style="display:flex;align-items:center;gap:8px;">
                     <strong style="color:#28a745;font-size:0.9rem;">$${parseFloat(it.precio || 0).toFixed(2)}</strong>
                     <button onclick="quitarServicioDelTurno(${turnoId}, ${it.id})" title="Quitar servicio"
-                        style="background:#fff0f0;border:none;color:#dc3545;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">✖</button>
+                        style="background:#fff0f0;border:none;color:#dc3545;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">×</button>
                 </span>
             </div>`).join('');
         recalcularTotalModalCobro();
@@ -4515,7 +4651,7 @@ function llenarServiciosExtraModal() {
     const select = document.getElementById('cobro-servicio-extra');
     if (!select) return;
     const idsTurno = new Set(_turnoItemsActivos.map(it => String(it.servicio_id)));
-    select.innerHTML = '<option value="">➕ Agregar servicio...</option>' +
+    select.innerHTML = '<option value="">Agregar servicio...</option>' +
         servicios.filter(s => s.activo !== false && !idsTurno.has(String(s.id)))
             .map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
     select.disabled = false;
@@ -4524,7 +4660,7 @@ function llenarServiciosExtraModal() {
 async function agregarServicioAlTurno(turnoId) {
     const select = document.getElementById('cobro-servicio-extra');
     const svId = select?.value;
-    if (!svId) { mostrarNotificacion('⚠️ Elegí un servicio para agregar', 'error'); return; }
+    if (!svId) { mostrarNotificacion('Elegí un servicio para agregar', 'error'); return; }
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}/servicios`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -4536,12 +4672,12 @@ async function agregarServicioAlTurno(turnoId) {
             if (select) { select.value = ''; }
             await cargarItemsModalCobro(turnoId);
             llenarServiciosExtraModal();
-            mostrarNotificacion('✅ Servicio agregado al turno');
+            mostrarNotificacion('Servicio agregado al turno');
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error al agregar servicio', 'error');
+        mostrarNotificacion('Error al agregar servicio', 'error');
     }
 }
 
@@ -4556,22 +4692,46 @@ async function quitarServicioDelTurno(turnoId, itemId) {
             await cargarItemsModalCobro(turnoId);
             llenarServiciosExtraModal();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion((data.message || 'Error'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error al quitar servicio', 'error');
+        mostrarNotificacion('Error al quitar servicio', 'error');
     }
 }
 
 // Confirma el cobro: marca el turno cobrado + genera el ticket
 async function confirmarCobro(turnoId) {
     const monto = document.getElementById('cobro-monto')?.value;
-    const metodo = document.getElementById('cobro-metodo')?.value || 'efectivo';
     const imprimir = !!document.getElementById('cobro-print')?.checked;
     const descuentoPct = parseFloat(document.getElementById('cobro-descuento')?.value || 0) || 0;
-    if (!monto || parseFloat(monto) <= 0) {
-        mostrarNotificacion('⚠️ Ingresá el monto a cobrar', 'error');
+    const montoNum = Math.round((parseFloat(monto) || 0) * 100) / 100;
+    if (!monto || montoNum <= 0) {
+        mostrarNotificacion('Ingresá el monto a cobrar', 'error');
         return;
+    }
+    // Medios de pago: uno solo o varios combinados (reparto del total)
+    const metodos = metodosSeleccionadosCobro();
+    if (!metodos.length) {
+        mostrarNotificacion('Elegí al menos un método de pago', 'error');
+        return;
+    }
+    let pagos = [];
+    if (metodos.length > 1) {
+        document.querySelectorAll('#cobro-reparto [data-reparto-metodo]').forEach(inp => {
+            const v = Math.round((parseFloat(inp.value) || 0) * 100) / 100;
+            if (v > 0) pagos.push({ metodo: inp.dataset.repartoMetodo, monto: v });
+        });
+        if (pagos.length !== metodos.length) {
+            mostrarNotificacion('Completá el monto de cada método de pago', 'error');
+            return;
+        }
+        const suma = Math.round(pagos.reduce((s, p) => s + p.monto, 0) * 100) / 100;
+        if (Math.abs(suma - montoNum) > 0.01) {
+            mostrarNotificacion(`La suma de los pagos debe ser igual al total ($${montoNum.toFixed(2)})`, 'error');
+            return;
+        }
+    } else {
+        pagos = [{ metodo: metodos[0], monto: montoNum }];
     }
     const adicionales = [];
     const cantPiedreria = parseInt(document.getElementById('adicional-piedreria')?.value || 0) || 0;
@@ -4582,21 +4742,30 @@ async function confirmarCobro(turnoId) {
         const res = await fetch(`${API_BASE}/caja/turnos/${turnoId}/cerrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ monto: parseFloat(monto), metodo_pago: metodo, adicionales, descuento_porcentaje: descuentoPct })
+            body: JSON.stringify({
+                monto: montoNum,
+                metodo_pago: pagos.length === 1 ? pagos[0].metodo : 'mixto',
+                pagos,
+                adicionales,
+                descuento_porcentaje: descuentoPct
+            })
         });
         const data = await res.json();
         if (data.success) {
             document.getElementById('modal-cobro')?.remove();
-            mostrarNotificacion('✅ Turno cobrado correctamente');
+            mostrarNotificacion('Turno cobrado correctamente');
             if (imprimir && data.ticket) imprimirTicket(data.ticket);
             cargarTurnosCaja();
             cargarEstadoCaja();
             if (document.getElementById('mis-turnos-cliente') && document.getElementById('mis-turnos-cliente').style.display !== 'none') cargarSobreturnos();
+        } else if (data.code === 'caja_cerrada') {
+            document.getElementById('modal-cobro')?.remove();
+            mostrarAvisoCajaCerrada();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error'), 'error');
+            mostrarNotificacion(data.message || 'Error al cobrar', 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
@@ -4646,7 +4815,9 @@ function imprimirTicket(t) {
     <p class="bold" style="margin:2px 0;font-size:14px;">TOTAL: $${parseFloat(t.total).toFixed(2)}</p>
   </div>
   <hr>
-  <p style="margin:2px 0;">Método de pago: ${esc(t.metodo_pago)}</p>
+  ${Array.isArray(t.pagos) && t.pagos.length > 1
+      ? t.pagos.map(p => `<p style="margin:2px 0;">${nombreMetodoPago(p.metodo)}: $${parseFloat(p.monto).toFixed(2)}</p>`).join('')
+      : `<p style="margin:2px 0;">Método de pago: ${nombreMetodoPago(t.metodo_pago)}</p>`}
   <div class="footer">
     <p>Comprobante NO FISCAL</p>
     <p>Gracias por su visita. ¡Vuelva pronto!</p>
@@ -4658,7 +4829,7 @@ function imprimirTicket(t) {
 }
 
 // =====================================================
-// 🎂 CLIENTES FRECUENTES, CUMPLEAÑOS Y CUPONES
+// CLIENTES FRECUENTES, CUMPLEAÑOS Y CUPONES
 // =====================================================
 let clientesFrecuentes = [];
 
@@ -4688,9 +4859,9 @@ async function cargarClientesFrecuentes() {
         const data = await res.json();
         clientesFrecuentes = Array.isArray(data) ? data : [];
         datalist.innerHTML = clientesFrecuentes.map(c =>
-            `<option value="${esc(c.nombre || '')}">📞 ${esc(c.telefono || 'sin tel')}${c.fecha_nacimiento ? ' · 🎂 ' + esc(formatearFechaNacimiento(c.fecha_nacimiento)) : ''}</option>`
+            `<option value="${esc(c.nombre || '')}">${esc(c.telefono || 'sin tel')}${c.fecha_nacimiento ? ' · ' + esc(formatearFechaNacimiento(c.fecha_nacimiento)) : ''}</option>`
         ).join('');
-    } catch (e) { console.error('❌ No se pudieron cargar clientes frecuentes:', e.message); }
+    } catch (e) { console.error('No se pudieron cargar clientes frecuentes:', e.message); }
 }
 
 function autocompletarClienteFrecuente() {
@@ -4699,18 +4870,18 @@ function autocompletarClienteFrecuente() {
     const nombre = (nombreInput.value || '').trim();
     const cliente = clientesFrecuentes.find(c => (c.nombre || '').trim().toLowerCase() === nombre.toLowerCase());
     if (!cliente) return;
-    const emailEl  = document.getElementById('cliente-email');
-    const telEl    = document.getElementById('cliente-telefono');
-    const fechaEl  = document.getElementById('cliente-fecha-nacimiento');
-    if (cliente.email && emailEl && !emailEl.value)  emailEl.value  = cliente.email;
-    if (cliente.telefono && telEl && !telEl.value)    telEl.value    = cliente.telefono;
+    const emailEl = document.getElementById('cliente-email');
+    const telEl = document.getElementById('cliente-telefono');
+    const fechaEl = document.getElementById('cliente-fecha-nacimiento');
+    if (cliente.email && emailEl && !emailEl.value) emailEl.value = cliente.email;
+    if (cliente.telefono && telEl && !telEl.value) telEl.value = cliente.telefono;
     if (cliente.fecha_nacimiento && fechaEl && !fechaEl.value) fechaEl.value = String(cliente.fecha_nacimiento).split('T')[0];
 }
 
 async function cargarClientesHabituales() {
     const cont = document.getElementById('habituales-lista');
     if (!cont) return;
-    cont.innerHTML = '<p style="color:#888;">⏳ Cargando ranking...</p>';
+    cont.innerHTML = '<p style="color:#888;">Cargando ranking...</p>';
     try {
         const inputMes = document.getElementById('habituales-mes');
         const hoy = new Date();
@@ -4721,16 +4892,15 @@ async function cargarClientesHabituales() {
         const datos = await res.json();
         if (!Array.isArray(datos)) throw new Error('Respuesta inválida');
         if (!datos.length) {
-            cont.innerHTML = '<p style="color:#888;">📭 No hay visitas registradas en este mes.</p>';
+            cont.innerHTML = '<p style="color:#888;">No hay visitas registradas en este mes.</p>';
             return;
         }
         const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
         const [yy, mm] = mes.split('-');
         const mesLabel = `${meses[parseInt(mm) - 1]} ${yy}`;
 
-        const medallas = ['🥇','🥈','🥉'];
         cont.innerHTML = `
-            <p style="color:#555;font-weight:600;margin:0 0 12px 0;">📅 Ranking de ${mesLabel} · ${datos.length} clientes</p>
+            <p style="color:#555;font-weight:600;margin:0 0 12px 0;">Ranking de ${mesLabel} · ${datos.length} clientes</p>
             ${datos.map((c, i) => `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:${i < 3 ? '14px' : '10px'} 12px;border-radius:10px;margin-bottom:8px;flex-wrap:wrap;
                     ${i === 0 ? 'background:linear-gradient(90deg,#FFF9C4,#FFECB3);border:2px solid #E6B800;' :
@@ -4738,29 +4908,29 @@ async function cargarClientesHabituales() {
                       i === 2 ? 'background:linear-gradient(90deg,#FFECB3,#FFE0B2);border:2px solid #CE7114;' :
                       'background:#f9f9f9;border:1px solid #eee;'}">
                     <div style="flex:1;min-width:180px;">
-                        <strong style="color:#333;">${medallas[i] || (i + 1)}. ${esc(c.nombre || 'Sin nombre')}</strong>
+                        <strong style="color:#333;">${i + 1}. ${esc(c.nombre || 'Sin nombre')}</strong>
                         <span style="display:inline-block;margin-left:8px;background:#8E44AD;color:white;font-size:0.8rem;font-weight:700;padding:3px 9px;border-radius:12px;">${c.visitas} visita${c.visitas == 1 ? '' : 's'}</span>
-                        <small style="display:block;color:#888;margin-top:4px;">📞 ${esc(c.telefono || 'Sin teléfono')}${c.email ? ' · ✉️ ' + esc(c.email) : ''}</small>
-                        ${c.servicios ? `<small style="display:block;color:#666;margin-top:3px;">💆 ${esc(c.servicios)}</small>` : ''}
+                        <small style="display:block;color:#888;margin-top:4px;">${esc(c.telefono || 'Sin teléfono')}${c.email ? ' · ' + esc(c.email) : ''}</small>
+                        ${c.servicios ? `<small style="display:block;color:#666;margin-top:3px;">${esc(c.servicios)}</small>` : ''}
                     </div>
                 </div>
             `).join('')}
         `;
     } catch (e) {
-        console.error('❌ Error cargando clientes habituales:', e.message);
-        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar el ranking.</p>';
+        console.error('Error cargando clientes habituales:', e.message);
+        cont.innerHTML = '<p style="color:#c0392b;">Error al cargar el ranking.</p>';
     }
 }
 
 async function cargarCumpleanos() {
     const cont = document.getElementById('cumpleanos-lista');
     if (!cont) return;
-    cont.innerHTML = '<p style="color:#888;">⏳ Cargando cumpleaños...</p>';
+    cont.innerHTML = '<p style="color:#888;">Cargando cumpleaños...</p>';
     try {
         const res = await fetch(`${API_BASE}/cumpleanos`);
         const cumples = await res.json();
         if (!Array.isArray(cumples) || !cumples.length) {
-            cont.innerHTML = '<p style="color:#888;">🎂 Nadie cumple años este mes.</p>';
+            cont.innerHTML = '<p style="color:#888;">Nadie cumple años este mes.</p>';
             return;
         }
         cont.innerHTML = cumples.map(c => {
@@ -4772,19 +4942,19 @@ async function cargarCumpleanos() {
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #f3e3ec;flex-wrap:wrap;${c.cumple_hoy ? 'background:#fff3cd;border-radius:9px;padding:11px;' : ''}">
                     <div style="flex:1;min-width:220px;">
                         <strong>${esc(c.nombre || 'Sin nombre')}</strong>
-                        ${c.cumple_hoy ? '<span style="color:#B7950B;font-weight:700;margin-left:6px;">🎂 CUMPLE HOY</span>' : ''}
-                        <small style="display:block;color:#888;">🎂 ${esc(fechaCumpleLabel(c.fecha_nacimiento, c.dia_cumple))}</small>
-                        <small style="display:block;color:#666;">📞 ${esc(c.telefono || 'Sin teléfono')}</small>
+                        ${c.cumple_hoy ? '<span style="color:#B7950B;font-weight:700;margin-left:6px;">CUMPLE HOY</span>' : ''}
+                        <small style="display:block;color:#888;">${esc(fechaCumpleLabel(c.fecha_nacimiento, c.dia_cumple))}</small>
+                        <small style="display:block;color:#666;">${esc(c.telefono || 'Sin teléfono')}</small>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         ${waNum
-                            ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Felicitar</a>`
+                            ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">Felicitar</a>`
                             : '<span style="color:#888;font-size:0.85rem;">Sin WhatsApp</span>'}
                     </div>
                 </div>`;
         }).join('');
     } catch (e) {
-        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar cumpleaños.</p>';
+        cont.innerHTML = '<p style="color:#c0392b;">Error al cargar cumpleaños.</p>';
     }
 }
 
@@ -4794,7 +4964,7 @@ async function autorizarCupon() {
     const clienteId = clienteSel ? clienteSel.value : '';
     const servicioId = servicioSel ? servicioSel.value : '';
     if (!clienteId || !servicioId) {
-        mostrarNotificacion('⚠️ Seleccioná cliente y servicio para el cupón', 'error');
+        mostrarNotificacion('Seleccioná cliente y servicio para el cupón', 'error');
         return;
     }
     try {
@@ -4805,25 +4975,25 @@ async function autorizarCupon() {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('🎁 Cupón autorizado correctamente', 'success');
+            mostrarNotificacion('Cupón autorizado correctamente', 'success');
             cargarCupones();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'Error al autorizar'), 'error');
+            mostrarNotificacion((data.message || 'Error al autorizar'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
 async function cargarCupones() {
     const cont = document.getElementById('cupones-lista');
     if (!cont) return;
-    cont.innerHTML = '<p style="color:#888;">⏳ Cargando cupones...</p>';
+    cont.innerHTML = '<p style="color:#888;">Cargando cupones...</p>';
     try {
         const res = await fetch(`${API_BASE}/cupones`);
         const cupones = await res.json();
         if (!Array.isArray(cupones) || !cupones.length) {
-            cont.innerHTML = '<p style="color:#888;">🎁 No hay cupones aún.</p>';
+            cont.innerHTML = '<p style="color:#888;">No hay cupones aún.</p>';
             return;
         }
         cont.innerHTML = cupones.map(cp => {
@@ -4835,20 +5005,20 @@ async function cargarCupones() {
             return `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #eee;flex-wrap:wrap;">
                     <div style="flex:1;min-width:220px;">
-                        <strong>${esc(cp.cliente_nombre || 'Cliente')}</strong> — <span style="color:#6A1B9A;">🎁 ${esc(cp.servicio_nombre || 'Servicio')}</span>
+                        <strong>${esc(cp.cliente_nombre || 'Cliente')}</strong> — <span style="color:#6A1B9A;">${esc(cp.servicio_nombre || 'Servicio')}</span>
                         <small style="display:block;color:#888;">${esEnviado ? 'Enviado ' + (cp.fecha_envio ? new Date(cp.fecha_envio).toLocaleString('es-AR') : '') : 'Autorizado ' + new Date(cp.fecha_autorizado).toLocaleString('es-AR')}</small>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         ${esEnviado
-                            ? '<span style="color:#28a745;font-size:0.85rem;font-weight:700;">✅ Enviado</span>'
+                            ? '<span style="color:#28a745;font-size:0.85rem;font-weight:700;">Enviado</span>'
                             : (waNum
-                                ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" onclick="marcarCuponEnviado(${cp.id})" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">📲 Enviar cupón</a>`
+                                ? `<a href="https://wa.me/${waNum}?text=${msj}" target="_blank" onclick="marcarCuponEnviado(${cp.id})" style="background:#25D366;color:white;padding:9px 14px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.85rem;">Enviar cupón</a>`
                                 : '<span style="color:#888;font-size:0.85rem;">Sin WhatsApp</span>')}
                     </div>
                 </div>`;
         }).join('');
     } catch (e) {
-        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al cargar cupones.</p>';
+        cont.innerHTML = '<p style="color:#c0392b;">Error al cargar cupones.</p>';
     }
 }
 
@@ -4857,7 +5027,7 @@ async function marcarCuponEnviado(id) {
         await fetch(`${API_BASE}/cupones/${id}/enviado`, { method: 'POST' });
         cargarCupones();
         cargarCumpleanos();
-    } catch (e) { console.error('❌ Error al marcar cupón enviado:', e.message); }
+    } catch (e) { console.error('Error al marcar cupón enviado:', e.message); }
 }
 
 async function llenarSelectCupones() {
@@ -4882,12 +5052,12 @@ async function llenarSelectCupones() {
                 ).join('') : '');
         }
     } catch (e) {
-        console.error('❌ Error al llenar selects de cupones:', e.message);
+        console.error('Error al llenar selects de cupones:', e.message);
     }
 }
 
 // =====================================================
-// ⏱️ SOBRETURNOS (huecos entre turnos del día)
+// SOBRETURNOS (huecos entre turnos del día)
 // =====================================================
 let _sobreturnoHuecoActivo = null;
 let _sobreturnoServiciosActivos = [];
@@ -4895,13 +5065,13 @@ let _sobreturnoServiciosActivos = [];
 async function cargarSobreturnos() {
     const cont = document.getElementById('sobreturnos-lista');
     if (!cont) return;
-    cont.innerHTML = '<p style="color:#888;">⏳ Buscando huecos libres del día...</p>';
+    cont.innerHTML = '<p style="color:#888;">Buscando huecos libres del día...</p>';
     try {
         const hoy = new Date().toISOString().slice(0, 10);
         const res = await fetch(`${API_BASE}/sobreturnos/disponibles?fecha=${hoy}`);
         const huecos = await res.json();
         if (!Array.isArray(huecos) || !huecos.length) {
-            cont.innerHTML = '<p style="color:#888;">✅ No hay huecos disponibles ahora. Se generan cuando un turno se cobra terminando antes del horario del próximo.</p>';
+            cont.innerHTML = '<p style="color:#888;">No hay huecos disponibles ahora. Se generan cuando un turno se cobra terminando antes del horario del próximo.</p>';
             return;
         }
         cont.innerHTML = huecos.map(h => {
@@ -4909,16 +5079,16 @@ async function cargarSobreturnos() {
             return `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #f0e8f5;flex-wrap:wrap;">
                     <div style="flex:1;min-width:230px;">
-                        <strong style="color:#6C3483;">⏱️ ${h.profesional}</strong>
+                        <strong style="color:#6C3483;">${h.profesional}</strong>
                         <small style="display:block;color:#888;">Libre desde <strong>${h.desde}</strong> hasta <strong>${h.hasta}</strong> → <strong style="color:#6C3483;">${h.minutos} min</strong></small>
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button onclick="abrirModalSobreturno(event, ${h.profesional_id})" data-profnombre="${esc(h.profesional)}" data-desde="${esc(h.desde)}" data-fecha="${esc(fechaReserva)}" data-minutos="${h.minutos}" style="background:#8E44AD;color:white;padding:10px 16px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.85rem;">➕ Agregar cliente en hueco</button>
+                        <button onclick="abrirModalSobreturno(event, ${h.profesional_id})" data-profnombre="${esc(h.profesional)}" data-desde="${esc(h.desde)}" data-fecha="${esc(fechaReserva)}" data-minutos="${h.minutos}" style="background:#8E44AD;color:white;padding:10px 16px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.85rem;">Agregar cliente en hueco</button>
                     </div>
                 </div>`;
         }).join('');
     } catch (e) {
-        cont.innerHTML = '<p style="color:#c0392b;">❌ Error al buscar sobreturnos.</p>';
+        cont.innerHTML = '<p style="color:#c0392b;">Error al buscar sobreturnos.</p>';
     }
 }
 
@@ -4936,28 +5106,28 @@ async function abrirModalSobreturno(event, profId) {
     modal.innerHTML = `
         <div style="background:white;border-radius:20px;padding:30px;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:92vh;overflow-y:auto;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <h3 style="color:#6C3483;margin:0;">⏱️ Sobreturno — ${esc(profNombre)}</h3>
-                <button onclick="document.getElementById('modal-sobreturno').remove();" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">✖</button>
+                <h3 style="color:#6C3483;margin:0;">Sobreturno — ${esc(profNombre)}</h3>
+                <button onclick="document.getElementById('modal-sobreturno').remove();" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">×</button>
             </div>
             <p style="color:#888;margin:0 0 16px;font-size:0.9rem;">Hueco de <strong>${esc(desde)}</strong> a <strong>${_horaFinSobreturno(desde, minutos)}</strong> (${minutos} min). Elegí servicios que quepan en ese tiempo.</p>
             <div style="margin-bottom:12px;">
-                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">👤 Nombre del cliente</label>
+                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">Nombre del cliente</label>
                 <input type="text" id="sob-nombre" placeholder="Ej: María González" style="width:100%;padding:10px 12px;border:2px solid #8E44AD;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
             </div>
             <div style="margin-bottom:12px;">
-                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">📞 Teléfono</label>
+                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">Teléfono</label>
                 <input type="tel" id="sob-telefono" placeholder="+54 9 11 1234-5678" style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
             </div>
             <div style="margin-bottom:12px;">
-                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">💆 Servicios (entran ${minutos} min)</label>
+                <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:5px;">Servicios (entran ${minutos} min)</label>
                 <select id="sob-servicios" multiple style="width:100%;min-height:110px;padding:8px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;box-sizing:border-box;">
                     <option value="">Cargando servicios...</option>
                 </select>
                 <small style="color:#888;display:block;margin-top:5px;font-size:0.82rem;">Se muestran solo los que entran en el hueco. Ctrl/Cmd para varios.</small>
             </div>
             <div style="display:flex;gap:10px;">
-                <button onclick="document.getElementById('modal-sobreturno').remove();" class="btn-reset" style="flex:1;">❌ Cancelar</button>
-                <button onclick="crearSobreturno()" class="btn-guardar" style="flex:1;background:#8E44AD;">✅ Agendar sobreturno</button>
+                <button onclick="document.getElementById('modal-sobreturno').remove();" class="btn-reset" style="flex:1;">Cancelar</button>
+                <button onclick="crearSobreturno()" class="btn-guardar" style="flex:1;background:#8E44AD;">Agendar sobreturno</button>
             </div>
         </div>`;
     document.body.appendChild(modal);
@@ -4977,7 +5147,7 @@ async function abrirModalSobreturno(event, profId) {
             : '<option value="" disabled>Sin servicios que quepan en ${minutos} min</option>';
         setTimeout(() => document.getElementById('sob-nombre')?.focus(), 80);
     } catch (e) {
-        console.error('❌ Error al cargar servicios para sobreturno:', e.message);
+        console.error('Error al cargar servicios para sobreturno:', e.message);
     }
 }
 
@@ -4991,13 +5161,13 @@ function _horaFinSobreturno(desde, minutos) {
 
 async function crearSobreturno() {
     const h = _sobreturnoHuecoActivo;
-    if (!h) { mostrarNotificacion('❌ Error interno', 'error'); return; }
+    if (!h) { mostrarNotificacion('Error interno', 'error'); return; }
     const nombre = document.getElementById('sob-nombre')?.value.trim();
     const telefono = document.getElementById('sob-telefono')?.value.trim();
     const sel = document.getElementById('sob-servicios');
     const ids = sel ? Array.from(sel.selectedOptions).map(o => o.value).filter(v => v).map(Number) : [];
-    if (!nombre) { mostrarNotificacion('⚠️ Ingresá el nombre del cliente', 'error'); return; }
-    if (!ids.length) { mostrarNotificacion('⚠️ Elegí al menos un servicio', 'error'); return; }
+    if (!nombre) { mostrarNotificacion('Ingresá el nombre del cliente', 'error'); return; }
+    if (!ids.length) { mostrarNotificacion('Elegí al menos un servicio', 'error'); return; }
     try {
         const res = await fetch(`${API_BASE}/sobreturnos`, {
             method: 'POST',
@@ -5013,14 +5183,14 @@ async function crearSobreturno() {
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('✅ ' + (data.message || 'Sobreturno agendado'), 'success');
+            mostrarNotificacion((data.message || 'Sobreturno agendado'), 'success');
             document.getElementById('modal-sobreturno')?.remove();
             cargarSobreturnos();
             if (document.getElementById('turnos-cliente-lista')) cargarTurnosCliente();
         } else {
-            mostrarNotificacion('❌ ' + (data.message || 'No se pudo agendar'), 'error');
+            mostrarNotificacion((data.message || 'No se pudo agendar'), 'error');
         }
     } catch (e) {
-        mostrarNotificacion('❌ Error de conexión', 'error');
+        mostrarNotificacion('Error de conexión', 'error');
     }
 }

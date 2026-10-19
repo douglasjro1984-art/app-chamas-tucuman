@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await res.json();
             if (data.success) {
                 localStorage.setItem('usuario', JSON.stringify(data.usuario));
-                console.log('✅ Usuario logueado:', data.usuario.nombre, '- Rol:', data.usuario.rol);
+                console.log('Usuario logueado:', data.usuario.nombre, '- Rol:', data.usuario.rol);
                 ocultarLogin();
                 mostrarApp();
                 configurarInterfazPorRol(data.usuario.rol);
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         cerrarSesion();
     }
     
-    console.log('⚠️ No hay sesión activa');
+    console.log('No hay sesión activa');
     mostrarLogin();
     // Ocultar todo contenido restringido por rol hasta que inicie sesión
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
@@ -46,18 +46,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 2. TABS: CAMBIAR ENTRE LOGIN Y REGISTRO
 // ==========================================
 function mostrarTab(tab) {
-    const tabLogin    = document.getElementById('tab-login');
+    const tabLogin = document.getElementById('tab-login');
     const tabRegistro = document.getElementById('tab-registro');
-    const btnLogin    = document.getElementById('tab-btn-login');
+    const btnLogin = document.getElementById('tab-btn-login');
     const btnRegistro = document.getElementById('tab-btn-registro');
 
     if (tab === 'login') {
-        tabLogin.style.display    = 'block';
+        tabLogin.style.display = 'block';
         tabRegistro.style.display = 'none';
         btnLogin.classList.add('active');
         btnRegistro.classList.remove('active');
     } else {
-        tabLogin.style.display    = 'none';
+        tabLogin.style.display = 'none';
         tabRegistro.style.display = 'block';
         btnLogin.classList.remove('active');
         btnRegistro.classList.add('active');
@@ -71,14 +71,14 @@ document.getElementById('form-login')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const emailOTelefono = document.getElementById('login-identificador').value.trim();
-    const password       = document.getElementById('login-password').value;
+    const password = document.getElementById('login-password').value;
     
     if (!emailOTelefono) {
-        mostrarNotificacion('❌ Ingresá tu email o teléfono', 'error');
+        mostrarNotificacion('Ingresá tu email o teléfono', 'error');
         return;
     }
 
-    console.log('🔐 Intentando login con:', emailOTelefono);
+    console.log('Intentando login con:', emailOTelefono);
     
     const btnLogin = e.target.querySelector('button[type="submit"]');
     const textoOriginal = btnLogin.textContent;
@@ -93,7 +93,7 @@ document.getElementById('form-login')?.addEventListener('submit', async (e) => {
             localStorage.setItem('usuario', JSON.stringify(resultado.usuario));
             localStorage.setItem('userRol', resultado.usuario.rol);
             
-            console.log('✅ Login exitoso');
+            console.log('Login exitoso');
             ocultarLogin();
             mostrarApp();
             configurarInterfazPorRol(resultado.usuario.rol);
@@ -102,16 +102,16 @@ document.getElementById('form-login')?.addEventListener('submit', async (e) => {
                 await cargarDatosDesdeAPI();
             }
             
-            mostrarNotificacion(`✅ Bienvenido/a ${resultado.usuario.nombre}`);
+            mostrarNotificacion(`Bienvenido/a ${resultado.usuario.nombre}`);
         } else {
-            console.log('❌ Login fallido:', resultado.message);
-            mostrarNotificacion('❌ ' + (resultado.message || 'Datos incorrectos'), 'error');
+            console.log('Login fallido:', resultado.message);
+            mostrarNotificacion((resultado.message || 'Datos incorrectos'), 'error');
             btnLogin.textContent = textoOriginal;
             btnLogin.disabled = false;
         }
     } catch (error) {
-        console.error('❌ Error en login:', error);
-        mostrarNotificacion('❌ Error de conexión con el servidor', 'error');
+        console.error('Error en login:', error);
+        mostrarNotificacion('Error de conexión con el servidor', 'error');
         btnLogin.textContent = textoOriginal;
         btnLogin.disabled = false;
     }
@@ -123,38 +123,38 @@ document.getElementById('form-login')?.addEventListener('submit', async (e) => {
 document.getElementById('form-registro-cliente')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const nombre    = document.getElementById('reg-nombre').value.trim();
-    const email     = document.getElementById('reg-email').value.trim();
-    const telefono  = document.getElementById('reg-telefono').value.trim();
-    const password  = document.getElementById('reg-password').value;
+    const nombre = document.getElementById('reg-nombre').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const telefono = document.getElementById('reg-telefono').value.trim();
+    const password = document.getElementById('reg-password').value;
     const confirmar = document.getElementById('reg-password-confirmar').value;
     
     // --- Validaciones frontend ---
     if (!nombre || !email || !telefono || !password || !confirmar) {
-        mostrarNotificacion('❌ Completá todos los campos', 'error');
+        mostrarNotificacion('Completá todos los campos', 'error');
         return;
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        mostrarNotificacion('❌ El email no es válido', 'error');
+        mostrarNotificacion('El email no es válido', 'error');
         return;
     }
 
     // Validar teléfono (mínimo 8 dígitos)
     const telefonoLimpio = telefono.replace(/\D/g, '');
     if (telefonoLimpio.length < 8) {
-        mostrarNotificacion('❌ Ingresá un teléfono válido (mínimo 8 dígitos)', 'error');
+        mostrarNotificacion('Ingresá un teléfono válido (mínimo 8 dígitos)', 'error');
         return;
     }
 
     if (password !== confirmar) {
-        mostrarNotificacion('❌ Las contraseñas no coinciden', 'error');
+        mostrarNotificacion('Las contraseñas no coinciden', 'error');
         return;
     }
     if (password.length < 6) {
-        mostrarNotificacion('❌ La contraseña debe tener al menos 6 caracteres', 'error');
+        mostrarNotificacion('La contraseña debe tener al menos 6 caracteres', 'error');
         return;
     }
     
@@ -173,7 +173,7 @@ document.getElementById('form-registro-cliente')?.addEventListener('submit', asy
         const data = await response.json();
         
         if (data.success) {
-            mostrarNotificacion(`✅ ¡Cuenta creada! Bienvenida/o ${nombre}`);
+            mostrarNotificacion(`¡Cuenta creada! Bienvenida/o ${nombre}`);
             
             // Login automático con el email (garantizado único)
             const loginResult = await loginAPI(email, password);
@@ -190,13 +190,13 @@ document.getElementById('form-registro-cliente')?.addEventListener('submit', asy
             }
         } else {
             // El backend devuelve el mensaje exacto del error (email o teléfono duplicado)
-            mostrarNotificacion('❌ ' + (data.message || 'Error al crear la cuenta'), 'error');
+            mostrarNotificacion((data.message || 'Error al crear la cuenta'), 'error');
             btn.textContent = textoOriginal;
             btn.disabled = false;
         }
     } catch (error) {
-        console.error('❌ Error en registro:', error);
-        mostrarNotificacion('❌ Error de conexión con el servidor', 'error');
+        console.error('Error en registro:', error);
+        mostrarNotificacion('Error de conexión con el servidor', 'error');
         btn.textContent = textoOriginal;
         btn.disabled = false;
     }
@@ -230,7 +230,7 @@ async function obtenerPermisos() {
         });
         const data = await res.json();
         if (data.success) {
-            console.log('🔐 Permisos de', data.rol, ':', data.permisos);
+            console.log('Permisos de', data.rol, ':', data.permisos);
             return data.permisos;
         }
     } catch (e) { console.error('Error obteniendo permisos:', e); }
@@ -287,7 +287,7 @@ async function solicitarCodigo() {
             // Si el correo no está configurado y viene un código de desarrollo, mostrarlo
             const info = document.getElementById('recuperar-paso2-info');
             if (data._debug_codigo) {
-                info.textContent = `⚠️ Correo no configurado en este entorno. Tu código es: ${data._debug_codigo}`;
+                info.textContent = `Correo no configurado en este entorno. Tu código es: ${data._debug_codigo}`;
             } else {
                 info.textContent = data.mensaje || 'Código enviado por correo.';
             }
@@ -325,7 +325,7 @@ async function confirmarCodigo() {
         const data = await res.json();
         if (data.success) {
             cerrarModalRecuperar();
-            mostrarNotificacion(data.mensaje || '✅ Contraseña actualizada');
+            mostrarNotificacion(data.mensaje || 'Contraseña actualizada');
         } else {
             msg.style.display = 'block'; msg.textContent = data.message || 'No se pudo cambiar la contraseña';
         }
@@ -374,7 +374,7 @@ async function confirmarCambioContrasena() {
         const data = await res.json();
         if (data.success) {
             cerrarModalCambiarContrasena();
-            mostrarNotificacion(data.mensaje || '✅ Contraseña actualizada');
+            mostrarNotificacion(data.mensaje || 'Contraseña actualizada');
         } else {
             msg.style.display = 'block'; msg.textContent = data.message || 'No se pudo cambiar';
         }
@@ -391,7 +391,7 @@ async function confirmarCambioContrasena() {
 function mostrarLogin() {
     const login = document.getElementById('login-screen'); 
     if (login) {
-        login.style.display    = 'flex';
+        login.style.display = 'flex';
         login.style.visibility = 'visible';
         login.style.pointerEvents = 'auto';
     }
@@ -401,10 +401,10 @@ function ocultarLogin() {
     const login = document.getElementById('login-screen');
     const closeBtn = document.getElementById('login-close-btn');
     if (login) {
-        login.style.display    = 'none';
+        login.style.display = 'none';
         login.style.visibility = 'hidden';
         login.style.pointerEvents = 'none';
-        login.style.zIndex    = '-1';
+        login.style.zIndex = '-1';
     }
     if (closeBtn) closeBtn.style.display = 'none';
 }
@@ -426,7 +426,7 @@ function mostrarAppVisitante() {
 function mostrarApp() {
     const mainApp = document.getElementById('main-app');
     if (mainApp) {
-        mainApp.style.display    = 'block';
+        mainApp.style.display = 'block';
         mainApp.style.visibility = 'visible';
         mainApp.style.pointerEvents = 'auto';
     }
@@ -460,7 +460,7 @@ function obtenerToken() {
 }
 
 function cerrarSesion() {
-    console.log('👋 Cerrando sesión...');
+    console.log('Cerrando sesión...');
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     localStorage.removeItem('userRol');
@@ -471,7 +471,7 @@ function cerrarSesion() {
 // 8. CONFIGURAR INTERFAZ POR ROL
 // ==========================================
 function configurarInterfazPorRol(rol) {
-    console.log('🎭 Configurando interfaz para rol:', rol);
+    console.log('Configurando interfaz para rol:', rol);
     
     // Ocultar todo primero
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
@@ -558,7 +558,7 @@ function configurarInterfazPorRol(rol) {
         if (navServicios) navServicios.style.display = 'inline-block';
     }
     
-    console.log('✅ Interfaz de', rol.toUpperCase(), 'activada');
+    console.log('Interfaz de', rol.toUpperCase(), 'activada');
 }
 
 // ==========================================
@@ -622,11 +622,11 @@ if (!document.getElementById('auth-animations')) {
     style.textContent = `
         @keyframes slideIn {
             from { transform: translateX(400px); opacity: 0; }
-            to   { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(0); opacity: 1; }
         }
         @keyframes slideOut {
             from { transform: translateX(0); opacity: 1; }
-            to   { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(400px); opacity: 0; }
         }
 
         /* ===== TABS DE AUTH ===== */

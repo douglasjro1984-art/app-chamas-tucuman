@@ -39,10 +39,10 @@ async function probarConexionAPI() {
     try {
         const response = await fetch(`${API_URL}/health`);
         const data = await response.json();
-        console.log('✅ Conexión con backend:', data);
+        console.log('Conexión con backend:', data);
         return data.status === 'ok'; 
     } catch (error) {
-        console.error('❌ Error de conexión con backend:', error);
+        console.error('Error de conexión con backend:', error);
         return false;
     }
 }
