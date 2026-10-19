@@ -115,6 +115,12 @@ function acumularPagoPorMetodo(acu, metodo, total, detalle) {
     // Otros métodos históricos (ej: credito) no se contabilizan, como antes
 }
 
+// Fecha de HOY en horario de Argentina (UTC-3), sin depender de la zona
+// horaria del servidor (Render corre en UTC y corría un día al reporte).
+function fechaHoyAR() {
+    return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 // Crear tablas auxiliares de caja si no existen (TiDB Cloud) + tablas RBAC
 (async () => {
     try {
@@ -2449,7 +2455,7 @@ app.post('/api/gastos', autenticar, autorizar(['admin','recepcionista']), async 
         const [r] = await pool.query(
             `INSERT INTO gastos (fecha, tipo, descripcion, monto, metodo_pago, caja_id, registrado_por, registrado_por_nombre)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [fecha || new Date().toISOString().slice(0, 10), tipo === 'fijo' ? 'fijo' : 'compra',
+            [fecha || fechaHoyAR(), tipo === 'fijo' ? 'fijo' : 'compra',
              desc, mto, metodo, cajaId, req.usuario.id, req.usuario.nombre || null]
         );
         res.json({ success: true, id: r.insertId, message: 'Gasto registrado correctamente' });
@@ -2490,42 +2496,46 @@ app.delete('/api/gastos/:id', autenticar, autorizar(['admin']), async (req, res)
 app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const periodo = req.query.periodo || 'diario'; // diario | semanal | mensual
     try {
-        const hoyLocal = new Date();
-        const fmtLocal = (d) => {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const dia = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${dia}`;
-        };
+        // Períodos calculados en horario de Argentina (UTC-3): el servidor corre
+        // en UTC y, usando su reloj, el día de "hoy" quedaba corrido un día.
+        const ahoraAR = new Date(Date.now() - 3 * 60 * 60 * 1000);
+        const anioAR = ahoraAR.getUTCFullYear();
+        const mesAR = ahoraAR.getUTCMonth();
+        const diaAR = ahoraAR.getUTCDate();
+        const diaSemanaAR = ahoraAR.getUTCDay(); // 0 = domingo
+        const isoDia = (ms) => new Date(ms).toISOString().slice(0, 10);
+        const isoMes = (ms) => new Date(ms).toISOString().slice(0, 7);
         let fechas = [];
         if (periodo === 'mensual') {
-            for (let i = 2; i >= 0; i--) {
-                const m = new Date(hoyLocal.getFullYear(), hoyLocal.getMonth() - i, 1);
-                fechas.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`);
-            }
+            for (let i = 2; i >= 0; i--) fechas.push(isoMes(Date.UTC(anioAR, mesAR - i, 1)));
         } else if (periodo === 'semanal') {
-            const dia = (hoyLocal.getDay() + 6) % 7; // lunes = 0
-            const lunes = new Date(hoyLocal); lunes.setDate(hoyLocal.getDate() - dia);
-            for (let i = 2; i >= 0; i--) {
-                const s = new Date(lunes); s.setDate(lunes.getDate() - i * 7);
-                fechas.push(fmtLocal(s));
-            }
+            const lunes = Date.UTC(anioAR, mesAR, diaAR - ((diaSemanaAR + 6) % 7)); // lunes = 0
+            for (let i = 2; i >= 0; i--) fechas.push(isoDia(lunes - i * 7 * 86400000));
         } else { // diario: últimos 7 días
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date(); d.setDate(d.getDate() - i);
-                fechas.push(fmtLocal(d));
-            }
+            for (let i = 6; i >= 0; i--) fechas.push(isoDia(Date.UTC(anioAR, mesAR, diaAR - i)));
         }
 
+        // Cada movimiento se imputa al día de la CAJA en la que se registró
+        // (la misma fuente que "Aperturas y Cierres de Caja"), así los dos
+        // paneles muestran siempre los mismos números. Si un ticket no tiene
+        // caja asociada se usa su fecha de emisión.
         const [tickets] = await pool.query(
-            `SELECT DATE_FORMAT(fecha_emision, '%Y-%m-%d') as fecha, total, metodo_pago, metodo_pago_detalle
-             FROM tickets`
+            `SELECT t.total, t.metodo_pago, t.metodo_pago_detalle,
+                    DATE_FORMAT(COALESCE(c.fecha, t.fecha_emision), '%Y-%m-%d') as fecha
+             FROM tickets t
+             LEFT JOIN cajas c ON t.caja_id = c.id`
         );
         const [gastos] = await pool.query(
-            `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, tipo, COALESCE(SUM(monto),0) as total FROM gastos GROUP BY DATE_FORMAT(fecha, '%Y-%m-%d'), tipo`
+            `SELECT g.tipo, COALESCE(g.monto,0) as total,
+                    DATE_FORMAT(COALESCE(c.fecha, g.fecha), '%Y-%m-%d') as fecha
+             FROM gastos g
+             LEFT JOIN cajas c ON g.caja_id = c.id`
         );
         const [retiros] = await pool.query(
-            `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, COALESCE(SUM(monto_retirado),0) as total FROM retiros GROUP BY DATE_FORMAT(fecha, '%Y-%m-%d')`
+            `SELECT COALESCE(r.monto_retirado,0) as total,
+                    DATE_FORMAT(COALESCE(c.fecha, r.fecha), '%Y-%m-%d') as fecha
+             FROM retiros r
+             LEFT JOIN cajas c ON r.caja_id = c.id`
         );
         const [cierres] = await pool.query(
             `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, COALESCE(monto_final,0) as monto_final FROM cajas WHERE estado = 'cerrada'`
@@ -2565,7 +2575,7 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
         }
         res.json({ periodo, datos: resultado });
     } catch (e) {
-        console.error('âŒ Error reporte caja:', e.message);
+        console.error('Error reporte caja:', e.message);
         res.status(500).json({ error: 'Error al obtener el reporte' });
     }
 });
@@ -2704,8 +2714,8 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
         const [tick] = await pool.query(
             `INSERT INTO tickets (numero, turno_id, cliente_nombre, cliente_telefono, cliente_email,
                                   profesional_nombre, items, subtotal, descuento, total, metodo_pago,
-                                  metodo_pago_detalle, cajero_id, cajero_nombre, tipo_comprobante, caja_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ticket', ?)`,
+                                  metodo_pago_detalle, cajero_id, cajero_nombre, tipo_comprobante, caja_id, fecha_emision)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ticket', ?, NOW())`,
             [numero, id, dato.cliente_nombre || null, dato.cliente_telefono || null, dato.cliente_email || null,
              dato.profesional || null, items, subtotal, descuentoMonto, totalFinal, metodo, metodoPagoDetalle,
              req.usuario.id, req.usuario.nombre || null, cajaId]
