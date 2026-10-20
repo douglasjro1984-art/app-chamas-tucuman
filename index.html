@@ -70,6 +70,7 @@
                 <div class="nav-drawer" id="nav-drawer">
                     <div class="nav-links">
                         <button onclick="showSection('servicios')">Servicios</button>
+                        <button onclick="showSection('promociones')">Promociones</button>
                         <button class="caja-only" onclick="showSection('caja')">Caja</button>
                         <button onclick="showSection('mis-turnos-cliente')" class="cliente-puede">Turnos y Reservas</button>
                         <button class="prof-only" onclick="showSection('mis-turnos-profesional')">Citas clientes</button>
@@ -295,6 +296,7 @@
                                 </select>
                                 <input type="date" id="reporte-fecha" onchange="cargarReporteCaja()" style="padding:8px 10px;border:1px solid #e5d3dd;border-radius:8px;font:inherit;color:#5c4653;background:white;" title="Semana o mes a mostrar (en Diario se usa el mes en curso)">
                                 <button onclick="cargarReporteCaja()" class="btn-guardar btn-inline">Actualizar</button>
+                                <button onclick="abrirModalImprimirReporteCaja()" class="btn-whatsapp-mini btn-inline" style="background:var(--grad-brand);">Imprimir PDF</button>
                             </div>
                         </div>
                         <p class="panel-desc">Resumen por día de las cobranzas del período (un renglón por día): ventas por método de pago, gastos del local, retiros de profesionales y el neto. La fecha elegida define la semana o el mes a mostrar.</p>
@@ -463,6 +465,15 @@
                 </div>
             </section>
 
+            <section id="promociones" class="section">
+                <h2>Promociones</h2>
+                <p style="color: #666; margin-bottom: 20px;">Promociones vigentes con fecha de inicio y caducidad.</p>
+                <div class="admin-only" style="margin-bottom:20px;">
+                    <button onclick="abrirModalPromocion()" class="btn-guardar btn-inline">Agregar Promoción</button>
+                </div>
+                <div id="promociones-grid" class="grid"></div>
+            </section>
+
         </main>
 
         <footer>
@@ -555,6 +566,92 @@
             <input type="password" id="cc-password-nueva2" class="field" placeholder="Repetir nueva contraseña" minlength="6">
             <p id="cc-msg" class="modal-msg"></p>
             <button onclick="confirmarCambioContrasena()" class="btn-modal btn-success">Guardar nueva contraseña</button>
+        </div>
+    </div>
+
+    <!-- MODAL PROMOCIÓN -->
+    <div id="modal-promocion" class="modal" style="display:none;">
+        <div class="modal-overlay" onclick="cerrarModalPromocion()"></div>
+        <div class="modal-contenido">
+            <div class="modal-header">
+                <h2 id="modal-promocion-titulo">Agregar Promoción</h2>
+                <button onclick="cerrarModalPromocion()" class="modal-cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-promocion" onsubmit="guardarPromocion(event)">
+                    <input type="hidden" id="promo-id">
+                    <div class="form-group">
+                        <label for="promo-nombre">Nombre</label>
+                        <input type="text" id="promo-nombre" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="promo-descripcion">Descripción</label>
+                        <textarea id="promo-descripcion" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="promo-precio">Precio ($)</label>
+                        <input type="number" id="promo-precio" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="promo-imagen">Imagen (URL o ruta img/...)</label>
+                        <input type="text" id="promo-imagen" placeholder="img/promocion.jpg">
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="promo-fecha-inicio">Fecha de inicio</label>
+                            <input type="date" id="promo-fecha-inicio">
+                        </div>
+                        <div class="form-group">
+                            <label for="promo-fecha-caducidad">Fecha de caducidad</label>
+                            <input type="date" id="promo-fecha-caducidad">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="promo-activo" checked> Activa</label>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:20px;">
+                        <button type="button" onclick="cerrarModalPromocion()" class="btn-reset" style="flex:1;">Cancelar</button>
+                        <button type="submit" class="btn-guardar" style="flex:1;">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL IMPRIMIR REPORTE CAJA -->
+    <div id="modal-imprimir-reporte" class="modal" style="display:none;">
+        <div class="modal-overlay" onclick="cerrarModalImprimirReporteCaja()"></div>
+        <div class="modal-contenido">
+            <div class="modal-header">
+                <h2>Imprimir Reporte de Cobranzas</h2>
+                <button onclick="cerrarModalImprimirReporteCaja()" class="modal-cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tipo de impresión</label>
+                    <select id="imp-reporte-tipo">
+                        <option value="semanal">Semanal</option>
+                        <option value="mensual">Mensual</option>
+                        <option value="diario">Diario</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Métodos a incluir</label>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <label><input type="checkbox" value="efectivo" class="imp-reporte-metodo" checked> Efectivo</label>
+                        <label><input type="checkbox" value="transferencia" class="imp-reporte-metodo" checked> Transferencias</label>
+                        <label><input type="checkbox" value="debito" class="imp-reporte-metodo" checked> Débito</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="imp-reporte-fecha">Fecha (para semana/mes)</label>
+                    <input type="date" id="imp-reporte-fecha">
+                </div>
+                <div style="display:flex;gap:10px;margin-top:20px;">
+                    <button type="button" onclick="cerrarModalImprimirReporteCaja()" class="btn-reset" style="flex:1;">Cancelar</button>
+                    <button type="button" onclick="generarImpresionReporteCaja()" class="btn-guardar" style="flex:1;">Generar PDF/Imprimir</button>
+                </div>
+            </div>
         </div>
     </div>
 
