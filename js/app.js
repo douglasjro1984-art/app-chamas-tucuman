@@ -70,10 +70,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('user-name').textContent = usuario.nombre;
         
         await cargarDatosDesdeAPI();
+        if (typeof cargarPromociones === 'function') {
+            cargarPromociones();
+        }
         
         // Si tienes la función de estadísticas en roles-funciones.js, la llama
         if (usuario.rol === 'admin' && typeof cargarEstadisticas === 'function') {
             cargarEstadisticas();
+        }
+    } else {
+        if (typeof cargarPromociones === 'function') {
+            cargarPromociones();
         }
     }
 });
@@ -112,6 +119,10 @@ async function cargarDatosDesdeAPI() {
             llenarSelectServicios(selectServicio);
         } else {
             console.warn("No se encontró el elemento 'servicio-select' en el HTML");
+        }
+        
+        if (typeof cargarPromociones === 'function') {
+            cargarPromociones();
         }
     
     } catch (error) {
@@ -1796,6 +1807,7 @@ async function cargarTurnosProfesional() {
                             <span style="background:#e8f5e9;color:#2e7d32;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${esc(t.servicio||'N/A')}</span>
                             <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${new Date(t.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
                             <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">${(t.hora_inicio||t.hora||'').substring(0,5)}</span>
+                            <button onclick='duplicarTurnoProfesional(${JSON.stringify({id: t.id, servicio_id: t.servicio_id, servicio: t.servicio, profesional_id: usuario.id, fecha: String(t.fecha).slice(0,10), hora: (t.hora_inicio||t.hora||'').substring(0,5)})})' style="background:linear-gradient(135deg,#C06C84,#a8556d);color:white;padding:6px 12px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">Duplicar turno</button>
                         </div>
                     </div>`).join('')}
             </div>`;
@@ -2006,6 +2018,433 @@ async function cancelarTurnoDesdeCitas(turnoId) {
         }
     } catch (error) {
         mostrarNotificacion('Error de conexión', 'error');
+    }
+}
+
+// ==========================================
+// DUPLICAR TURNO DESDE CITAS DEL PROFESIONAL
+// ==========================================
+async function duplicarTurnoProfesional(turnoData) {
+    const usuario = obtenerUsuarioActual();
+    if (!usuario) { mostrarLoginVisitante(); return; }
+    const esProf = usuario.rol === 'profesional' || usuario.rol === 'especialista';
+    if (!esProf && usuario.rol !== 'admin' && usuario.rol !== 'recepcionista') {
+        mostrarNotificacion('Solo el profesional puede duplicar sus turnos', 'error');
+        return;
+    }
+
+    document.getElementById('modal-duplicar-turno')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'modal-duplicar-turno';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;padding:28px;max-width:440px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#C06C84;margin:0 0 6px 0;">Duplicar turno</h3>
+            <p style="color:#888;margin:0 0 14px 0;font-size:0.88rem;">Servicio: ${esc(turnoData.servicio || '')}</p>
+            <div class="form-group">
+                <label>Nombre del cliente a atender</label>
+                <input type="text" id="dup-cliente-nombre" required>
+            </div>
+            <div class="form-group">
+                <label>Teléfono</label>
+                <input type="tel" id="dup-cliente-telefono">
+            </div>
+            <div class="form-group">
+                <label>Email (opcional)</label>
+                <input type="email" id="dup-cliente-email">
+            </div>
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" id="dup-fecha">
+            </div>
+            <div class="form-group">
+                <label>Hora</label>
+                <select id="dup-hora">
+                    <option value="">Seleccionar fecha primero...</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:18px;">
+                <button onclick="cerrarModalDuplicarTurno()" class="btn-reset" style="flex:1;">Cancelar</button>
+                <button onclick="confirmarDuplicarTurno(${turnoData.profesional_id}, ${turnoData.servicio_id})" class="btn-guardar" style="flex:1;">Crear turno duplicado</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+
+    const fechaInput = document.getElementById('dup-fecha');
+    fechaInput.value = turnoData.fecha || '';
+    fechaInput.onchange = async () => {
+        await cargarHorasDuplicado(turnoData.profesional_id, fechaInput.value);
+    };
+    if (fechaInput.value) {
+        cargarHorasDuplicado(turnoData.profesional_id, fechaInput.value);
+    }
+}
+
+function cerrarModalDuplicarTurno() {
+    document.getElementById('modal-duplicar-turno')?.remove();
+}
+
+async function cargarHorasDuplicado(profesionalId, fecha) {
+    const selectHora = document.getElementById('dup-hora');
+    if (!selectHora || !fecha) return;
+    selectHora.innerHTML = '<option value="">Cargando...</option>';
+    try {
+        const res = await fetch(`${API_BASE}/disponibilidad/${profesionalId}/${fecha}`);
+        const horas = await res.json();
+        if (!Array.isArray(horas) || horas.length === 0) {
+            selectHora.innerHTML = '<option value="">Sin horarios disponibles</option>';
+            return;
+        }
+        selectHora.innerHTML = '<option value="">Seleccionar hora...</option>' +
+            horas.map(h => {
+                const hora = (typeof h === 'string' ? h : (h.hora_inicio || h.hora || '')).substring(0,5);
+                if (!hora) return '';
+                return `<option value="${hora}">${hora}</option>`;
+            }).join('');
+    } catch (e) {
+        selectHora.innerHTML = '<option value="">Error al cargar</option>';
+    }
+}
+
+async function confirmarDuplicarTurno(profesionalId, servicioId) {
+    const usuario = obtenerUsuarioActual();
+    const clienteNombre = document.getElementById('dup-cliente-nombre')?.value.trim();
+    const clienteTelefono = document.getElementById('dup-cliente-telefono')?.value.trim();
+    const clienteEmail = document.getElementById('dup-cliente-email')?.value.trim();
+    const fecha = document.getElementById('dup-fecha')?.value;
+    const hora = document.getElementById('dup-hora')?.value;
+    if (!clienteNombre) { mostrarNotificacion('Ingresá el nombre del cliente', 'error'); return; }
+    if (!fecha || !hora) { mostrarNotificacion('Seleccioná fecha y hora', 'error'); return; }
+    try {
+        const res = await fetch(`${API_BASE}/turnos`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                cliente_id: usuario?.id ? parseInt(usuario.id) : null,
+                cliente_nombre: clienteNombre,
+                cliente_email: clienteEmail,
+                cliente_telefono: clienteTelefono,
+                profesional_id: parseInt(profesionalId),
+                servicios: [parseInt(servicioId)],
+                fecha: fecha,
+                hora_inicio: hora + ':00'
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('Turno duplicado creado correctamente');
+            cerrarModalDuplicarTurno();
+            cargarTurnosProfesional();
+        } else {
+            mostrarNotificacion((data.message || 'Error al duplicar turno'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('Error de conexión', 'error');
+    }
+}
+
+// ==========================================
+// PROMOCIONES
+// ==========================================
+async function cargarPromociones() {
+    const grid = document.getElementById('promociones-grid');
+    if (!grid) return;
+    const usuario = obtenerUsuarioActual();
+    const esAdmin = usuario && (usuario.rol === 'admin' || usuario.rol === 'super_admin');
+    try {
+        const url = esAdmin ? `${API_BASE}/promociones/todas` : `${API_BASE}/promociones`;
+        const headers = esAdmin && obtenerToken ? { 'Authorization': 'Bearer ' + obtenerToken() } : {};
+        const res = await fetch(url, { headers });
+        const promos = await res.json();
+        if (!Array.isArray(promos) || promos.length === 0) {
+            grid.innerHTML = '<p style="color:#888;">No hay promociones disponibles.</p>';
+            return;
+        }
+        grid.innerHTML = promos.map(p => {
+            const vig = esVigentePromocion(p);
+            return `
+                <div class="servicio-card" style="${!vig && !esAdmin ? 'opacity:0.6;' : ''}">
+                    <div class="servicio-imagen" style="background-image: url('${encodeURI(p.imagen || 'img/default.jpg')}')"></div>
+                    <div class="servicio-contenido">
+                        <h3>${esc(p.nombre)}</h3>
+                        <p class="servicio-descripcion">${esc(p.descripcion || '')}</p>
+                        <div class="servicio-footer">
+                            <p class="servicio-precio">$${parseFloat(p.precio || 0).toLocaleString()}</p>
+                        </div>
+                        ${(p.fecha_inicio || p.fecha_caducidad) ? `<p style="font-size:0.8rem;color:#888;margin:6px 0;">${p.fecha_inicio ? 'Desde: ' + p.fecha_inicio : ''} ${p.fecha_caducidad ? ' | Hasta: ' + p.fecha_caducidad : ''}</p>` : ''}
+                        ${esAdmin ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button onclick='editarPromocion(${JSON.stringify(p)})' class="btn-whatsapp-mini" style="background:var(--grad-brand);">Editar</button>
+                            <button onclick="eliminarPromocion(${p.id})" class="btn-whatsapp-mini" style="background:#dc3545;">Eliminar</button>
+                            <span style="font-size:0.75rem;color:${p.activo ? '#28a745' : '#dc3545'};">${p.activo ? 'Activa' : 'Inactiva'}</span>
+                        </div>` : ''}
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        grid.innerHTML = '<p style="color:#dc3545;">Error al cargar promociones</p>';
+    }
+}
+
+function esVigentePromocion(p) {
+    const hoy = new Date().toISOString().slice(0,10);
+    if (p.activo === 0) return false;
+    if (p.fecha_inicio && p.fecha_inicio > hoy) return false;
+    if (p.fecha_caducidad && p.fecha_caducidad < hoy) return false;
+    return true;
+}
+
+function abrirModalPromocion(promo) {
+    document.getElementById('modal-promocion')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'modal-promocion';
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-overlay" onclick="cerrarModalPromocion()"></div>
+        <div class="modal-contenido">
+            <div class="modal-header">
+                <h2 id="modal-promocion-titulo">${promo ? 'Editar Promoción' : 'Agregar Promoción'}</h2>
+                <button onclick="cerrarModalPromocion()" class="modal-cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-promocion" onsubmit="guardarPromocion(event)">
+                    <input type="hidden" id="promo-id" value="${promo ? promo.id : ''}">
+                    <div class="form-group">
+                        <label for="promo-nombre">Nombre</label>
+                        <input type="text" id="promo-nombre" required value="${promo ? esc(promo.nombre) : ''}">
+                    </div>
+                    <div class="form-group">
+                        <label for="promo-descripcion">Descripción</label>
+                        <textarea id="promo-descripcion" rows="2">${promo ? esc(promo.descripcion || '') : ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="promo-precio">Precio ($)</label>
+                        <input type="number" id="promo-precio" step="0.01" min="0" required value="${promo ? promo.precio : ''}">
+                    </div>
+                    <div class="form-group">
+                        <label for="promo-imagen">Imagen (URL o ruta img/...)</label>
+                        <input type="text" id="promo-imagen" placeholder="img/promocion.jpg" value="${promo ? esc(promo.imagen || '') : ''}">
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="promo-fecha-inicio">Fecha de inicio</label>
+                            <input type="date" id="promo-fecha-inicio" value="${promo && promo.fecha_inicio ? promo.fecha_inicio.slice(0,10) : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label for="promo-fecha-caducidad">Fecha de caducidad</label>
+                            <input type="date" id="promo-fecha-caducidad" value="${promo && promo.fecha_caducidad ? promo.fecha_caducidad.slice(0,10) : ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="promo-activo" ${promo ? (promo.activo ? 'checked' : '') : 'checked'}> Activa</label>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:20px;">
+                        <button type="button" onclick="cerrarModalPromocion()" class="btn-reset" style="flex:1;">Cancelar</button>
+                        <button type="submit" class="btn-guardar" style="flex:1;">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+function editarPromocion(promo) {
+    abrirModalPromocion(promo);
+}
+
+function cerrarModalPromocion() {
+    document.getElementById('modal-promocion')?.remove();
+}
+
+async function guardarPromocion(e) {
+    e.preventDefault();
+    const id = document.getElementById('promo-id')?.value;
+    const datos = {
+        nombre: document.getElementById('promo-nombre').value.trim(),
+        descripcion: document.getElementById('promo-descripcion').value.trim(),
+        precio: parseFloat(document.getElementById('promo-precio').value) || 0,
+        imagen: document.getElementById('promo-imagen').value.trim() || null,
+        fecha_inicio: document.getElementById('promo-fecha-inicio').value || null,
+        fecha_caducidad: document.getElementById('promo-fecha-caducidad').value || null,
+        activo: document.getElementById('promo-activo').checked
+    };
+    if (!datos.nombre) { mostrarNotificacion('El nombre es obligatorio', 'error'); return; }
+    try {
+        const url = id ? `${API_BASE}/promociones/${id}` : `${API_BASE}/promociones`;
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + obtenerToken() },
+            body: JSON.stringify(datos)
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('Promoción guardada correctamente');
+            cerrarModalPromocion();
+            cargarPromociones();
+        } else {
+            mostrarNotificacion((data.message || 'Error al guardar'), 'error');
+        }
+    } catch (e2) {
+        mostrarNotificacion('Error de conexión', 'error');
+    }
+}
+
+async function eliminarPromocion(id) {
+    if (!confirm('¿Eliminar esta promoción?')) return;
+    try {
+        const res = await fetch(`${API_BASE}/promociones/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion('Promoción eliminada');
+            cargarPromociones();
+        } else {
+            mostrarNotificacion((data.message || 'Error'), 'error');
+        }
+    } catch (e) {
+        mostrarNotificacion('Error de conexión', 'error');
+    }
+}
+
+// ==========================================
+// IMPRIMIR REPORTE DE COBRANZAS
+// ==========================================
+function abrirModalImprimirReporteCaja() {
+    document.getElementById('modal-imprimir-reporte')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'modal-imprimir-reporte';
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-overlay" onclick="cerrarModalImprimirReporteCaja()"></div>
+        <div class="modal-contenido">
+            <div class="modal-header">
+                <h2>Imprimir Reporte de Cobranzas</h2>
+                <button onclick="cerrarModalImprimirReporteCaja()" class="modal-cerrar">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tipo de impresión</label>
+                    <select id="imp-reporte-tipo">
+                        <option value="semanal">Semanal</option>
+                        <option value="mensual">Mensual</option>
+                        <option value="diario">Diario</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Métodos a incluir</label>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <label><input type="checkbox" value="efectivo" class="imp-reporte-metodo" checked> Efectivo</label>
+                        <label><input type="checkbox" value="transferencia" class="imp-reporte-metodo" checked> Transferencias</label>
+                        <label><input type="checkbox" value="debito" class="imp-reporte-metodo" checked> Débito</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="imp-reporte-fecha">Fecha (para semana/mes)</label>
+                    <input type="date" id="imp-reporte-fecha" value="${new Date().toISOString().slice(0,10)}">
+                </div>
+                <div style="display:flex;gap:10px;margin-top:20px;">
+                    <button type="button" onclick="cerrarModalImprimirReporteCaja()" class="btn-reset" style="flex:1;">Cancelar</button>
+                    <button type="button" onclick="generarImpresionReporteCaja()" class="btn-guardar" style="flex:1;">Generar e Imprimir</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+function cerrarModalImprimirReporteCaja() {
+    document.getElementById('modal-imprimir-reporte')?.remove();
+}
+
+async function generarImpresionReporteCaja() {
+    const tipo = document.getElementById('imp-reporte-tipo')?.value || 'semanal';
+    const fecha = document.getElementById('imp-reporte-fecha')?.value || '';
+    const metodos = Array.from(document.querySelectorAll('.imp-reporte-metodo:checked')).map(x => x.value);
+    try {
+        const periodoMap = { semanal: 'semanal', mensual: 'mensual', diario: 'diario' };
+        const res = await fetch(`${API_BASE}/caja/reporte?periodo=${periodoMap[tipo] || tipo}${fecha ? '&fecha=' + encodeURIComponent(fecha) : ''}`);
+        const data = await res.json();
+        const filas = data.datos || [];
+        if (!filas.length) {
+            mostrarNotificacion('No hay datos para imprimir', 'error');
+            return;
+        }
+        const etiqueta = (f) => {
+            const d = new Date(String(f).slice(0, 10) + 'T12:00:00');
+            return String(f).slice(0, 10).split('-').reverse().join('/') + ' (' + d.toLocaleDateString('es-AR', { weekday: 'short' }) + ')';
+        };
+        let totalEf = 0, totalTr = 0, totalDb = 0, totalVentas = 0, totalGastos = 0, totalRetiros = 0;
+        filas.forEach(r => {
+            if (metodos.includes('efectivo')) totalEf += r.efectivo || 0;
+            if (metodos.includes('transferencia')) totalTr += r.transferencia || 0;
+            if (metodos.includes('debito')) totalDb += r.debito || 0;
+            totalVentas += r.total_ventas || 0;
+            totalGastos += r.total_gastos || 0;
+            totalRetiros += r.total_retiros || 0;
+        });
+        const neto = totalVentas - totalGastos - totalRetiros;
+        const rowsHtml = filas.map(r => `
+            <tr>
+                <td>${etiqueta(r.fecha)}</td>
+                ${metodos.includes('efectivo') ? `<td>$${(r.efectivo||0).toFixed(2)}</td>` : ''}
+                ${metodos.includes('transferencia') ? `<td>$${(r.transferencia||0).toFixed(2)}</td>` : ''}
+                ${metodos.includes('debito') ? `<td>$${(r.debito||0).toFixed(2)}</td>` : ''}
+                <td>$${(r.total_ventas||0).toFixed(2)}</td>
+                <td style="color:#dc3545;">-$${(r.total_gastos||0).toFixed(2)}</td>
+                <td style="color:#C06C84;">-$${(r.total_retiros||0).toFixed(2)}</td>
+                <td style="font-weight:700;">$${((r.total_ventas||0)-(r.total_gastos||0)-(r.total_retiros||0)).toFixed(2)}</td>
+            </tr>
+        `).join('');
+        const win = window.open('', '_blank', 'width=900,height=700');
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reporte de Cobranzas - ${tipo}</title>
+        <style>
+        body{font-family:Arial,sans-serif;padding:30px;color:#333;}
+        h1{color:#C06C84;text-align:center;margin-bottom:6px;}
+        .sub{text-align:center;color:#666;margin-bottom:20px;}
+        table{width:100%;border-collapse:collapse;font-size:0.9rem;}
+        th,td{border:1px solid #ddd;padding:8px;text-align:right;}
+        th{background:#f9e4ee;color:#C06C84;text-align:center;}
+        td:first-child{text-align:left;font-weight:600;}
+        tfoot td{font-weight:700;background:#fdf5f8;}
+        .print-btn{margin-bottom:15px;padding:10px 16px;background:#C06C84;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;}
+        @media print{.print-btn{display:none;}}
+        </style></head><body>
+        <button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+        <h1>CHAMAS SPA</h1>
+        <p class="sub">Registro de Cobranzas en Caja - ${tipo.toUpperCase()}${fecha ? ' - ' + fecha : ''}</p>
+        <table>
+            <thead><tr>
+                <th>Fecha</th>
+                ${metodos.includes('efectivo') ? '<th>Efectivo</th>' : ''}
+                ${metodos.includes('transferencia') ? '<th>Transferencias</th>' : ''}
+                ${metodos.includes('debito') ? '<th>Débito</th>' : ''}
+                <th>Total Cobrado</th>
+                <th>Gastos</th>
+                <th>Retiros</th>
+                <th>Neto</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+            <tfoot><tr>
+                <td>TOTALES</td>
+                ${metodos.includes('efectivo') ? `<td>$${totalEf.toFixed(2)}</td>` : ''}
+                ${metodos.includes('transferencia') ? `<td>$${totalTr.toFixed(2)}</td>` : ''}
+                ${metodos.includes('debito') ? `<td>$${totalDb.toFixed(2)}</td>` : ''}
+                <td>$${totalVentas.toFixed(2)}</td>
+                <td style="color:#dc3545;">-$${totalGastos.toFixed(2)}</td>
+                <td style="color:#C06C84;">-$${totalRetiros.toFixed(2)}</td>
+                <td>$${neto.toFixed(2)}</td>
+            </tr></tfoot>
+        </table>
+        <p style="margin-top:20px;color:#888;font-size:0.8rem;">Generado el ${new Date().toLocaleString('es-AR')}</p>
+        <script>setTimeout(()=>window.print(), 300);</script>
+        </body></html>`);
+        win.document.close();
+        cerrarModalImprimirReporteCaja();
+    } catch (e) {
+        mostrarNotificacion('Error al generar impresión', 'error');
     }
 }
 
