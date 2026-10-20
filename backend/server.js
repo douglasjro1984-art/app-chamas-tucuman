@@ -146,6 +146,21 @@ function fechaHoyAR() {
         if (!ticketsCols.length) await pool.query(`ALTER TABLE tickets ADD COLUMN metodo_pago_detalle TEXT NULL`);
         // Tabla horarios_dia: configuración por día de la semana
         await pool.query(`CREATE TABLE IF NOT EXISTS horarios_dia (id BIGINT AUTO_INCREMENT PRIMARY KEY, profesional_id BIGINT NOT NULL, dia_semana VARCHAR(15) NOT NULL, activo TINYINT(1) NOT NULL DEFAULT 1, manana_desde TIME NULL DEFAULT '10:00:00', manana_hasta TIME NULL DEFAULT '12:30:00', manana_paso INT NOT NULL DEFAULT 90, tarde_desde TIME NULL DEFAULT '15:00:00', tarde_hasta TIME NULL DEFAULT '19:00:00', tarde_paso INT NOT NULL DEFAULT 90, UNIQUE KEY uq_prof_dia (profesional_id, dia_semana), INDEX idx_horarios_dia_prof (profesional_id)) ENGINE=InnoDB`);
+        // Tabla de promociones
+        await pool.query(`CREATE TABLE IF NOT EXISTS promociones (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            nombre VARCHAR(150) NOT NULL,
+            descripcion TEXT NULL,
+            precio DECIMAL(10,2) NOT NULL DEFAULT 0,
+            imagen VARCHAR(255) NULL,
+            fecha_inicio DATE NULL,
+            fecha_caducidad DATE NULL,
+            activo TINYINT(1) NOT NULL DEFAULT 1,
+            creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            actualizado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_promociones_activo (activo),
+            INDEX idx_promociones_fechas (fecha_inicio, fecha_caducidad)
+        ) ENGINE=InnoDB`);
         console.log('🧾 Tablas auxiliares y RBAC verificadas');
     } catch (e) { console.error('❌ Error creando tablas:', e.message); }
 })();
@@ -1520,6 +1535,98 @@ app.get('/api/cumpleanos', autenticar, autorizar(['admin','recepcionista']), asy
     } catch (e) {
         console.error('âŒ Error cumpleaÃ±os:', e.message);
         res.status(500).json({ error: 'Error al obtener cumpleaÃ±os' });
+    }
+});
+
+// ============================================
+// PROMOCIONES
+// ============================================
+// Públicas / para todos (solo vigentes si no es admin)
+app.get('/api/promociones', async (req, res) => {
+    try {
+        const hoy = fechaHoyAR ? fechaHoyAR() : new Date().toISOString().slice(0,10);
+        const [rows] = await pool.query(
+            `SELECT * FROM promociones 
+             WHERE activo = 1 
+               AND (fecha_inicio IS NULL OR fecha_inicio <= ?)
+               AND (fecha_caducidad IS NULL OR fecha_caducidad >= ?)
+             ORDER BY id DESC`,
+            [hoy, hoy]
+        );
+        res.json(rows);
+    } catch (e) {
+        console.error('Error promociones:', e.message);
+        res.status(500).json({ error: 'Error al obtener promociones' });
+    }
+});
+
+app.get('/api/promociones/todas', autenticar, autorizar(['admin']), async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM promociones ORDER BY id DESC');
+        res.json(rows);
+    } catch (e) {
+        console.error('Error promociones todas:', e.message);
+        res.status(500).json({ error: 'Error al obtener promociones' });
+    }
+});
+
+app.post('/api/promociones', autenticar, autorizar(['admin']), async (req, res) => {
+    const { nombre, descripcion, precio, imagen, fecha_inicio, fecha_caducidad, activo } = req.body;
+    if (!nombre || precio === undefined || precio === null) {
+        return res.status(400).json({ success: false, message: 'Nombre y precio son obligatorios' });
+    }
+    try {
+        const [r] = await pool.query(
+            `INSERT INTO promociones (nombre, descripcion, precio, imagen, fecha_inicio, fecha_caducidad, activo)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                nombre.trim(),
+                descripcion || null,
+                parseFloat(precio) || 0,
+                imagen || null,
+                fecha_inicio || null,
+                fecha_caducidad || null,
+                activo === false ? 0 : 1
+            ]
+        );
+        res.json({ success: true, id: r.insertId, message: 'Promoción creada correctamente' });
+    } catch (e) {
+        console.error('Error crear promocion:', e.message);
+        res.status(500).json({ success: false, message: 'Error al crear la promoción' });
+    }
+});
+
+app.put('/api/promociones/:id', autenticar, autorizar(['admin']), async (req, res) => {
+    const { id } = req.params;
+    const { nombre, descripcion, precio, imagen, fecha_inicio, fecha_caducidad, activo } = req.body;
+    try {
+        const fields = [];
+        const values = [];
+        if (nombre !== undefined) { fields.push('nombre = ?'); values.push(nombre.trim()); }
+        if (descripcion !== undefined) { fields.push('descripcion = ?'); values.push(descripcion || null); }
+        if (precio !== undefined) { fields.push('precio = ?'); values.push(parseFloat(precio) || 0); }
+        if (imagen !== undefined) { fields.push('imagen = ?'); values.push(imagen || null); }
+        if (fecha_inicio !== undefined) { fields.push('fecha_inicio = ?'); values.push(fecha_inicio || null); }
+        if (fecha_caducidad !== undefined) { fields.push('fecha_caducidad = ?'); values.push(fecha_caducidad || null); }
+        if (activo !== undefined) { fields.push('activo = ?'); values.push(activo ? 1 : 0); }
+        if (fields.length === 0) return res.status(400).json({ success: false, message: 'Sin cambios' });
+        values.push(id);
+        await pool.query(`UPDATE promociones SET ${fields.join(', ')} WHERE id = ?`, values);
+        res.json({ success: true, message: 'Promoción actualizada correctamente' });
+    } catch (e) {
+        console.error('Error actualizar promocion:', e.message);
+        res.status(500).json({ success: false, message: 'Error al actualizar la promoción' });
+    }
+});
+
+app.delete('/api/promociones/:id', autenticar, autorizar(['admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM promociones WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Promoción eliminada correctamente' });
+    } catch (e) {
+        console.error('Error eliminar promocion:', e.message);
+        res.status(500).json({ success: false, message: 'Error al eliminar la promoción' });
     }
 });
 

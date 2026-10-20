@@ -201,6 +201,21 @@ CREATE TABLE IF NOT EXISTS recuperaciones (
     creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS promociones (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    descripcion TEXT NULL,
+    precio DECIMAL(10,2) NOT NULL DEFAULT 0,
+    imagen VARCHAR(255) NULL,
+    fecha_inicio DATE NULL,
+    fecha_caducidad DATE NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actualizado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_promociones_activo (activo),
+    INDEX idx_promociones_fechas (fecha_inicio, fecha_caducidad)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS configuracion (
     clave VARCHAR(50) NOT NULL PRIMARY KEY,
     valor TEXT NULL
