@@ -341,9 +341,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         // Buscar por email O por telÃ©fono
         const [rows] = await pool.query(
             `SELECT id, nombre, email, rol, telefono, password
-            FROM usuarios
-            WHERE email = ? OR telefono = ?
-            LIMIT 1`,
+             FROM usuarios
+             WHERE email = ? OR telefono = ?
+             LIMIT 1`,
             [identificador, identificador]
         );
 
@@ -403,15 +403,15 @@ app.get('/api/auth/me', autenticar, async (req, res) => {
 });
 
 // ============================================
-//  RECUPERACION DE CONTRASEÑA
+//  RECUPERACIÃ“N DE CONTRASEÃ‘A
 // ============================================
 
-// Genera codigo numerico de 6 di­gitos
+// Genera cÃ³digo numÃ©rico de 6 dÃ­gitos
 function generarCodigo6() {
     return String(crypto.randomInt(100000, 999999));
 }
 
-// Normaliza telefono argentino a formato internacional sin '+' (ej: 5493865437108)
+// Normaliza telÃ©fono argentino a formato internacional sin '+' (ej: 5493865437108)
 function normalizarTelefonoArgentina(tel) {
     let num = (tel || '').replace(/[^\d]/g, '');
     if (!num) return null;
@@ -421,7 +421,7 @@ function normalizarTelefonoArgentina(tel) {
     return '549' + num;
 }
 
-// Enviar correo con el codigo de recuperacion usando SMTP (nodemailer)
+// Enviar correo con el cÃ³digo de recuperaciÃ³n usando SMTP (nodemailer)
 function crearTransportadorCorreo() {
     const host = process.env.MAIL_HOST;
     const user = process.env.MAIL_USER;
@@ -507,7 +507,7 @@ async function enviarWhatsAppMeta(destinoInternacional, mensaje) {
     });
 }
 
-// Solicitar codigo de recuperacion (envi­a por WhatsApp)
+// Solicitar cÃ³digo de recuperaciÃ³n (envÃ­a por WhatsApp)
 app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
     const identifier = (req.body.emailOrPhone || req.body.email || '').trim();
     if (!identifier) {
@@ -536,7 +536,7 @@ app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
         const correoEnviado = await enviarCorreoRecuperacion(usuario.email, codigo);
         let codigoEnPantalla = null;
 
-        // En desarrollo (o si falla el correo), devolver codigo en respuesta para que funcione
+        // En desarrollo (o si fallÃ³ el correo), devolver cÃ³digo en respuesta para que funcione
         const esDesarrollo = process.env.NODE_ENV !== 'production';
         if (!correoEnviado.ok && esDesarrollo) {
             codigoEnPantalla = codigo;
@@ -546,7 +546,7 @@ app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
             success: true,
             mensaje: correoEnviado.ok
                 ? 'âœ… Te enviamos un cÃ³digo por correo a ' + usuario.email
-                : (correoEnviado.reason === 'sin_email' ? ' La cuenta no tiene email registrado. Contacta al administrador.' : ' No se pudo enviar el correo. Contacta al administrador.'),
+                : (correoEnviado.reason === 'sin_email' ? 'âš ï¸ La cuenta no tiene email registrado. ContactÃ¡ al administrador.' : 'âš ï¸ No se pudo enviar el correo. ContactÃ¡ al administrador.'),
             usuario_nombre: usuario.nombre,
             correo_enviado: correoEnviado.ok,
             ...(codigoEnPantalla ? { _debug_codigo: codigo } : {})
@@ -557,43 +557,43 @@ app.post('/api/auth/recuperar', authLimiter, async (req, res) => {
     }
 });
 
-// Confirmar codigo y establecer nueva contraseÃ±a
+// Confirmar cÃ³digo y establecer nueva contraseÃ±a
 app.post('/api/auth/recuperar/confirmar', authLimiter, async (req, res) => {
     const identifier = (req.body.emailOrPhone || req.body.email || '').trim();
     const codigo = (req.body.codigo || '').trim();
     const nuevaPassword = req.body.nuevaPassword || '';
     if (!identifier || !codigo || !nuevaPassword) {
-        return res.status(400).json({ success: false, message: 'Completa¡ todos los campos' });
+        return res.status(400).json({ success: false, message: 'CompletÃ¡ todos los campos' });
     }
     if (nuevaPassword.length < 6) {
-        return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+        return res.status(400).json({ success: false, message: 'La contraseÃ±a debe tener al menos 6 caracteres' });
     }
     try {
         const [rows] = await pool.query(
             `SELECT r.id, r.usuario_id, r.codigo, r.expira_at
-            FROM recuperaciones r
-            JOIN usuarios u ON u.id = r.usuario_id
-            WHERE (u.email = ? OR u.telefono = ?)
-                AND r.usado = 0
-            ORDER BY r.id DESC
-            LIMIT 1`,
+             FROM recuperaciones r
+             JOIN usuarios u ON u.id = r.usuario_id
+             WHERE (u.email = ? OR u.telefono = ?)
+               AND r.usado = 0
+             ORDER BY r.id DESC
+             LIMIT 1`,
             [identifier, identifier]
         );
         if (rows.length === 0) {
-            return res.status(400).json({ success: false, message: 'No se encuentra una solicitud de recuperacion' });
+            return res.status(400).json({ success: false, message: 'No se encontrÃ³ una solicitud de recuperaciÃ³n' });
         }
         const reg = rows[0];
         const now = new Date();
         if (now > new Date(reg.expira_at)) {
-            return res.status(400).json({ success: false, message: 'El codigo expirado. Solicita uno nuevo.' });
+            return res.status(400).json({ success: false, message: 'El cÃ³digo expirÃ³. SolicitÃ¡ uno nuevo.' });
         }
         if (reg.codigo !== codigo) {
-            return res.status(400).json({ success: false, message: 'El codigo es incorrecto' });
+            return res.status(400).json({ success: false, message: 'El cÃ³digo es incorrecto' });
         }
         const hashed = await bcrypt.hash(nuevaPassword, 10);
         await pool.query('UPDATE usuarios SET password = ? WHERE id = ?', [hashed, reg.usuario_id]);
         await pool.query('UPDATE recuperaciones SET usado = 1 WHERE id = ?', [reg.id]);
-        res.json({ success: true, mensaje: ' Contraseña actualizada correctamente. Ya puedes iniciar sesion.' });
+        res.json({ success: true, mensaje: 'âœ… ContraseÃ±a actualizada correctamente. Ya podÃ©s iniciar sesiÃ³n.' });
     } catch (e) {
         console.error('âŒ Error recuperar/confirmar:', e.message);
         res.status(500).json({ success: false, message: 'Error al actualizar la contraseÃ±a' });
@@ -613,13 +613,13 @@ app.patch('/api/auth/cambiar-contrasena', autenticar, async (req, res) => {
         const [rows] = await pool.query('SELECT id, password FROM usuarios WHERE id = ?', [req.usuario.id]);
         if (rows.length === 0) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         const ok = await bcrypt.compare(passwordActual, rows[0].password);
-        if (!ok) return res.status(400).json({ success: false, message: 'La contraseña actual es incorrecta' });
+        if (!ok) return res.status(400).json({ success: false, message: 'La contraseÃ±a actual es incorrecta' });
         const hashed = await bcrypt.hash(nuevaPassword, 10);
         await pool.query('UPDATE usuarios SET password = ? WHERE id = ?', [hashed, req.usuario.id]);
-        res.json({ success: true, mensaje: 'ContraseÃ±a actualizada' });
+        res.json({ success: true, mensaje: 'âœ… ContraseÃ±a actualizada' });
     } catch (e) {
         console.error('âŒ Error cambiar-contrasena:', e.message);
-        res.status(500).json({ success: false, message: 'Error al cambiar la contraseña' });
+        res.status(500).json({ success: false, message: 'Error al cambiar la contraseÃ±a' });
     }
 });
 
@@ -627,7 +627,7 @@ app.patch('/api/auth/cambiar-contrasena', autenticar, async (req, res) => {
 //  CREAR USUARIO / REGISTRAR PROFESIONAL
 // ============================================
 // Permite que un profesional comparta email con admin/recepcionista (la misma persona
-// puede hacer las dos funciones). Devuelve true si el email esta disponible.
+// puede hacer las dos funciones). Devuelve true si el email estÃ¡ disponible.
 async function emailDisponibleProfesional(email, rolNuevo, excluirId = null) {
     if (!email) return true;
     const [rows] = await pool.query(
@@ -651,7 +651,7 @@ async function emailDisponibleProfesional(email, rolNuevo, excluirId = null) {
 app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => {
     const { nombre, email, password, telefono, rol = 'profesional', servicios, porcentaje_retiro } = req.body;
     
-    // Validaciones basicas
+    // Validaciones bÃ¡sicas
     if (!nombre || !email || !telefono) {
         return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
     }
@@ -660,11 +660,11 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         return res.status(400).json({ success: false, message: 'Solo se pueden crear profesionales, recepcionistas o clientes' });
     }
 
-    // Profesionales no acceden al sistema (sin login): la contraseña es opcional.
-    // Recepcionistas si­ acceden, as­ que deben definir una contraseña.
+    // Profesionales no acceden al sistema (sin login): la contraseÃ±a es opcional.
+    // Recepcionistas sÃ­ acceden, asÃ­ que deben definir una contraseÃ±a.
     if (rol === 'recepcionista' || rol === 'cliente') {
         if (!password || password.length < 6) {
-            return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
+            return res.status(400).json({ success: false, message: 'La contraseÃ±a debe tener al menos 6 caracteres' });
         }
     }
     
@@ -672,17 +672,17 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
         // Verificar si el email ya existe (los profesionales pueden repetir
         // con admin/recepcionista porque hacen las dos funciones)
         if (!(await emailDisponibleProfesional(email, rol))) {
-            return res.status(400).json({ success: false, message: 'El email ya esta registrado' });
+            return res.status(400).json({ success: false, message: 'El email ya estÃ¡ registrado' });
         }
         
-        // Hash de contraseña (placeholder aleatorio para profesionales que no acceden)
+        // Hash de contraseÃ±a (placeholder aleatorio para profesionales que no acceden)
         const passFinal = password || 'prof-no-accede';
         const hashedPassword = await bcrypt.hash(passFinal, 10);
         
         // Insertar usuario
         const pct = (rol === 'profesional') ? Math.min(100, Math.max(0, parseFloat(porcentaje_retiro) || 70)) : null;
         const [result] = await pool.query(
-            'INSERT INTO ususarios (nombre, email, password, rol, telefono, porcentaje_retiro) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO usuarios (nombre, email, password, rol, telefono, porcentaje_retiro) VALUES (?, ?, ?, ?, ?, ?)',
             [nombre, email, hashedPassword, rol, telefono, pct]
         );
 
@@ -2844,10 +2844,6 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
                 fechas.push(isoDia(t));
                 t += 86400000;
             }
-        } else if (periodo === 'semanal') {
-            let t = Date.parse(req.query.desde + 'T12:00:00Z');
-            const fin = Date.parse(req.query.hasta + 'T12:00:00Z');
-            while (t <= fin && fechas.length < 366) { fechas.push(isoDia(t)); t += 86400000; }
         } else if (periodo === 'semanal') {
             const lunes = Date.UTC(anioAR, mesAR, diaAR - ((diaSemanaAR + 6) % 7)); // lunes = 0
             for (let i = 0; i < 7; i++) fechas.push(isoDia(lunes + i * 86400000));
