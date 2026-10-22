@@ -1,7 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="img/logo-original.webp" type="image/webp">
     <title>CHAMAS - Sistema de Turnos</title>
@@ -9,10 +12,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css?v=20261018">
-    <link rel="stylesheet" href="css/13-galeria.css?v=20261018">
-    <link rel="stylesheet" href="css/fix-backgrounds.css?v=20261018">
-    <link rel="stylesheet" href="css/theme-v2.css?v=20261018c">
+    <link rel="stylesheet" href="css/styles.css?v=20261020f">
+    <link rel="stylesheet" href="css/13-galeria.css?v=20261020f">
+    <link rel="stylesheet" href="css/fix-backgrounds.css?v=20261020f">
+    <link rel="stylesheet" href="css/theme-v2.css?v=20261020f">
     <script>
     // Configuración dinámica de la URL del backend
     window.API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -259,6 +262,23 @@
                 <h1>Citas de Clientes</h1>
                 <p style="color: #666; margin-bottom: 20px;">Aquí puedes ver todos los turnos que tus clientes han agendado contigo.</p>
                 <div id="turnos-profesional-lista"></div>
+                <div id="habituales-bloque" style="margin-top:20px;">
+                    <details class="panel panel-purple" style="margin-top:0;">
+                        <summary class="panel-head" style="cursor:pointer; list-style:none;">
+                            <h3 class="panel-title">Registro Mensual de Clientes Habituales ▾</h3>
+                        </summary>
+                        <div style="margin-top:15px;">
+                            <div class="panel-actions">
+                                <label for="habituales-mes" class="field-label" style="margin:0;">Mes:</label>
+                                <input type="month" id="habituales-mes" class="input-clean" style="width:auto;">
+                                <button onclick="cargarClientesHabituales()" class="btn-guardar btn-inline">Ver ranking</button>
+                            </div>
+                            <p class="panel-desc">Clientes del mes ordenados por cantidad de visitas. Los más habituales aparecen destacados arriba.</p>
+                            <div id="habituales-lista"><p style="color:#aaa;">Seleccioná el mes y pulsá "Ver ranking".</p></div>
+                        </div>
+                    </details>
+                </div>
+
             </section>
 
             <section id="gestionar-horarios" class="section">
@@ -288,7 +308,21 @@
                         <div class="panel-head">
                             <h3 class="panel-title">Registro de Cobranzas en Caja</h3>
                             <div class="panel-actions">
-                                <span class="field-label" style="margin:0;">Período:</span>
+                                                            <div class="panel-actions" style="flex-wrap:wrap;">
+                                <span class="field-label" style="margin:0;">Desde:</span>
+                                <input type="date" id="rep-desde" class="select-accent">
+                                <span class="field-label" style="margin:0;">Hasta:</span>
+                                <input type="date" id="rep-hasta" class="select-accent">
+                                <span class="field-label" style="margin:0;">Ver por:</span>
+                                <select id="rep-vista" onchange="cargarReporteCaja()" class="select-accent">
+                                    <option value="dia">Día</option>
+                                    <option value="semana">Semana</option>
+                                    <option value="mes">Mes (total)</option>
+                                </select>
+                                <button onclick="cargarReporteCaja()" class="btn-guardar btn-inline">Buscar</button>
+                                <button onclick="abrirModalImprimirReporteCaja()" class="btn-whatsapp-mini btn-inline" style="background:var(--grad-brand);">Imprimir PDF</button>
+                            </div>
+                               <!-- <span class="field-label" style="margin:0;">Período:</span>
                                 <select id="reporte-periodo" onchange="cargarReporteCaja()" class="select-accent">
                                     <option value="diario">Diario (mes en curso)</option>
                                     <option value="semanal">Semanal (7 días)</option>
@@ -296,7 +330,7 @@
                                 </select>
                                 <input type="date" id="reporte-fecha" onchange="cargarReporteCaja()" style="padding:8px 10px;border:1px solid #e5d3dd;border-radius:8px;font:inherit;color:#5c4653;background:white;" title="Semana o mes a mostrar (en Diario se usa el mes en curso)">
                                 <button onclick="cargarReporteCaja()" class="btn-guardar btn-inline">Actualizar</button>
-                                <button onclick="abrirModalImprimirReporteCaja()" class="btn-whatsapp-mini btn-inline" style="background:var(--grad-brand);">Imprimir PDF</button>
+                                <button onclick="abrirModalImprimirReporteCaja()" class="btn-whatsapp-mini btn-inline" style="background:var(--grad-brand);">Imprimir PDF</button> -->
                             </div>
                         </div>
                         <p class="panel-desc">Resumen por día de las cobranzas del período (un renglón por día): ventas por método de pago, gastos del local, retiros de profesionales y el neto. La fecha elegida define la semana o el mes a mostrar.</p>
@@ -308,7 +342,20 @@
                     <div class="panel panel-orange">
                         <div class="panel-head">
                             <h3 class="panel-title">Aperturas y Cierres de Caja</h3>
-                            <div class="panel-actions">
+                            <div class="panel-actions" style="flex-wrap:wrap;">
+                                <span class="field-label" style="margin:0;">Desde:</span>
+                                <input type="date" id="hist-desde" class="select-accent">
+                                <span class="field-label" style="margin:0;">Hasta:</span>
+                                <input type="date" id="hist-hasta" class="select-accent">
+                                <span class="field-label" style="margin:0;">Ver por:</span>
+                                <select id="hist-vista" onchange="cargarHistorialCajas()" class="select-accent">
+                                    <option value="dia">Día</option>
+                                    <option value="semana">Semana</option>
+                                    <option value="mes">Mes (total)</option>
+                                </select>
+                                <button onclick="cargarHistorialCajas()" class="btn-guardar btn-inline">Buscar</button>
+                            </div>
+                            <!--<div class="panel-actions">
                                 <span class="field-label" style="margin:0;">Ver:</span>
                                 <select id="historial-periodo" onchange="cargarHistorialCajas()" class="select-accent">
                                     <option value="diario">Días con registro</option>
@@ -317,7 +364,7 @@
                                 </select>
                                 <input type="date" id="historial-fecha" onchange="cargarHistorialCajas()" style="padding:8px 10px;border:1px solid #e5d3dd;border-radius:8px;font:inherit;color:#5c4653;background:white;">
                                 <button onclick="cargarHistorialCajas()" class="btn-guardar btn-inline">Actualizar</button>
-                            </div>
+                            </div>-->
                         </div>
                         <p class="panel-desc">Cada jornada con su apertura (fondo inicial y cajera), cobros de los turnos, gastos, retiros de profesionales y el arqueo del cierre. En semana/mes se muestran todos los días del período; los días sin apertura figuran como "Sin registro".</p>
                         <div id="historial-cajas"></div>
@@ -404,7 +451,8 @@
                 </div>
             </div>
 
-            <div style="margin-top:35px;">
+            <!--
+            <div style="margin-top:0;">
                 <div class="panel panel-purple" style="margin-top:0;">
                     <div class="panel-head">
                         <h3 class="panel-title">Registro Mensual de Clientes Habituales</h3>
@@ -417,7 +465,7 @@
                     <p class="panel-desc">Clientes del mes ordenados por cantidad de visitas. Los más habituales aparecen destacados arriba.</p>
                     <div id="habituales-lista"><p style="color:#aaa;">Seleccioná el mes y pulsá "Ver ranking".</p></div>
                 </div>
-            </div>
+            </div> -->
             </section>
 
             <section id="cumpleanos" class="section">
@@ -465,13 +513,13 @@
                 </div>
             </section>
 
-            <section id="promociones" class="section">
-                <h2>Promociones</h2>
-                <p style="color: #666; margin-bottom: 20px;">Promociones vigentes con fecha de inicio y caducidad.</p>
-                <div class="admin-only" style="margin-bottom:20px;">
-                    <button onclick="abrirModalPromocion()" class="btn-guardar btn-inline">Agregar Promoción</button>
+            <section id="promociones" class="section" style="padding:0 !important;margin:0 !important;">
+                <h2 style="margin:0 0 8px 0;padding:0;">Nuestras Promociones</h2>
+                <div id="promociones-grid" class="grid" style="padding:0 !important;margin:0 !important;"></div>
+                <div class="admin-only" style="margin-top:8px;display:flex;gap:8px;" id="promociones-admin-panel">
+                    <button onclick="abrirEditorPromocion()" style="padding:6px 14px;font-size:0.85rem;border:none;border-radius:8px;background:linear-gradient(135deg,#ff6b9c,#C06C84);color:#fff;cursor:pointer;font-weight:bold;">Agregar nueva</button>
+                    <button onclick="abrirSelectorEdicionPromocion()" style="padding:6px 14px;font-size:0.85rem;border:none;border-radius:8px;background:#ff9800;color:#fff;cursor:pointer;font-weight:bold;">Editar</button>
                 </div>
-                <div id="promociones-grid" class="grid"></div>
             </section>
 
         </main>
@@ -569,66 +617,56 @@
         </div>
     </div>
 
-    <!-- MODAL PROMOCIÓN -->
-    <div id="modal-promocion" class="modal" style="display:none;">
-        <div class="modal-overlay" onclick="cerrarModalPromocion()"></div>
-        <div class="modal-contenido">
-            <div class="modal-header">
-                <h2 id="modal-promocion-titulo">Agregar Promoción</h2>
-                <button onclick="cerrarModalPromocion()" class="modal-cerrar">×</button>
-            </div>
-            <div class="modal-body">
-                <form id="form-promocion" onsubmit="guardarPromocion(event)">
-                    <input type="hidden" id="promo-id">
-                    <div class="form-group">
-                        <label for="promo-nombre">Nombre</label>
-                        <input type="text" id="promo-nombre" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="promo-descripcion">Descripción</label>
-                        <textarea id="promo-descripcion" rows="2"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="promo-precio">Precio ($)</label>
-                        <input type="number" id="promo-precio" step="0.01" min="0" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="promo-imagen">Imagen (URL o ruta img/...)</label>
-                        <input type="text" id="promo-imagen" placeholder="img/promocion.jpg">
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="promo-fecha-inicio">Fecha de inicio</label>
-                            <input type="date" id="promo-fecha-inicio">
-                        </div>
-                        <div class="form-group">
-                            <label for="promo-fecha-caducidad">Fecha de caducidad</label>
-                            <input type="date" id="promo-fecha-caducidad">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label><input type="checkbox" id="promo-activo" checked> Activa</label>
-                    </div>
-                    <div style="display:flex;gap:10px;margin-top:20px;">
-                        <button type="button" onclick="cerrarModalPromocion()" class="btn-reset" style="flex:1;">Cancelar</button>
-                        <button type="submit" class="btn-guardar" style="flex:1;">Guardar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- MODAL IMPRIMIR REPORTE CAJA -->
     <div id="modal-imprimir-reporte" class="modal" style="display:none;">
         <div class="modal-overlay" onclick="cerrarModalImprimirReporteCaja()"></div>
         <div class="modal-contenido">
             <div class="modal-header">
-                <h2>Imprimir Reporte de Cobranzas</h2>
+                <h2>Imprimir Reporte para Contador</h2>
                 <button onclick="cerrarModalImprimirReporteCaja()" class="modal-cerrar">×</button>
             </div>
-            <div class="modal-body">
+                        <div class="modal-body">
+                <div class="imp-bloque">
+                    <label class="imp-titulo" for="imp-reporte-tipo">Período a reportar para el Contador</label>
+                    <select id="imp-reporte-tipo" class="imp-input">
+                        <option value="semanal">Semanal</option>
+                        <option value="mensual">Mensual</option>
+                        <option value="diario">Diario</option>
+                    </select>
+                </div>
+
+                <div class="imp-bloque">
+                    <p class="imp-titulo">Totales a incluir</p>
+                    <label class="imp-fila"><span>Efectivo</span><input type="checkbox" class="imp-reporte-metodo" value="efectivo" checked></label>
+                    <label class="imp-fila"><span>Transferencias</span><input type="checkbox" class="imp-reporte-metodo" value="transferencia" checked></label>
+                    <label class="imp-fila"><span>Débito</span><input type="checkbox" class="imp-reporte-metodo" value="debito" checked></label>
+                </div>
+
+                <div class="imp-bloque">
+                    <label class="imp-titulo" for="imp-reporte-fecha">Fecha de referencia (semana o mes a procesar)</label>
+                    <input type="date" id="imp-reporte-fecha" class="imp-input">
+                    <small class="imp-ayuda">Define la semana o el mes que se incluirá en el reporte.</small>
+                </div>
+
+                <div class="imp-bloque">
+                    <p class="imp-titulo">Opciones adicionales</p>
+                    <label class="imp-fila"><span>Incluir detalle día por día en la tabla</span><input type="checkbox" id="imp-reporte-detalle" checked></label>
+                    <label class="imp-fila"><span>Incluir gastos del local y retiros de profesionales</span><input type="checkbox" id="imp-reporte-gastos" checked></label>
+                </div>
+
+                <div class="imp-bloque">
+                    <label class="imp-titulo" for="imp-reporte-nota">Observación para el contador (opcional)</label>
+                    <input type="text" id="imp-reporte-nota" class="imp-input" placeholder="Ej: Cobranzas para declaración mensual / IVA">
+                </div>
+
+                <div class="imp-acciones">
+                    <button type="button" onclick="cerrarModalImprimirReporteCaja()" class="btn-reset">Cancelar</button>
+                    <button type="button" onclick="generarImpresionReporteCaja()" class="btn-guardar">Generar Planilla / PDF</button>
+                </div>
+            </div>
+            <!--<div class="modal-body">
                 <div class="form-group">
-                    <label>Tipo de impresión</label>
+                    <label for="imp-reporte-tipo"><strong>Período a reportar para el Contador</strong></label>
                     <select id="imp-reporte-tipo">
                         <option value="semanal">Semanal</option>
                         <option value="mensual">Mensual</option>
@@ -636,7 +674,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Métodos a incluir</label>
+                    <label><strong>Totales a incluir (Efectivo / Transferencia / Débito)</strong></label>
                     <div style="display:flex;flex-direction:column;gap:6px;">
                         <label><input type="checkbox" value="efectivo" class="imp-reporte-metodo" checked> Efectivo</label>
                         <label><input type="checkbox" value="transferencia" class="imp-reporte-metodo" checked> Transferencias</label>
@@ -644,13 +682,29 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="imp-reporte-fecha">Fecha (para semana/mes)</label>
-                    <input type="date" id="imp-reporte-fecha">
+                    <label for="imp-reporte-fecha"><strong>Fecha de referencia (semana o mes a procesar)</strong></label>
+                    <input type="date" id="imp-reporte-fecha" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;box-sizing:border-box;">
+                    <small style="display:block;margin-top:4px;color:#888;font-size:0.83rem;">Define la semana o el mes que se incluirá en el reporte.</small>
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label><strong>Opciones adicionales</strong></label>
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer;">
+                            <input type="checkbox" id="imp-reporte-detalle" checked> Incluir detalle día por día en la tabla
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;cursor:pointer;">
+                            <input type="checkbox" id="imp-reporte-gastos" checked> Incluir Gastos del local y Retiros de profesionales
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label for="imp-reporte-nota"><strong>Observación o nota para el Contador (opcional)</strong></label>
+                    <input type="text" id="imp-reporte-nota" placeholder="Ej: Cobranzas para declaración mensual / IVA" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;box-sizing:border-box;">
                 </div>
                 <div style="display:flex;gap:10px;margin-top:20px;">
                     <button type="button" onclick="cerrarModalImprimirReporteCaja()" class="btn-reset" style="flex:1;">Cancelar</button>
-                    <button type="button" onclick="generarImpresionReporteCaja()" class="btn-guardar" style="flex:1;">Generar PDF/Imprimir</button>
-                </div>
+                    <button type="button" onclick="generarImpresionReporteCaja()" class="btn-guardar" style="flex:1;background:var(--grad-brand,#C06C84);color:white;font-weight:700;">Generar Planilla / PDF</button>
+                </div> -->
             </div>
         </div>
     </div>
@@ -658,7 +712,7 @@
 <script src="js/apiAuth.js?v=20261020"></script>
 <script src="js/api.js?v=20261020"></script>
 <script src="js/auth.js?v=20261020"></script>
-<script src="js/app.js?v=20261020d"></script>
+<script src="js/app.js?v=20261020h"></script>
 <script src="js/roles-funciones.js?v=20261020"></script>
 <script src="js/horarios-adminc.js?v=20261020"></script>
 <script>

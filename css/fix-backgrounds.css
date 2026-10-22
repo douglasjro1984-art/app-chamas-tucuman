@@ -207,7 +207,7 @@ select[multiple] option:checked {
 /* Asegurar que el main tenga espacio */
 main.container {
     padding: 30px 20px;
-    min-height: calc(100vh - 200px);
+    /*min-height: calc(100vh - 200px);*/
 }
 
 /* Sin turnos mensaje */
@@ -311,3 +311,23 @@ main.container {
 .auth-tabs .auth-tab {
     letter-spacing: 0.01em;
 }
+
+
+/* Imagen de promociones: foto completa, sin zoom */
+#promociones-grid .servicio-imagen {
+    height: 205px;
+    background-image-size: contain;
+    background-size: 100% auto;   /* 85% del espacio; subí o bajá este número para agrandar o achicar */
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #f7e9ef;
+}
+
+.imp-bloque { margin-bottom: 18px; }
+.imp-titulo { display: block; font-weight: 700; color: #C06C84; font-size: 0.92rem; margin: 0 0 8px; }
+.imp-ayuda { display: block; color: #888; font-size: 0.8rem; margin-top: 4px; }
+.imp-input { width: 100%; padding: 10px 12px; border: 1px solid #e5d3dd; border-radius: 8px; box-sizing: border-box; font: inherit; background: #fff; }
+.imp-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid #f3e6ec; cursor: pointer; color: #5c4653; font-weight: 500; }
+.imp-fila input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: #C06C84; cursor: pointer; flex-shrink: 0; }
+.imp-acciones { display: flex; gap: 10px; margin-top: 20px; }
+.imp-acciones button { flex: 1; }

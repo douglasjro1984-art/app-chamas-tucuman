@@ -131,7 +131,7 @@ async function cargarDatosDesdeAPI() {
 }
 
 // FUNCIÓN NUEVA: Esta es la que hace que aparezcan en la tarjeta de agendar
-function llenarSelectServicios(select) {
+/*function llenarSelectServicios(select) {
     if (!select) return;
     
     select.innerHTML = '<option value="">Seleccionar servicio(s)...</option>';
@@ -145,7 +145,7 @@ function llenarSelectServicios(select) {
         }
     });
     debugLog("Desplegable de servicios actualizado con éxito");
-}
+}*/
 
 // --- REGISTRO DE PROFESIONALES / CAJA (ADMIN) ---
 document.getElementById('form-registro-profesional')?.addEventListener('submit', async (e) => {
@@ -1786,6 +1786,7 @@ async function cargarTurnosProfesional() {
                                     <span style="background:#e3f2fd;color:#1565C0;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:600;">${fecha}</span>
                                     <span style="background:#f3e5f5;color:#6a1b9a;padding:4px 11px;border-radius:20px;font-size:0.83rem;font-weight:700;">${hora}</span>
                                     ${telWa ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;padding:6px 12px;border-radius:9px;text-decoration:none;font-weight:700;font-size:0.82rem;white-space:nowrap;">WhatsApp</a>` : ''}
+                                    <button onclick="toggleTurnoSimultaneo(${t.profesional_id}, '${String(t.fecha).slice(0,10)}', '${(t.hora_inicio||t.hora||'').substring(0,5)}')" style="background:#8E44AD;color:white;padding:6px 12px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">Turno simultáneo</button>
                                     <button onclick="cancelarTurnoDesdeCitas(${t.id})" style="background:#e53935;color:white;padding:6px 12px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-size:0.82rem;white-space:nowrap;">× Cancelar</button>
                                 </div>
                             </div>`;
@@ -2142,174 +2143,351 @@ async function confirmarDuplicarTurno(profesionalId, servicioId) {
         mostrarNotificacion('Error de conexión', 'error');
     }
 }
-
 // ==========================================
 // PROMOCIONES
 // ==========================================
-async function cargarPromociones() {
+let _promocionesVigentes = []; // grilla pública y selector de reservas
+let _promocionesTodas = [];    // editor de admin (incluye pausadas)
+
+async function cargarPromociones(opts = {}) {
+    try {
+        const res = await fetch(`${API_BASE}/promociones`); // el backend ya devuelve solo las vigentes
+        const data = await res.json();
+        _promocionesVigentes = Array.isArray(data) ? data.filter(esVigentePromocion) : [];
+    } catch (e) {
+        _promocionesVigentes = [];
+    }
+    renderizarPromociones();
+    // Con { soloGrilla: true } no se toca el selector de reservas (no pierde lo que el cliente eligió)
+    if (!opts.soloGrilla) llenarSelectServicios();
+}
+
+function renderizarPromociones() {
     const grid = document.getElementById('promociones-grid');
     if (!grid) return;
     const usuario = obtenerUsuarioActual();
-    const esAdmin = usuario && (usuario.rol === 'admin' || usuario.rol === 'super_admin');
-    try {
-        const url = esAdmin ? `${API_BASE}/promociones/todas` : `${API_BASE}/promociones`;
-        const headers = esAdmin && obtenerToken ? { 'Authorization': 'Bearer ' + obtenerToken() } : {};
-        const res = await fetch(url, { headers });
-        const promos = await res.json();
-        if (!Array.isArray(promos) || promos.length === 0) {
-            grid.innerHTML = '<p style="color:#888;">No hay promociones disponibles.</p>';
-            return;
-        }
-        grid.innerHTML = promos.map(p => {
-            const vig = esVigentePromocion(p);
-            return `
-                <div class="servicio-card" style="${!vig && !esAdmin ? 'opacity:0.6;' : ''}">
-                    <div class="servicio-imagen" style="background-image: url('${encodeURI(p.imagen || 'img/default.jpg')}')"></div>
-                    <div class="servicio-contenido">
-                        <h3>${esc(p.nombre)}</h3>
-                        <p class="servicio-descripcion">${esc(p.descripcion || '')}</p>
-                        <div class="servicio-footer">
-                            <p class="servicio-precio">$${parseFloat(p.precio || 0).toLocaleString()}</p>
-                        </div>
-                        ${(p.fecha_inicio || p.fecha_caducidad) ? `<p style="font-size:0.8rem;color:#888;margin:6px 0;">${p.fecha_inicio ? 'Desde: ' + p.fecha_inicio : ''} ${p.fecha_caducidad ? ' | Hasta: ' + p.fecha_caducidad : ''}</p>` : ''}
-                        ${esAdmin ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <button onclick='editarPromocion(${JSON.stringify(p)})' class="btn-whatsapp-mini" style="background:var(--grad-brand);">Editar</button>
-                            <button onclick="eliminarPromocion(${p.id})" class="btn-whatsapp-mini" style="background:#dc3545;">Eliminar</button>
-                            <span style="font-size:0.75rem;color:${p.activo ? '#28a745' : '#dc3545'};">${p.activo ? 'Activa' : 'Inactiva'}</span>
-                        </div>` : ''}
-                    </div>
-                </div>`;
-        }).join('');
-    } catch (e) {
-        grid.innerHTML = '<p style="color:#dc3545;">Error al cargar promociones</p>';
+    const puedeAgendar = usuario && ['admin', 'super_admin', 'cliente', 'profesional', 'recepcionista'].includes(usuario.rol);
+    if (!_promocionesVigentes.length) {
+        grid.innerHTML = '<p style="color:#888;">No hay promociones vigentes en este momento.</p>';
+        return;
     }
+    grid.innerHTML = _promocionesVigentes.map(p => `
+        <div class="servicio-card">
+            <div class="servicio-imagen" style="background-image: url('${encodeURI(p.imagen || 'img/default.jpg')}')"></div>
+            <div class="servicio-contenido">
+                <h3>${esc(p.nombre)}</h3>
+                <p class="servicio-descripcion">${esc(p.descripcion || '')}</p>
+                <div class="servicio-footer">
+                    <p class="servicio-precio">$${parseFloat(p.precio || 0).toLocaleString()}</p>
+                </div>
+                ${textoVigenciaPromo(p)}
+                ${puedeAgendar ? `<div class="servicio-accion"><button class="btn-agendar-mini" onclick="prepararAgendadoPromo(${p.id})">AGENDAR</button></div>` : ''}
+                <div class="servicio-whatsapp"><button class="btn-whatsapp-mini" onclick="reservarPorWhatsAppPromo(${p.id})">WhatsApp</button></div>
+            </div>
+        </div>`).join('');
+}
+
+function promoHoyAR() {
+    return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function esVigentePromocion(p) {
-    const hoy = new Date().toISOString().slice(0,10);
-    if (p.activo === 0) return false;
-    if (p.fecha_inicio && p.fecha_inicio > hoy) return false;
-    if (p.fecha_caducidad && p.fecha_caducidad < hoy) return false;
+    const hoy = promoHoyAR();
+    if (!p.activo) return false;
+    if (p.fecha_inicio && String(p.fecha_inicio).slice(0, 10) > hoy) return false;
+    if (p.fecha_caducidad && String(p.fecha_caducidad).slice(0, 10) < hoy) return false;
     return true;
 }
 
-function abrirModalPromocion(promo) {
-    document.getElementById('modal-promocion')?.remove();
-    const modal = document.createElement('div');
-    modal.id = 'modal-promocion';
-    modal.className = 'modal';
-    modal.style.display = 'flex';
-    modal.innerHTML = `
-        <div class="modal-overlay" onclick="cerrarModalPromocion()"></div>
-        <div class="modal-contenido">
-            <div class="modal-header">
-                <h2 id="modal-promocion-titulo">${promo ? 'Editar Promoción' : 'Agregar Promoción'}</h2>
-                <button onclick="cerrarModalPromocion()" class="modal-cerrar">×</button>
-            </div>
-            <div class="modal-body">
-                <form id="form-promocion" onsubmit="guardarPromocion(event)">
-                    <input type="hidden" id="promo-id" value="${promo ? promo.id : ''}">
-                    <div class="form-group">
-                        <label for="promo-nombre">Nombre</label>
-                        <input type="text" id="promo-nombre" required value="${promo ? esc(promo.nombre) : ''}">
-                    </div>
-                    <div class="form-group">
-                        <label for="promo-descripcion">Descripción</label>
-                        <textarea id="promo-descripcion" rows="2">${promo ? esc(promo.descripcion || '') : ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="promo-precio">Precio ($)</label>
-                        <input type="number" id="promo-precio" step="0.01" min="0" required value="${promo ? promo.precio : ''}">
-                    </div>
-                    <div class="form-group">
-                        <label for="promo-imagen">Imagen (URL o ruta img/...)</label>
-                        <input type="text" id="promo-imagen" placeholder="img/promocion.jpg" value="${promo ? esc(promo.imagen || '') : ''}">
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="promo-fecha-inicio">Fecha de inicio</label>
-                            <input type="date" id="promo-fecha-inicio" value="${promo && promo.fecha_inicio ? promo.fecha_inicio.slice(0,10) : ''}">
-                        </div>
-                        <div class="form-group">
-                            <label for="promo-fecha-caducidad">Fecha de caducidad</label>
-                            <input type="date" id="promo-fecha-caducidad" value="${promo && promo.fecha_caducidad ? promo.fecha_caducidad.slice(0,10) : ''}">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label><input type="checkbox" id="promo-activo" ${promo ? (promo.activo ? 'checked' : '') : 'checked'}> Activa</label>
-                    </div>
-                    <div style="display:flex;gap:10px;margin-top:20px;">
-                        <button type="button" onclick="cerrarModalPromocion()" class="btn-reset" style="flex:1;">Cancelar</button>
-                        <button type="submit" class="btn-guardar" style="flex:1;">Guardar</button>
-                    </div>
-                </form>
-            </div>
-        </div>`;
-    document.body.appendChild(modal);
+function textoVigenciaPromo(p) {
+    if (!p.fecha_inicio && !p.fecha_caducidad) return '';
+    const f = (d) => String(d).slice(0, 10).split('-').reverse().join('/');
+    const partes = [];
+    if (p.fecha_inicio) partes.push('Desde ' + f(p.fecha_inicio));
+    if (p.fecha_caducidad) partes.push('Hasta ' + f(p.fecha_caducidad));
+    return `<p style="font-size:0.8rem;color:#888;margin:6px 0;">${partes.join(' · ')}</p>`;
 }
 
-function editarPromocion(promo) {
-    abrirModalPromocion(promo);
+function normalizarImagenPromo(v) {
+    let r = (v || '').trim();
+    if (r && !r.startsWith('http') && !r.startsWith('img/') && !r.startsWith('/')) r = 'img/' + r;
+    return r;
 }
 
-function cerrarModalPromocion() {
-    document.getElementById('modal-promocion')?.remove();
-}
-
-async function guardarPromocion(e) {
-    e.preventDefault();
-    const id = document.getElementById('promo-id')?.value;
-    const datos = {
-        nombre: document.getElementById('promo-nombre').value.trim(),
-        descripcion: document.getElementById('promo-descripcion').value.trim(),
-        precio: parseFloat(document.getElementById('promo-precio').value) || 0,
-        imagen: document.getElementById('promo-imagen').value.trim() || null,
-        fecha_inicio: document.getElementById('promo-fecha-inicio').value || null,
-        fecha_caducidad: document.getElementById('promo-fecha-caducidad').value || null,
-        activo: document.getElementById('promo-activo').checked
+// ---------- Reservas: promociones junto a los servicios ----------
+// Valores del selector: número = servicio, "p:ID" = promoción
+function separarSeleccionReserva(valores) {
+    const arr = (valores || []).filter(v => v);
+    return {
+        servicios: arr.filter(v => !String(v).startsWith('p:')).map(Number),
+        promociones: arr.filter(v => String(v).startsWith('p:')).map(v => Number(String(v).slice(2)))
     };
-    if (!datos.nombre) { mostrarNotificacion('El nombre es obligatorio', 'error'); return; }
-    try {
-        const url = id ? `${API_BASE}/promociones/${id}` : `${API_BASE}/promociones`;
-        const method = id ? 'PUT' : 'POST';
-        const res = await fetch(url, {
-            method,
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + obtenerToken() },
-            body: JSON.stringify(datos)
-        });
-        const data = await res.json();
-        if (data.success) {
-            mostrarNotificacion('Promoción guardada correctamente');
-            cerrarModalPromocion();
-            cargarPromociones();
-        } else {
-            mostrarNotificacion((data.message || 'Error al guardar'), 'error');
-        }
-    } catch (e2) {
-        mostrarNotificacion('Error de conexión', 'error');
+}
+
+function prepararAgendadoPromo(id) {
+    if (!obtenerUsuarioActual()) { mostrarLoginVisitante(); return; }
+    showSection('mis-turnos-cliente');
+    const form = document.getElementById('form-turno');
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const select = document.getElementById('servicio-select');
+    if (select) {
+        Array.from(select.options).forEach(o => { o.selected = o.value === 'p:' + id; });
+        cargarProfesionalesPorServicios(['p:' + id]);
     }
 }
 
-async function eliminarPromocion(id) {
-    if (!confirm('¿Eliminar esta promoción?')) return;
+async function reservarPorWhatsAppPromo(id) {
+    const num = await obtenerWhatsappLocal();
+    if (!num) { mostrarNotificacion('Configurá el teléfono del local en Caja → config', 'error'); return; }
+    const p = _promocionesVigentes.find(x => String(x.id) === String(id));
+    const msj = encodeURIComponent(`Hola! Me gustaría reservar una promoción en *CHAMAS SPA*.\nPromoción: ${p ? p.nombre : ''}\n¿Tenés turnos disponibles?`);
+    window.open(`https://wa.me/${num}?text=${msj}`, '_blank');
+}
+
+// ---------- Editor de promociones (admin): igual que el editor de precios ----------
+const _INP_PROMO = 'width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.88rem;box-sizing:border-box;';
+const _LBL_PROMO = 'font-weight:600;color:#555;font-size:0.8rem;display:block;margin-bottom:2px;';
+
+function mostrarEditorPromociones() {
+    const panel = document.getElementById('editar-promos-panel');
+    if (!panel) return;
+    panel.style.display = 'block';
+    cargarEditorPromociones();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function ocultarEditorPromociones() {
+    const panel = document.getElementById('editar-promos-panel');
+    if (panel) panel.style.display = 'none';
+}
+
+async function cargarEditorPromociones() {
+    const lista = document.getElementById('lista-promos-editar');
+    if (!lista) return;
     try {
-        const res = await fetch(`${API_BASE}/promociones/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+        const res = await fetch(`${API_BASE}/promociones/todas`, { headers: { 'Authorization': 'Bearer ' + obtenerToken() } });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        _promocionesTodas = await res.json();
+    } catch (e) {
+        lista.innerHTML = '<p style="color:#dc3545;">Error al cargar promociones</p>';
+        return;
+    }
+    const activas = _promocionesTodas.filter(p => p.activo);
+    const pausadas = _promocionesTodas.filter(p => !p.activo);
+    let html = `
+        <div style="margin-bottom:20px;">
+            <button onclick="abrirModalNuevaPromocion()"
+                    style="background:linear-gradient(135deg,#28a745,#1e7e34);color:white;padding:13px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">
+                Agregar Nueva Promoción
+            </button>
+        </div>`;
+    if (activas.length) {
+        html += `<h3 style="color:#C06C84;margin:0 0 12px 0;padding-bottom:8px;border-bottom:2px solid #f0e0ea;">Promociones Activas (${activas.length})</h3>`;
+        html += activas.map(renderCardPromoEditor).join('');
+    }
+    if (pausadas.length) {
+        html += `<h3 style="color:#ff9800;margin:24px 0 12px 0;padding-bottom:8px;border-bottom:2px solid #ffe0b2;">Promociones Pausadas (${pausadas.length})</h3>`;
+        html += pausadas.map(renderCardPromoEditor).join('');
+    }
+    if (!_promocionesTodas.length) html += '<p style="color:#888;">Todavía no hay promociones creadas.</p>';
+    lista.innerHTML = html;
+}
+
+function renderCardPromoEditor(p) {
+    const esAct = !!p.activo;
+    const fecha = (d) => (d ? String(d).slice(0, 10) : '');
+    return `
+        <div id="card-promo-${p.id}" style="background:white;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);padding:18px;display:grid;grid-template-columns:155px 1fr 130px;gap:18px;align-items:start;margin-bottom:14px;${esAct ? 'border-left:4px solid #C06C84;' : 'border-left:4px solid #ff9800;background:#fffdf8;'}">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                <img src="${esc(p.imagen || 'img/default.jpg')}" alt="${esc(p.nombre)}"
+                     style="width:148px;height:115px;object-fit:cover;border-radius:10px;border:3px solid ${esAct ? '#e8d0da' : '#ffcc80'};"
+                     onerror="this.src='img/default.jpg'">
+                ${!esAct ? '<span style="background:#ff9800;color:white;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:700;">PAUSADA</span>' : ''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
+                    <div><label style="${_LBL_PROMO}">Nombre</label>
+                        <input type="text" id="edit-promo-nombre-${p.id}" value="${esc(p.nombre)}" style="${_INP_PROMO}"></div>
+                    <div><label style="${_LBL_PROMO}">Precio ($)</label>
+                        <input type="number" id="edit-promo-precio-${p.id}" value="${p.precio}" step="0.01" style="${_INP_PROMO}"></div>
+                </div>
+                <div><label style="${_LBL_PROMO}">Descripción</label>
+                    <textarea id="edit-promo-desc-${p.id}" rows="2"
+                              style="width:100%;padding:7px 9px;border:2px solid #e0e0e0;border-radius:7px;font-size:0.84rem;resize:vertical;font-family:inherit;box-sizing:border-box;">${esc(p.descripcion || '')}</textarea></div>
+                <div><label style="${_LBL_PROMO}">URL imagen</label>
+                    <input type="text" id="edit-promo-imagen-${p.id}" value="${esc(p.imagen || '')}" placeholder="img/promo.jpg" style="${_INP_PROMO}font-size:0.78rem;"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
+                    <div><label style="${_LBL_PROMO}">Desde</label>
+                        <input type="date" id="edit-promo-inicio-${p.id}" value="${fecha(p.fecha_inicio)}" style="${_INP_PROMO}"></div>
+                    <div><label style="${_LBL_PROMO}">Hasta</label>
+                        <input type="date" id="edit-promo-caducidad-${p.id}" value="${fecha(p.fecha_caducidad)}" style="${_INP_PROMO}"></div>
+                </div>
+                <div><label style="${_LBL_PROMO}">Días del mes en que se ofrece (opcional)</label>
+                    <input type="text" id="edit-promo-dias-${p.id}" value="${esc(p.dias_disponibles || '')}" placeholder="Ej: 5,20 — vacío = todos los días" style="${_INP_PROMO}font-size:0.78rem;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <button onclick="guardarCambiosPromocion(${p.id})"
+                        style="background:#C06C84;color:white;padding:10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;width:100%;font-size:0.88rem;">Guardar</button>
+                <button onclick="togglePausarPromocion(${p.id}, ${esAct ? 1 : 0})"
+                        style="background:${esAct ? '#ff9800' : '#4CAF50'};color:white;padding:9px;border:none;border-radius:7px;cursor:pointer;font-weight:700;width:100%;font-size:0.85rem;">
+                    ${esAct ? 'Pausar' : 'Activar'}</button>
+                <button onclick="eliminarPromocion(event, ${p.id})" data-nombre="${esc(p.nombre)}"
+                        style="background:#dc3545;color:white;padding:9px;border:none;border-radius:7px;cursor:pointer;font-weight:700;width:100%;font-size:0.85rem;">Eliminar</button>
+                <button onclick="resetearCamposPromocion(${p.id})"
+                        style="background:#f0f0f0;color:#555;padding:7px;border:none;border-radius:7px;cursor:pointer;font-size:0.78rem;width:100%;">Restaurar</button>
+            </div>
+        </div>`;
+}
+
+function leerCamposPromocion(id) {
+    const v = (k) => (document.getElementById(`edit-promo-${k}-${id}`)?.value || '').trim();
+    return {
+        nombre: v('nombre'),
+        precio: parseFloat(v('precio')),
+        descripcion: v('desc'),
+        imagen: normalizarImagenPromo(v('imagen')) || null,
+        dias_disponibles: v('dias'),
+        fecha_inicio: v('inicio') || null,
+        fecha_caducidad: v('caducidad') || null
+    };
+}
+
+async function enviarPromocion(url, method, body, okMsg) {
+    try {
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + obtenerToken() },
+            body: JSON.stringify(body)
         });
         const data = await res.json();
         if (data.success) {
-            mostrarNotificacion('Promoción eliminada');
-            cargarPromociones();
+            mostrarNotificacion(okMsg);
+            await cargarPromociones();
+            await cargarEditorPromociones();
+            return true;
+        }
+        mostrarNotificacion(data.message || 'Error', 'error');
+        return false;
+    } catch (e) {
+        mostrarNotificacion('Error de conexión', 'error');
+        return false;
+    }
+}
+
+async function guardarCambiosPromocion(id) {
+    const datos = leerCamposPromocion(id);
+    if (!datos.nombre || !datos.precio) { mostrarNotificacion('Nombre y precio obligatorios', 'error'); return; }
+    await enviarPromocion(`${API_BASE}/promociones/${id}`, 'PUT', datos, 'Promoción actualizada');
+}
+
+async function togglePausarPromocion(id, activoActual) {
+    const activar = String(activoActual) === '0';
+    const accion = activar ? 'activar' : 'pausar';
+    if (!confirm(`¿Querés ${accion} esta promoción?\n${activar ? 'Volverá a ser visible para agendar.' : 'No aparecerá para agendar turnos.'}`)) return;
+    await enviarPromocion(`${API_BASE}/promociones/${id}`, 'PUT', { activo: activar },
+        activar ? 'Promoción activada' : 'Promoción pausada');
+}
+
+async function eliminarPromocion(event, id) {
+    const nombre = event.currentTarget.dataset.nombre || '';
+    if (!confirm(`¿Eliminar la promoción "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausala.`)) return;
+    try {
+        const res = await fetch(`${API_BASE}/promociones/${id}`, {
+            method: 'DELETE', headers: { 'Authorization': 'Bearer ' + obtenerToken() }
+        });
+        const data = await res.json();
+        if (data.success) {
+            mostrarNotificacion(`Promoción "${nombre}" eliminada`);
+            await cargarPromociones();
+            await cargarEditorPromociones();
         } else {
-            mostrarNotificacion((data.message || 'Error'), 'error');
+            mostrarNotificacion(data.message || 'Error al eliminar', 'error');
         }
     } catch (e) {
         mostrarNotificacion('Error de conexión', 'error');
     }
 }
 
-// ==========================================
+function resetearCamposPromocion(id) {
+    const p = _promocionesTodas.find(x => String(x.id) === String(id));
+    if (!p) return;
+    const set = (k, val) => { const el = document.getElementById(`edit-promo-${k}-${id}`); if (el) el.value = val || ''; };
+    set('nombre', p.nombre); set('precio', p.precio); set('desc', p.descripcion);
+    set('imagen', p.imagen); set('dias', p.dias_disponibles);
+    set('inicio', p.fecha_inicio ? String(p.fecha_inicio).slice(0, 10) : '');
+    set('caducidad', p.fecha_caducidad ? String(p.fecha_caducidad).slice(0, 10) : '');
+    mostrarNotificacion('Restaurado');
+}
+
+function abrirModalNuevaPromocion() {
+    document.getElementById('modal-nueva-promo')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'modal-nueva-promo';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:20px;padding:36px;max-width:500px;width:92%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#28a745;margin:0 0 20px 0;">Agregar Nueva Promoción</h3>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                <div>
+                    <label style="${_LBL_PROMO}">Nombre de la promoción *</label>
+                    <input type="text" id="nueva-promo-nombre" placeholder="Ej: Combo Manos y Pies" style="${_INP_PROMO}">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div><label style="${_LBL_PROMO}">Precio ($) *</label>
+                        <input type="number" id="nueva-promo-precio" placeholder="0.00" step="0.01" min="0" style="${_INP_PROMO}"></div>
+                    <div><label style="${_LBL_PROMO}">URL imagen</label>
+                        <input type="text" id="nueva-promo-imagen" placeholder="img/promo.jpg"
+                               oninput="const p=document.getElementById('nueva-promo-prev');const v=normalizarImagenPromo(this.value);if(p){p.src=v;p.style.display=v?'block':'none';}"
+                               style="${_INP_PROMO}font-size:0.85rem;"></div>
+                </div>
+                <div><label style="${_LBL_PROMO}">Descripción</label>
+                    <textarea id="nueva-promo-desc" rows="2" placeholder="Qué incluye la promoción..."
+                              style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.9rem;resize:vertical;font-family:inherit;box-sizing:border-box;"></textarea></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div><label style="${_LBL_PROMO}">Desde</label>
+                        <input type="date" id="nueva-promo-inicio" style="${_INP_PROMO}"></div>
+                    <div><label style="${_LBL_PROMO}">Hasta</label>
+                        <input type="date" id="nueva-promo-caducidad" style="${_INP_PROMO}"></div>
+                </div>
+                <div><label style="${_LBL_PROMO}">Días del mes en que se ofrece (opcional)</label>
+                    <input type="text" id="nueva-promo-dias" placeholder="Ej: 5,20 — vacío = todos los días" style="${_INP_PROMO}"></div>
+                <div style="text-align:center;">
+                    <img id="nueva-promo-prev" alt="Vista previa" style="display:none;width:160px;height:120px;object-fit:cover;border-radius:10px;border:3px solid #e0e0e0;">
+                </div>
+                <div style="display:flex;gap:12px;margin-top:4px;">
+                    <button onclick="confirmarNuevaPromocion()"
+                            style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Crear Promoción</button>
+                    <button onclick="document.getElementById('modal-nueva-promo').remove();"
+                            style="flex:1;background:#f0f0f0;color:#555;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:600;">× Cancelar</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    setTimeout(() => document.getElementById('nueva-promo-nombre')?.focus(), 80);
+}
+
+async function confirmarNuevaPromocion() {
+    const nombre = (document.getElementById('nueva-promo-nombre')?.value || '').trim();
+    const precio = document.getElementById('nueva-promo-precio')?.value;
+    if (!nombre) { mostrarNotificacion('El nombre es obligatorio', 'error'); return; }
+    if (!precio || parseFloat(precio) <= 0) { mostrarNotificacion('Ingresá un precio válido', 'error'); return; }
+    const body = {
+        nombre,
+        precio: parseFloat(precio),
+        descripcion: (document.getElementById('nueva-promo-desc')?.value || '').trim(),
+        imagen: normalizarImagenPromo(document.getElementById('nueva-promo-imagen')?.value) || 'img/default.jpg',
+        fecha_inicio: document.getElementById('nueva-promo-inicio')?.value || null,
+        fecha_caducidad: document.getElementById('nueva-promo-caducidad')?.value || null,
+        dias_disponibles: (document.getElementById('nueva-promo-dias')?.value || '').trim(),
+        activo: true
+    };
+    const ok = await enviarPromocion(`${API_BASE}/promociones`, 'POST', body, `Promoción "${nombre}" creada`);
+    if (ok) document.getElementById('modal-nueva-promo')?.remove();
+}
+
+
+/*// ==========================================
 // IMPRIMIR REPORTE DE COBRANZAS
 // ==========================================
 function abrirModalImprimirReporteCaja() {
@@ -2446,7 +2624,7 @@ async function generarImpresionReporteCaja() {
     } catch (e) {
         mostrarNotificacion('Error al generar impresión', 'error');
     }
-}
+}*/
 
 // ==========================================
 // AGENDAR TURNO
@@ -2457,11 +2635,24 @@ function llenarSelectServiciosRegistro() {
     select.innerHTML = servicios.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
 }
 
-function llenarSelectServicios() {
+/*function llenarSelectServicios() {
     const select = document.getElementById('servicio-select');
     if (!select) return;
     select.innerHTML = '<option value="">Seleccionar servicio(s)...</option>' + 
-        servicios.map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
+       servicios.map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
+    select.onchange = () => {
+        const ids = Array.from(select.selectedOptions).map(o => o.value).filter(v => v);
+        cargarProfesionalesPorServicios(ids.length ? ids : null);
+    };
+}*/
+
+function llenarSelectServicios() {
+    const select = document.getElementById('servicio-select');
+    if (!select) return;
+    const opServ = servicios.map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
+    const opPromo = _promocionesVigentes.map(p => `<option value="p:${p.id}">${p.nombre} - $${p.precio}</option>`).join('');
+    select.innerHTML = '<option value="">Seleccionar servicio(s)...</option>' + opServ +
+        (opPromo ? `<optgroup label="Promociones">${opPromo}</optgroup>` : '');
     select.onchange = () => {
         const ids = Array.from(select.selectedOptions).map(o => o.value).filter(v => v);
         cargarProfesionalesPorServicios(ids.length ? ids : null);
@@ -2708,6 +2899,7 @@ function imprimirComprobante(event) {
 function prepararAgendado(id) {
     if (!obtenerUsuarioActual()) { mostrarLoginVisitante(); return; }
     showSection('mis-turnos-cliente');
+        llenarSelectServicios();
     const form = document.getElementById('form-turno');
     if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (!id) return;
@@ -3092,9 +3284,11 @@ function showSection(sectionId) {
         cargarReporteCaja();
         cargarGastosAdmin();
         cargarHistorialCajas();
-        cargarClientesHabituales();
+        /*cargarClientesHabituales();*/
     }
     if (sectionId === 'gestionar-horarios') cargarGestionHorarios();
+        if (sectionId === 'mis-turnos-profesional') cargarClientesHabituales();
+            if (sectionId === 'promociones') cargarPromociones({ soloGrilla: true });
 
     if (sectionId === 'caja') {
         cargarEstadoCaja();
@@ -4572,7 +4766,7 @@ async function cargarGastosCaja() {
 // =====================================================
 // REPORTE DE COBRANZAS (diario / semanal / mensual)
 // =====================================================
-async function cargarReporteCaja() {
+/*async function cargarReporteCaja() {
     const container = document.getElementById('reporte-caja-lista');
     if (!container) return;
     const periodo = document.getElementById('reporte-periodo')?.value || 'diario';
@@ -4641,7 +4835,7 @@ async function cargarReporteCaja() {
     } catch (e) {
         container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el reporte</p>';
     }
-}
+}*/
 
 // =====================================================
 // MANTENIMIENTO (admin): cobros guardados en una caja
@@ -4690,7 +4884,7 @@ async function reasignarCobrosASuDia() {
 // =====================================================
 const cacheDetalleCajas = {};
 
-async function cargarHistorialCajas() {
+/*async function cargarHistorialCajas() {
     const container = document.getElementById('historial-cajas');
     if (!container) return;
     const periodoSel = document.getElementById('historial-periodo');
@@ -4790,7 +4984,7 @@ async function cargarHistorialCajas() {
     } catch (e) {
         container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el historial de cajas</p>';
     }
-}
+}*/
 
 async function verDetalleCaja(cajaId) {
     const row = document.getElementById(`detalle-caja-${cajaId}`);
@@ -5397,6 +5591,9 @@ function autocompletarClienteFrecuente() {
     if (cliente.fecha_nacimiento && fechaEl && !fechaEl.value) fechaEl.value = String(cliente.fecha_nacimiento).split('T')[0];
 }
 
+// Estado del acordeón de clientes habituales
+let _habitualesTodosLosDatos = [];
+
 async function cargarClientesHabituales() {
     const cont = document.getElementById('habituales-lista');
     if (!cont) return;
@@ -5412,33 +5609,107 @@ async function cargarClientesHabituales() {
         if (!Array.isArray(datos)) throw new Error('Respuesta inválida');
         if (!datos.length) {
             cont.innerHTML = '<p style="color:#888;">No hay visitas registradas en este mes.</p>';
+            _habitualesTodosLosDatos = [];
             return;
         }
-        const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-        const [yy, mm] = mes.split('-');
-        const mesLabel = `${meses[parseInt(mm) - 1]} ${yy}`;
 
-        cont.innerHTML = `
-            <p style="color:#555;font-weight:600;margin:0 0 12px 0;">Ranking de ${mesLabel} · ${datos.length} clientes</p>
-            ${datos.map((c, i) => `
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:${i < 3 ? '14px' : '10px'} 12px;border-radius:10px;margin-bottom:8px;flex-wrap:wrap;
-                    ${i === 0 ? 'background:linear-gradient(90deg,#FFF9C4,#FFECB3);border:2px solid #E6B800;' :
-                      i === 1 ? 'background:linear-gradient(90deg,#F5F5F5,#E0E0E0);border:2px solid #9E9E9E;' :
-                      i === 2 ? 'background:linear-gradient(90deg,#FFECB3,#FFE0B2);border:2px solid #CE7114;' :
-                      'background:#f9f9f9;border:1px solid #eee;'}">
-                    <div style="flex:1;min-width:180px;">
-                        <strong style="color:#333;">${i + 1}. ${esc(c.nombre || 'Sin nombre')}</strong>
-                        <span style="display:inline-block;margin-left:8px;background:#8E44AD;color:white;font-size:0.8rem;font-weight:700;padding:3px 9px;border-radius:12px;">${c.visitas} visita${c.visitas == 1 ? '' : 's'}</span>
-                        <small style="display:block;color:#888;margin-top:4px;">${esc(c.telefono || 'Sin teléfono')}${c.email ? ' · ' + esc(c.email) : ''}</small>
-                        ${c.servicios ? `<small style="display:block;color:#666;margin-top:3px;">${esc(c.servicios)}</small>` : ''}
-                    </div>
-                </div>
-            `).join('')}
-        `;
+        _habitualesTodosLosDatos = datos;
+        _renderHabitualesAcordeon('top3');
+
     } catch (e) {
         console.error('Error cargando clientes habituales:', e.message);
         cont.innerHTML = '<p style="color:#c0392b;">Error al cargar el ranking.</p>';
     }
+}
+
+function _renderTarjetaHabitual(c, i) {
+    return `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;
+            padding:${i < 3 ? '14px' : '10px'} 12px;border-radius:10px;margin-bottom:8px;flex-wrap:wrap;
+            ${i === 0 ? 'background:linear-gradient(90deg,#FFF9C4,#FFECB3);border:2px solid #E6B800;' :
+              i === 1 ? 'background:linear-gradient(90deg,#F5F5F5,#E0E0E0);border:2px solid #9E9E9E;' :
+              i === 2 ? 'background:linear-gradient(90deg,#FFECB3,#FFE0B2);border:2px solid #CE7114;' :
+              'background:#f9f9f9;border:1px solid #eee;'}">
+            <div style="flex:1;min-width:180px;">
+                <strong style="color:#333;">${i + 1}. ${esc(c.nombre || 'Sin nombre')}</strong>
+                <span style="display:inline-block;margin-left:8px;background:#8E44AD;color:white;font-size:0.8rem;font-weight:700;padding:3px 9px;border-radius:12px;">${c.visitas} visita${c.visitas == 1 ? '' : 's'}</span>
+                <small style="display:block;color:#888;margin-top:4px;">${esc(c.telefono || 'Sin teléfono')}${c.email ? ' · ' + esc(c.email) : ''}</small>
+                ${c.servicios ? `<small style="display:block;color:#666;margin-top:3px;">${esc(c.servicios)}</small>` : ''}
+            </div>
+        </div>`;
+}
+
+function _renderHabitualesAcordeon(estado) {
+    const cont = document.getElementById('habituales-lista');
+    if (!cont || !_habitualesTodosLosDatos.length) return;
+    const datos = _habitualesTodosLosDatos;
+    const total = datos.length;
+
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const inputMes = document.getElementById('habituales-mes');
+    const hoy = new Date();
+    const mesVal = (inputMes && inputMes.value) ? inputMes.value : `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+    const [yy, mm] = mesVal.split('-');
+    const mesLabel = `${meses[parseInt(mm) - 1]} ${yy}`;
+
+    // Cuántos mostramos según estado
+    const cantMostrar = estado === 'top3' ? 3 : estado === 'top10' ? Math.min(10, total) : total;
+    const hayMas10 = total > 10;
+    const hayMas3 = total > 3;
+
+    const tarjetas = datos.slice(0, cantMostrar).map((c, i) => _renderTarjetaHabitual(c, i)).join('');
+
+    // Botones del acordeón
+    let botonesHtml = '';
+    if (estado === 'top3') {
+        // Mostrando solo 3
+        if (hayMas3) {
+            const texto = hayMas10
+                ? `Ver primeros 10 <span style="font-size:0.8rem;opacity:0.8;">(de ${total})</span>`
+                : `Ver todos (${total}) ▼`;
+            botonesHtml = `
+                <div style="text-align:center;margin-top:4px;">
+                    <button onclick="_renderHabitualesAcordeon('top10')"
+                        style="background:#8E44AD;color:white;border:none;padding:9px 22px;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem;width:100%;max-width:280px;">
+                        ${texto}
+                    </button>
+                </div>`;
+        }
+    } else if (estado === 'top10') {
+        // Mostrando hasta 10
+        botonesHtml = `
+            <div style="text-align:center;margin-top:4px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                <button onclick="_renderHabitualesAcordeon('top3')"
+                    style="background:#6c757d;color:white;border:none;padding:9px 18px;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem;flex:1;max-width:180px;">
+                    ▲ Mostrar menos
+                </button>
+                ${total > 10 ? `<button onclick="_renderHabitualesAcordeon('todos')"
+                    style="background:#8E44AD;color:white;border:none;padding:9px 18px;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem;flex:1;max-width:180px;">
+                    Ver todos (${total}) ▼
+                </button>` : ''}
+            </div>`;
+    } else {
+        // Mostrando todos
+        botonesHtml = `
+            <div style="text-align:center;margin-top:4px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                <button onclick="_renderHabitualesAcordeon('top10')"
+                    style="background:#6c757d;color:white;border:none;padding:9px 18px;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem;flex:1;max-width:200px;">
+                    ▲ Mostrar primeros 10
+                </button>
+                <button onclick="_renderHabitualesAcordeon('top3')"
+                    style="background:#aaa;color:white;border:none;padding:9px 18px;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem;flex:1;max-width:200px;">
+                    ▲ Mostrar solo top 3
+                </button>
+            </div>`;
+    }
+
+    cont.innerHTML = `
+        <p style="color:#555;font-weight:600;margin:0 0 12px 0;">
+            Ranking de ${mesLabel} · mostrando ${cantMostrar} de ${total} clientes
+        </p>
+        ${tarjetas}
+        ${botonesHtml}
+    `;
 }
 
 async function cargarCumpleanos() {
@@ -5709,6 +5980,751 @@ async function crearSobreturno() {
         } else {
             mostrarNotificacion((data.message || 'No se pudo agendar'), 'error');
         }
+    } catch (e) {
+        mostrarNotificacion('Error de conexión', 'error');
+    }
+}
+
+
+// =====================================================
+// IMPRESIÓN / EXPORTACIÓN PDF REPORTE DE COBRANZAS (CONTADOR)
+// =====================================================
+
+function abrirModalImprimirReporteCaja() {
+    const modal = document.getElementById('modal-imprimir-reporte');
+    if (!modal) return;
+    
+    // Sincronizar fecha y tipo con lo que está seleccionado en la vista principal
+    const fechaActualReporte = document.getElementById('reporte-fecha')?.value;
+    const tipoActualReporte = document.getElementById('reporte-periodo')?.value;
+    
+    const inpFecha = document.getElementById('imp-reporte-fecha');
+    if (inpFecha) {
+        inpFecha.value = fechaActualReporte || new Date().toISOString().slice(0, 10);
+    }
+    
+    const selTipo = document.getElementById('imp-reporte-tipo');
+    if (selTipo && tipoActualReporte) {
+        selTipo.value = tipoActualReporte;
+    }
+    
+    // Asegurar que al menos efectivo, transferencia y débito estén tildados por defecto
+    document.querySelectorAll('.imp-reporte-metodo').forEach(cb => { cb.checked = true; });
+    
+    modal.style.display = 'flex';
+}
+
+function cerrarModalImprimirReporteCaja() {
+    const modal = document.getElementById('modal-imprimir-reporte');
+    if (modal) modal.style.display = 'none';
+}
+
+async function generarImpresionReporteCaja() {
+    const periodo = document.getElementById('imp-reporte-tipo')?.value || 'semanal';
+    const fecha = document.getElementById('imp-reporte-fecha')?.value || new Date().toISOString().slice(0, 10);
+    
+    const checkEfectivo = document.querySelector('.imp-reporte-metodo[value="efectivo"]')?.checked;
+    const checkTransf = document.querySelector('.imp-reporte-metodo[value="transferencia"]')?.checked;
+    const checkDebito = document.querySelector('.imp-reporte-metodo[value="debito"]')?.checked;
+    
+    if (!checkEfectivo && !checkTransf && !checkDebito) {
+        mostrarNotificacion('Seleccioná al menos un método de pago para el reporte', 'error');
+        return;
+    }
+    
+    const incluirDetalle = document.getElementById('imp-reporte-detalle')?.checked ?? true;
+    const incluirGastos = document.getElementById('imp-reporte-gastos')?.checked ?? true;
+    const notaContador = document.getElementById('imp-reporte-nota')?.value?.trim() || '';
+    
+    try {
+        mostrarNotificacion('Generando planilla para el contador...', 'info');
+        const res = await fetch(`${API_BASE}/caja/reporte?periodo=${periodo}&fecha=${encodeURIComponent(fecha)}`);
+        if (!res.ok) throw new Error('Error de respuesta del servidor');
+        const data = await res.json();
+        const filas = data.datos || [];
+        
+        if (!filas.length) {
+            mostrarNotificacion('No hay registros de cobranzas para el período seleccionado', 'warning');
+            return;
+        }
+        
+        // Totales generales
+        const totEfectivo = filas.reduce((s, r) => s + (parseFloat(r.efectivo) || 0), 0);
+        const totTransf = filas.reduce((s, r) => s + (parseFloat(r.transferencia) || 0), 0);
+        const totDebito = filas.reduce((s, r) => s + (parseFloat(r.debito) || 0), 0);
+        const totGastos = filas.reduce((s, r) => s + (parseFloat(r.total_gastos) || 0), 0);
+        const totRetiros = filas.reduce((s, r) => s + (parseFloat(r.total_retiros) || 0), 0);
+        
+        let totCobradoSel = 0;
+        if (checkEfectivo) totCobradoSel += totEfectivo;
+        if (checkTransf) totCobradoSel += totTransf;
+        if (checkDebito) totCobradoSel += totDebito;
+        
+        const netoSel = totCobradoSel - (incluirGastos ? (totGastos + totRetiros) : 0);
+        
+        // Etiqueta del período legible
+        let periodoTexto = '';
+        if (periodo === 'semanal') {
+            const fIni = filas[0]?.fecha ? filas[0].fecha.split('-').reverse().join('/') : '';
+            const fFin = filas[filas.length - 1]?.fecha ? filas[filas.length - 1].fecha.split('-').reverse().join('/') : '';
+            periodoTexto = `Semana del ${fIni} al ${fFin}`;
+        } else if (periodo === 'mensual') {
+            const [ano, mes] = fecha.split('-');
+            const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            const nombreMes = mesesNombres[parseInt(mes, 10) - 1] || mes;
+            periodoTexto = `Mes de ${nombreMes} ${ano}`;
+        } else {
+            periodoTexto = `Período Diario (Mes en curso)`;
+        }
+        
+        // Formateador de moneda
+        const fMoneda = (val) => '$' + (Number(val) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        // Formateador de fecha corta
+        const fFecha = (f) => {
+            if (!f) return '';
+            const d = new Date(String(f).slice(0, 10) + 'T12:00:00');
+            const diaNom = d.toLocaleDateString('es-AR', { weekday: 'short' });
+            return `${String(f).slice(0, 10).split('-').reverse().join('/')} (${diaNom})`;
+        };
+        
+        // Armar HTML de la planilla
+        const win = window.open('', '_blank');
+        if (!win) {
+            mostrarNotificacion('El navegador bloqueó la ventana emergente. Permití ventanas emergentes para imprimir.', 'error');
+            return;
+        }
+        
+        const emitidoAt = new Date().toLocaleString('es-AR');
+        const usuarioActual = (typeof obtenerUsuarioActual === 'function' ? obtenerUsuarioActual() : null) || {};
+        const emitidoPor = usuarioActual.nombre ? `${usuarioActual.nombre} (${usuarioActual.rol || 'Caja'})` : 'Administración';
+        
+        const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Cobranzas - ${periodoTexto} - CHAMAS</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 12mm 15mm;
+        }
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #222;
+            margin: 0;
+            padding: 10px;
+            font-size: 11pt;
+            line-height: 1.35;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #C06C84;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+        }
+        .header-title h1 {
+            margin: 0 0 4px 0;
+            font-size: 18pt;
+            color: #C06C84;
+            letter-spacing: 0.5px;
+        }
+        .header-title p {
+            margin: 0;
+            color: #555;
+            font-size: 10pt;
+        }
+        .header-meta {
+            text-align: right;
+            font-size: 9pt;
+            color: #666;
+        }
+        .header-meta strong {
+            color: #222;
+        }
+        .badge-periodo {
+            display: inline-block;
+            background: #fdf5f8;
+            color: #C06C84;
+            border: 1px solid #f0d5df;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 10pt;
+            margin-top: 4px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .summary-card {
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .summary-card.highlight {
+            background: #fdf5f8;
+            border: 2px solid #C06C84;
+        }
+        .summary-card.neto {
+            background: #f2f9f4;
+            border: 2px solid #28a745;
+        }
+        .summary-label {
+            font-size: 8pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+            margin-bottom: 3px;
+            font-weight: 600;
+        }
+        .summary-value {
+            font-size: 13pt;
+            font-weight: 800;
+            color: #222;
+        }
+        .summary-card.highlight .summary-value {
+            color: #C06C84;
+        }
+        .summary-card.neto .summary-value {
+            color: #28a745;
+        }
+        .table-wrap {
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9.5pt;
+        }
+        th, td {
+            padding: 7px 9px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        th {
+            background-color: #C06C84;
+            color: white;
+            text-align: right;
+            font-weight: 600;
+            font-size: 9pt;
+        }
+        th:first-child, td:first-child {
+            text-align: left;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+        tfoot tr {
+            background-color: #f5f0f3;
+            font-weight: 800;
+            border-top: 2px solid #C06C84;
+        }
+        tfoot td {
+            padding: 9px;
+            font-size: 10pt;
+        }
+        .nota-box {
+            background: #fffdf5;
+            border-left: 4px solid #e0b040;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 9.5pt;
+            margin-bottom: 25px;
+            color: #555;
+        }
+        .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 35px;
+            page-break-inside: avoid;
+        }
+        .sig-block {
+            border-top: 1px solid #777;
+            padding-top: 8px;
+            text-align: center;
+            font-size: 9pt;
+            color: #555;
+        }
+        .sig-block strong {
+            display: block;
+            color: #222;
+            font-size: 10pt;
+            margin-bottom: 2px;
+        }
+        .actions-bar {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .btn-print {
+            background: #C06C84;
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 10pt;
+        }
+        @media print {
+            .actions-bar { display: none !important; }
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="actions-bar">
+        <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
+    </div>
+
+    <div class="header">
+        <div class="header-title">
+            <h1>CHAMAS SPA & BELLEZA</h1>
+            <p>Reporte Oficial de Cobranzas en Caja — Uso Administrativo y Contable</p>
+            <div class="badge-periodo">${periodoTexto}</div>
+        </div>
+        <div class="header-meta">
+            <div>Emisión: <strong>${emitidoAt}</strong></div>
+            <div>Emitido por: <strong>${emitidoPor}</strong></div>
+            <div>Sucursal: <strong>Concepción, Tucumán</strong></div>
+        </div>
+    </div>
+
+    <div class="summary-grid">
+        ${checkEfectivo ? `
+        <div class="summary-card">
+            <div class="summary-label">Total Efectivo</div>
+            <div class="summary-value">${fMoneda(totEfectivo)}</div>
+        </div>` : ''}
+        ${checkTransf ? `
+        <div class="summary-card">
+            <div class="summary-label">Total Transferencias</div>
+            <div class="summary-value">${fMoneda(totTransf)}</div>
+        </div>` : ''}
+        ${checkDebito ? `
+        <div class="summary-card">
+            <div class="summary-label">Total Débito</div>
+            <div class="summary-value">${fMoneda(totDebito)}</div>
+        </div>` : ''}
+        <div class="summary-card highlight">
+            <div class="summary-label">Total Cobrado (Métodos Sel.)</div>
+            <div class="summary-value">${fMoneda(totCobradoSel)}</div>
+        </div>
+        ${incluirGastos ? `
+        <div class="summary-card">
+            <div class="summary-label">Total Gastos Local</div>
+            <div class="summary-value" style="color:#dc3545;">-${fMoneda(totGastos)}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Retiros Profesionales</div>
+            <div class="summary-value" style="color:#C06C84;">-${fMoneda(totRetiros)}</div>
+        </div>
+        <div class="summary-card neto">
+            <div class="summary-label">Neto Caja del Período</div>
+            <div class="summary-value">${fMoneda(netoSel)}</div>
+        </div>` : ''}
+    </div>
+
+    ${incluirDetalle ? `
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha / Día</th>
+                    ${checkEfectivo ? '<th>Efectivo</th>' : ''}
+                    ${checkTransf ? '<th>Transferencia</th>' : ''}
+                    ${checkDebito ? '<th>Débito</th>' : ''}
+                    <th>Total Cobrado</th>
+                    ${incluirGastos ? '<th>Gastos</th><th>Retiros</th><th>Neto Día</th>' : ''}
+                </tr>
+            </thead>
+            <tbody>
+                ${filas.map(r => {
+                    const ef = parseFloat(r.efectivo) || 0;
+                    const tr = parseFloat(r.transferencia) || 0;
+                    const db = parseFloat(r.debito) || 0;
+                    let cobradoFila = 0;
+                    if (checkEfectivo) cobradoFila += ef;
+                    if (checkTransf) cobradoFila += tr;
+                    if (checkDebito) cobradoFila += db;
+                    const ga = parseFloat(r.total_gastos) || 0;
+                    const re = parseFloat(r.total_retiros) || 0;
+                    const netoFila = cobradoFila - ga - re;
+                    return `
+                    <tr>
+                        <td style="font-weight:600;">${fFecha(r.fecha)}</td>
+                        ${checkEfectivo ? `<td>${fMoneda(ef)}</td>` : ''}
+                        ${checkTransf ? `<td>${fMoneda(tr)}</td>` : ''}
+                        ${checkDebito ? `<td>${fMoneda(db)}</td>` : ''}
+                        <td style="font-weight:700;">${fMoneda(cobradoFila)}</td>
+                        ${incluirGastos ? `
+                        <td style="color:#dc3545;">-${fMoneda(ga)}</td>
+                        <td style="color:#C06C84;">-${fMoneda(re)}</td>
+                        <td style="font-weight:700;color:${netoFila >= 0 ? '#28a745' : '#dc3545'};">${fMoneda(netoFila)}</td>
+                        ` : ''}
+                    </tr>`;
+                }).join('')}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>TOTALES</td>
+                    ${checkEfectivo ? `<td>${fMoneda(totEfectivo)}</td>` : ''}
+                    ${checkTransf ? `<td>${fMoneda(totTransf)}</td>` : ''}
+                    ${checkDebito ? `<td>${fMoneda(totDebito)}</td>` : ''}
+                    <td>${fMoneda(totCobradoSel)}</td>
+                    ${incluirGastos ? `
+                    <td style="color:#dc3545;">-${fMoneda(totGastos)}</td>
+                    <td style="color:#C06C84;">-${fMoneda(totRetiros)}</td>
+                    <td style="color:#28a745;">${fMoneda(netoSel)}</td>
+                    ` : ''}
+                </tr>
+            </tfoot>
+        </table>
+    </div>` : ''}
+
+    ${notaContador ? `
+    <div class="nota-box">
+        <strong>Nota / Observación para Contabilidad:</strong><br>
+        ${esc(notaContador)}
+    </div>` : ''}
+
+    <div class="signatures">
+        <div class="sig-block">
+            <strong>Entregado por (Caja / Administración)</strong>
+            <span>Firma y Aclaración</span><br>
+            <span style="font-size:8pt;color:#888;">Fecha: ____ / ____ / ________</span>
+        </div>
+        <div class="sig-block">
+            <strong>Recibido por (Contador / Estudio Contable)</strong>
+            <span>Firma, Aclaración y Matrícula</span><br>
+            <span style="font-size:8pt;color:#888;">Fecha: ____ / ____ / ________</span>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.focus();
+                window.print();
+            }, 300);
+        };
+    <\/script>
+</body>
+</html>`;
+
+        win.document.write(html);
+        win.document.close();
+        cerrarModalImprimirReporteCaja();
+    } catch (e) {
+        console.error('Error al generar impresión de caja:', e);
+        mostrarNotificacion('Error al generar la planilla de cobranzas', 'error');
+    }
+}
+// ==========================================
+// REGISTRO DE COBRANZAS Y APERTURAS — por mes (acordeón) con rango de fechas
+// ==========================================
+const _MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function _isoLocal(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function _fmtFechaCorta(iso) { return String(iso || '').slice(0, 10).split('-').reverse().join('/'); }
+function _diaSemanaCorto(iso) {
+    try { return new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short' }); }
+    catch (e) { return ''; }
+}
+function _mesClave(iso) { return String(iso || '').slice(0, 7); }
+function _mesTitulo(clave) {
+    const [y, m] = clave.split('-');
+    return `${_MESES_ES[parseInt(m, 10) - 1]} ${y}`;
+}
+// Clave de semana = lunes de esa semana (YYYY-MM-DD)
+function _semanaClave(iso) {
+    const d = new Date(String(iso).slice(0, 10) + 'T12:00:00');
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return _isoLocal(d);
+}
+function _semanaTitulo(lunesISO) {
+    const d = new Date(lunesISO + 'T12:00:00');
+    const dom = new Date(d);
+    dom.setDate(d.getDate() + 6);
+    return `Semana del ${_fmtFechaCorta(lunesISO)} al ${_fmtFechaCorta(_isoLocal(dom))}`;
+}
+function _m(v) { return '$' + (Number(v) || 0).toFixed(2); }
+
+// Pone por defecto: desde el 1 del mes actual hasta hoy (solo si están vacíos)
+function _rangoInicialCaja(desdeId, hastaId) {
+    const d = document.getElementById(desdeId);
+    const h = document.getElementById(hastaId);
+    if (!d || !h) return;
+    const hoy = new Date();
+    if (!h.value) h.value = _isoLocal(hoy);
+    if (!d.value) d.value = _isoLocal(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+}
+
+// Agrupa filas por mes. Devuelve el mes más reciente primero.
+function _agruparPorMes(filas) {
+    const mapa = {};
+    filas.forEach(f => {
+        const k = _mesClave(f.fecha);
+        if (!mapa[k]) mapa[k] = [];
+        mapa[k].push(f);
+    });
+    return Object.keys(mapa).sort().reverse().map(k => ({ clave: k, filas: mapa[k] }));
+}
+
+// Agrupa un arreglo de filas por una clave (ej: semana) manteniendo el orden
+function _agruparPor(filas, claveFn) {
+    const mapa = {};
+    filas.forEach(f => {
+        const k = claveFn(f.fecha);
+        if (!mapa[k]) mapa[k] = [];
+        mapa[k].push(f);
+    });
+    return Object.keys(mapa).sort().map(k => ({ clave: k, filas: mapa[k] }));
+}
+
+// ---------- REGISTRO DE COBRANZAS ----------
+function _sumarReporte(list) {
+    const s = { efectivo: 0, transferencia: 0, debito: 0, total_ventas: 0, total_gastos: 0, total_retiros: 0 };
+    list.forEach(r => { Object.keys(s).forEach(k => { s[k] += parseFloat(r[k]) || 0; }); });
+    s.neto = s.total_ventas - s.total_gastos - s.total_retiros;
+    return s;
+}
+
+function _bloquesReporte(filas, vista) {
+    if (vista === 'mes') return [{ etiqueta: 'Total del mes', ..._sumarReporte(filas) }];
+    if (vista === 'semana') {
+        return _agruparPor(filas, _semanaClave).map(g => ({ etiqueta: _semanaTitulo(g.clave), ..._sumarReporte(g.filas) }));
+    }
+    return filas.map(r => ({ etiqueta: `${_fmtFechaCorta(r.fecha)} (${_diaSemanaCorto(r.fecha)})`, ..._sumarReporte([r]) }));
+}
+
+function _bloqueMesReporte(mes, vista, abierto) {
+    const total = _sumarReporte(mes.filas);
+    const bloques = _bloquesReporte(mes.filas, vista);
+    const titulo = vista === 'semana' ? 'Semana' : (vista === 'mes' ? 'Mes' : 'Día');
+    const celda = 'padding:9px 8px;text-align:right;';
+    const filasHtml = bloques.map((b, i) => `
+        <tr style="background:${i % 2 === 0 ? 'white' : '#fdf5f8'};border-bottom:1px solid #f0e0ea;">
+            <td style="padding:9px 8px;font-weight:600;color:#C06C84;">${b.etiqueta}</td>
+            <td style="${celda}">${_m(b.efectivo)}</td>
+            <td style="${celda}">${_m(b.transferencia)}</td>
+            <td style="${celda}">${_m(b.debito)}</td>
+            <td style="${celda}font-weight:700;">${_m(b.total_ventas)}</td>
+            <td style="${celda}color:#dc3545;">-${_m(b.total_gastos)}</td>
+            <td style="${celda}color:#C06C84;">-${_m(b.total_retiros)}</td>
+            <td style="${celda}font-weight:700;color:#28a745;">${_m(b.neto)}</td>
+        </tr>`).join('');
+    return `
+    <details ${abierto ? 'open' : ''} style="margin-bottom:10px;border:1px solid #f0e0ea;border-radius:10px;background:white;">
+        <summary style="cursor:pointer;padding:12px 14px;font-weight:700;color:#C06C84;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <span>${_mesTitulo(mes.clave)}</span>
+            <span style="font-size:0.85rem;color:#555;font-weight:600;">Cobrado ${_m(total.total_ventas)} · Neto <strong style="color:#28a745;">${_m(total.neto)}</strong></span>
+        </summary>
+        <div style="overflow-x:auto;padding:0 10px 12px;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:720px;">
+                <thead><tr style="background:#C06C84;color:white;">
+                    <th style="padding:9px 8px;text-align:left;">${titulo}</th>
+                    <th style="padding:9px 8px;">Efectivo</th>
+                    <th style="padding:9px 8px;">Transf.</th>
+                    <th style="padding:9px 8px;">Débito</th>
+                    <th style="padding:9px 8px;">Total cobrado</th>
+                    <th style="padding:9px 8px;">Gastos</th>
+                    <th style="padding:9px 8px;">Retiros</th>
+                    <th style="padding:9px 8px;">Neto</th>
+                </tr></thead>
+                <tbody>${filasHtml}</tbody>
+                <tfoot><tr style="background:#f5f0f3;font-weight:800;border-top:2px solid #C06C84;">
+                    <td style="padding:9px 8px;">TOTAL ${_mesTitulo(mes.clave).toUpperCase()}</td>
+                    <td style="${celda}">${_m(total.efectivo)}</td>
+                    <td style="${celda}">${_m(total.transferencia)}</td>
+                    <td style="${celda}">${_m(total.debito)}</td>
+                    <td style="${celda}">${_m(total.total_ventas)}</td>
+                    <td style="${celda}color:#dc3545;">-${_m(total.total_gastos)}</td>
+                    <td style="${celda}color:#C06C84;">-${_m(total.total_retiros)}</td>
+                    <td style="${celda}color:#28a745;">${_m(total.neto)}</td>
+                </tr></tfoot>
+            </table>
+        </div>
+    </details>`;
+}
+
+async function cargarReporteCaja() {
+    const container = document.getElementById('reporte-caja-lista');
+    if (!container) return;
+    _rangoInicialCaja('rep-desde', 'rep-hasta');
+    const desde = document.getElementById('rep-desde').value;
+    const hasta = document.getElementById('rep-hasta').value;
+    const vista = document.getElementById('rep-vista')?.value || 'dia';
+    if (desde > hasta) { mostrarNotificacion('La fecha "Desde" debe ser anterior a "Hasta"', 'error'); return; }
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">Cargando reporte...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/caja/reporte?desde=${desde}&hasta=${hasta}`);
+        const data = await res.json();
+        const filas = (data.datos || []).slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+        if (!filas.length) {
+            container.innerHTML = '<div class="mensaje-vacio"><h3>No hay datos para este rango</h3></div>';
+            return;
+        }
+        const meses = _agruparPorMes(filas);
+        container.innerHTML = meses.map((m, i) => _bloqueMesReporte(m, vista, i === 0)).join('');
+        if (esAdmin()) chequearReasignacionCobros(container);
+    } catch (e) {
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el reporte</p>';
+    }
+}
+
+// ---------- APERTURAS Y CIERRES ----------
+function _filaCajaDia(c, i) {
+    if (!c.id) {
+        return `
+        <tr style="background:#faf7f2;border-bottom:1px solid #f0e0ea;">
+            <td style="padding:10px 8px;font-weight:700;color:#b9a294;">${_fmtFechaCorta(c.fecha)} <small>(${_diaSemanaCorto(c.fecha)})</small></td>
+            <td colspan="11" style="padding:10px 8px;color:#b3a3ad;font-style:italic;">Sin registro de caja este día</td>
+        </tr>`;
+    }
+    const fmtHora = (f) => String(f || '').slice(11, 16);
+    return `
+        <tr style="background:${i % 2 === 0 ? 'white' : '#fdf7ea'};border-bottom:1px solid #f0e0ea;">
+            <td style="padding:10px 8px;font-weight:700;color:#B9770E;">${_fmtFechaCorta(c.fecha)}</td>
+            <td style="padding:10px 8px;">${c.estado === 'abierta' ? '<span style="background:#e8f8f0;color:#1aa851;padding:3px 8px;border-radius:6px;font-weight:700;">Abierta</span>' : '<span style="background:#fdf5f8;color:#C06C84;padding:3px 8px;border-radius:6px;font-weight:700;">Cerrada</span>'}</td>
+            <td style="padding:10px 8px;">${c.cajero_nombre || '—'}<br><small style="color:#aaa;">${fmtHora(c.abierta_at)}hs</small></td>
+            <td style="padding:10px 8px;">${_m(c.monto_inicial)}</td>
+            <td style="padding:10px 8px;">${_m(c.efectivo)}</td>
+            <td style="padding:10px 8px;">${_m(c.transferencia)}</td>
+            <td style="padding:10px 8px;">${_m(c.debito)}</td>
+            <td style="padding:10px 8px;font-weight:700;">${_m(c.total_cobrado)}</td>
+            <td style="padding:10px 8px;color:#dc3545;">-${_m(c.total_gastos)}</td>
+            <td style="padding:10px 8px;color:#C06C84;">-${_m(c.total_retiros)}</td>
+            <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? (c.monto_final == null ? '<span style="color:#bbb;font-weight:400;">Sin arqueo</span>' : _m(c.monto_final)) : '—'}</td>
+            <td style="padding:10px 8px;"><button onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Ver</button></td>
+        </tr>
+        <tr id="detalle-caja-${c.id}" style="display:none;"><td colspan="12" style="padding:0;background:#fffdf7;"></td></tr>`;
+}
+
+function _sumarCajas(list) {
+    const s = { monto_inicial: 0, efectivo: 0, transferencia: 0, debito: 0, total_cobrado: 0, total_gastos: 0, total_retiros: 0, cajas: 0 };
+    list.filter(c => c.id).forEach(c => {
+        s.cajas += 1;
+        Object.keys(s).forEach(k => { if (k !== 'cajas') s[k] += parseFloat(c[k]) || 0; });
+    });
+    return s;
+}
+
+function _bloqueMesHistorial(mes, vista, abierto) {
+    const reales = mes.filas.filter(c => c.id);
+    const tot = _sumarCajas(mes.filas);
+    const celda = 'padding:10px 8px;';
+    let cuerpo = '';
+    if (vista === 'dia') {
+        cuerpo = `
+            <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:800px;">
+                <thead><tr style="background:#B9770E;color:white;">
+                    <th style="${celda}">Fecha</th><th style="${celda}">Estado</th><th style="${celda}">Cajera</th>
+                    <th style="${celda}">Apertura</th><th style="${celda}">Efect.</th><th style="${celda}">Transf.</th>
+                    <th style="${celda}">Débito</th><th style="${celda}">Cobrado</th><th style="${celda}">Gastos</th>
+                    <th style="${celda}">Retiros</th><th style="${celda}">Cierre</th><th style="${celda}"></th>
+                </tr></thead>
+                <tbody>${mes.filas.map((c, i) => _filaCajaDia(c, i)).join('')}</tbody>
+            </table>`;
+    } else {
+        const grupos = vista === 'semana'
+            ? _agruparPor(mes.filas, _semanaClave).map(g => ({ etiqueta: _semanaTitulo(g.clave), ..._sumarCajas(g.filas) }))
+            : [{ etiqueta: 'Total del mes', ..._sumarCajas(mes.filas) }];
+        cuerpo = `
+            <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:760px;">
+                <thead><tr style="background:#B9770E;color:white;">
+                    <th style="${celda}text-align:left;">${vista === 'semana' ? 'Semana' : 'Mes'}</th>
+                    <th style="${celda}">Cajas</th><th style="${celda}">Apertura</th><th style="${celda}">Efect.</th>
+                    <th style="${celda}">Transf.</th><th style="${celda}">Débito</th><th style="${celda}">Cobrado</th>
+                    <th style="${celda}">Gastos</th><th style="${celda}">Retiros</th>
+                </tr></thead>
+                <tbody>${grupos.map((g, i) => `
+                    <tr style="background:${i % 2 === 0 ? 'white' : '#fdf7ea'};border-bottom:1px solid #f0e0ea;">
+                        <td style="${celda}font-weight:700;color:#B9770E;">${g.etiqueta}</td>
+                        <td style="${celda}">${g.cajas}</td>
+                        <td style="${celda}">${_m(g.monto_inicial)}</td>
+                        <td style="${celda}">${_m(g.efectivo)}</td>
+                        <td style="${celda}">${_m(g.transferencia)}</td>
+                        <td style="${celda}">${_m(g.debito)}</td>
+                        <td style="${celda}font-weight:700;">${_m(g.total_cobrado)}</td>
+                        <td style="${celda}color:#dc3545;">-${_m(g.total_gastos)}</td>
+                        <td style="${celda}color:#C06C84;">-${_m(g.total_retiros)}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`;
+    }
+    return `
+    <details ${abierto ? 'open' : ''} style="margin-bottom:10px;border:1px solid #f0e0ea;border-radius:10px;background:white;">
+        <summary style="cursor:pointer;padding:12px 14px;font-weight:700;color:#B9770E;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <span>${_mesTitulo(mes.clave)} <small style="color:#999;font-weight:600;">(${reales.length} caja${reales.length === 1 ? '' : 's'})</small></span>
+            <span style="font-size:0.85rem;color:#555;font-weight:600;">Cobrado ${_m(tot.total_cobrado)} · Gastos ${_m(tot.total_gastos)} · Retiros ${_m(tot.total_retiros)}</span>
+        </summary>
+        <div style="overflow-x:auto;padding:0 10px 12px;">${cuerpo}</div>
+    </details>`;
+}
+
+async function cargarHistorialCajas() {
+    const container = document.getElementById('historial-cajas');
+    if (!container) return;
+    _rangoInicialCaja('hist-desde', 'hist-hasta');
+    const desde = document.getElementById('hist-desde').value;
+    const hasta = document.getElementById('hist-hasta').value;
+    const vista = document.getElementById('hist-vista')?.value || 'dia';
+    if (desde > hasta) { mostrarNotificacion('La fecha "Desde" debe ser anterior a "Hasta"', 'error'); return; }
+    container.innerHTML = '<p style="color:#888;text-align:center;padding:16px;">Cargando historial...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/caja/historial?desde=${desde}&hasta=${hasta}`);
+        const cajas = await res.json();
+        if (!Array.isArray(cajas) || !cajas.length) {
+            container.innerHTML = '<div class="mensaje-vacio"><h3>No hay cajas en este rango</h3></div>';
+            return;
+        }
+        const orden = cajas.slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+        const meses = _agruparPorMes(orden);
+        container.innerHTML = meses.map((m, i) => _bloqueMesHistorial(m, vista, i === 0)).join('');
+    } catch (e) {
+        container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el historial de cajas</p>';
+    }
+}
+
+// ==========================================
+// TURNO SIMULTÁNEO (autorización de recepción/admin)
+// ==========================================
+async function toggleTurnoSimultaneo(profesionalId, fecha, hora) {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + obtenerToken() };
+    try {
+        const res = await fetch(`${API_BASE}/autorizaciones-simultaneas?fecha=${fecha}&profesional_id=${profesionalId}`, { headers });
+        const lista = await res.json();
+        if (!Array.isArray(lista)) throw new Error(lista.message || 'Error al consultar');
+
+        const existente = lista.find(a => a.hora === hora);
+        let r, d;
+        if (existente) {
+            if (!confirm(`¿Quitar la autorización de turno simultáneo a las ${hora}?`)) return;
+            r = await fetch(`${API_BASE}/autorizaciones-simultaneas/${existente.id}`, { method: 'DELETE', headers });
+        } else {
+            if (!confirm(`¿Permitir un turno simultáneo a las ${hora} con esta profesional?\n\nSolo para una clienta distinta.`)) return;
+            r = await fetch(`${API_BASE}/autorizaciones-simultaneas`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ profesional_id: profesionalId, fecha, hora })
+            });
+        }
+        d = await r.json();
+        mostrarNotificacion(d.message || 'Listo', d.success ? 'success' : 'error');
+        cargarTurnosProfesional();
     } catch (e) {
         mostrarNotificacion('Error de conexión', 'error');
     }

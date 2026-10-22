@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS turnos (
     cliente_telefono VARCHAR(30) NULL,
     cliente_email VARCHAR(150) NULL,
     profesional_id BIGINT NOT NULL,
-    servicio_id BIGINT NOT NULL,
+    servicio_id BIGINT NULL,
     fecha DATE NOT NULL,
     hora_inicio TIME NOT NULL,
     precio DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -84,7 +84,8 @@ CREATE TABLE IF NOT EXISTS turno_items (
     turno_id BIGINT NOT NULL,
     servicio_id BIGINT NULL,
     nombre VARCHAR(100) NOT NULL,
-    precio DECIMAL(10,2) NOT NULL DEFAULT 0
+    precio DECIMAL(10,2) NOT NULL DEFAULT 0,
+    promocion_id BIGINT NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS clientes (
@@ -210,10 +211,17 @@ CREATE TABLE IF NOT EXISTS promociones (
     fecha_inicio DATE NULL,
     fecha_caducidad DATE NULL,
     activo TINYINT(1) NOT NULL DEFAULT 1,
+    dias_disponibles VARCHAR(100) NULL,
     creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     actualizado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_promociones_activo (activo),
     INDEX idx_promociones_fechas (fecha_inicio, fecha_caducidad)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS profesional_promociones (
+    profesional_id BIGINT NOT NULL,
+    promocion_id BIGINT NOT NULL,
+    PRIMARY KEY (profesional_id, promocion_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS configuracion (
@@ -290,6 +298,17 @@ CREATE INDEX idx_servicios_categoria ON servicios (categoria);
 CREATE INDEX idx_usuarios_rol ON usuarios (rol);
 CREATE INDEX idx_turnos_estado ON turnos (estado);
 CREATE INDEX idx_horarios_profesional ON horarios_config (profesional_id);
+
+-- Autorizaciones para turnos simultáneos (recepción/admin)
+CREATE TABLE IF NOT EXISTS turno_autorizaciones_simultaneas (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    profesional_id BIGINT NOT NULL,
+    fecha DATE NOT NULL,
+    hora_inicio TIME NOT NULL,
+    autorizado_por BIGINT NULL,
+    creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_prof_fecha_hora (profesional_id, fecha, hora_inicio)
+) ENGINE=InnoDB;
 
 -- ============================================================
 -- INSERCIÓN DE ROLLES Y PERMISOS INICIALES
