@@ -2002,9 +2002,43 @@ async function cancelarTurno(turnoId) {
     }
 }
 
+// Modal con el estilo del resto de la app para pedir el motivo de cancelación
+function pedirMotivoCancelacion() {
+    return new Promise(resolve => {
+        document.getElementById('modal-motivo-cancelacion')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'modal-motivo-cancelacion';
+        modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;align-items:center;justify-content:center;background:rgba(46,21,32,0.62);';
+        modal.innerHTML = `
+            <div class="modal-box">
+                <h3>Cancelar turno</h3>
+                <p>Indicá el motivo de la cancelación. El horario queda libre para otro cliente.</p>
+                <input type="text" id="motivo-cancelacion-input" class="field" placeholder="Ej: La clienta no puede asistir" maxlength="200">
+                <p id="motivo-cancelacion-msg" class="modal-msg"></p>
+                <button type="button" id="motivo-cancelacion-ok" class="btn-modal btn-success">Confirmar cancelación</button>
+                <button type="button" id="motivo-cancelacion-no" class="btn-modal btn-ghost" style="margin-top:8px;">Volver</button>
+            </div>`;
+        document.body.appendChild(modal);
+
+        const input = document.getElementById('motivo-cancelacion-input');
+        const msg = document.getElementById('motivo-cancelacion-msg');
+        const cerrar = (valor) => { modal.remove(); resolve(valor); };
+
+        document.getElementById('motivo-cancelacion-ok').onclick = () => {
+            const texto = (input.value || '').trim();
+            if (!texto) { msg.textContent = 'Escribí el motivo para continuar.'; input.focus(); return; }
+            cerrar(texto);
+        };
+        document.getElementById('motivo-cancelacion-no').onclick = () => cerrar(null);
+        modal.onclick = (ev) => { if (ev.target === modal) cerrar(null); };
+        input.onkeydown = (ev) => { if (ev.key === 'Enter') document.getElementById('motivo-cancelacion-ok').click(); };
+        setTimeout(() => input.focus(), 80);
+    });
+}
+
 async function cancelarTurnoDesdeCitas(turnoId) {
-    const motivo = prompt('¿Motivo de la cancelación?');
-    if (!motivo || !motivo.trim()) return;
+    const motivo = await pedirMotivoCancelacion();
+    if (!motivo) return;
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}/cancelar`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + obtenerToken() },
@@ -2675,18 +2709,13 @@ async function cargarProfesionalesPorServicios(servicioIds) {
     if (!servicioIds || !servicioIds.length) return;
 
     try {
-        let profesionales;
-        if (servicioIds.length === 1) {
-            const res = await fetch(`${API_BASE}/profesionales/servicio/${servicioIds[0]}`);
-            profesionales = await res.json();
-        } else {
-            const res = await fetch(`${API_BASE}/profesionales/servicios`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ servicios: servicioIds })
-            });
-            profesionales = await res.json();
-        }
+        const sel = separarSeleccionReserva(servicioIds);
+        const res = await fetch(`${API_BASE}/profesionales/disponibles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sel)
+        });
+        const profesionales = await res.json();
         selectPro.disabled = false;
         selectPro.innerHTML = '<option value="">Seleccionar profesional...</option>' +
             profesionales.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
@@ -2818,19 +2847,20 @@ document.getElementById('form-turno')?.addEventListener('submit', async (e) => {
     const clienteTelefono = (document.getElementById('cliente-telefono')?.value || '').trim();
     const clienteFechaNac = (document.getElementById('cliente-fecha-nacimiento')?.value || '').trim();
     const selectServ = document.getElementById('servicio-select');
-    const servicioIdsArr = Array.from(selectServ.selectedOptions).map(o => o.value).filter(v => v).map(Number);
+    const selReserva = separarSeleccionReserva(Array.from(selectServ.selectedOptions).map(o => o.value));
+    const servicioIdsArr = selReserva.servicios;
     const profesionalId = document.getElementById('profesional-select').value;
     const fecha = document.getElementById('turno-fecha').value;
     const hora = document.getElementById('turno-hora').value;
     if (!clienteNombre) { mostrarNotificacion('Ingresá el Nombre Completo','error'); document.getElementById('cliente-nombre')?.focus(); return; }
-    if (!servicioIdsArr.length || !profesionalId || !fecha || !hora) { mostrarNotificacion('Completa todos los campos','error'); return; }
+    if (!(selReserva.servicios.length || selReserva.promociones.length) || !profesionalId || !fecha || !hora) { mostrarNotificacion('Completa todos los campos','error'); return; }
     try {
         const res = await fetch(`${API_BASE}/turnos`, {
             method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ cliente_id: parseInt(usuario.id), cliente_nombre: clienteNombre,
                 cliente_email: clienteEmail, cliente_telefono: clienteTelefono,
                 cliente_fecha_nacimiento: clienteFechaNac, profesional_id: parseInt(profesionalId),
-                servicios: servicioIdsArr, fecha, hora_inicio: hora+':00' })
+                servicios: servicioIdsArr, promociones: selReserva.promociones, fecha, hora_inicio: hora+':00' })
         });
         const data = await res.json();
         if (data.success) {
@@ -3744,6 +3774,19 @@ async function abrirModalEditarProfesional(id) {
         if (!data.success) { mostrarNotificacion((data.message || 'Error'), 'error'); return; }
         const p = data.usuario;
 
+        // Promociones disponibles para asignar (incluye pausadas, marcadas como tales)
+        try {
+            const rp = await fetch(`${API_BASE}/promociones/todas`, { headers: { 'Authorization': 'Bearer ' + obtenerToken() } });
+            _promocionesTodas = rp.ok ? await rp.json() : [];
+        } catch (e) { _promocionesTodas = []; }
+        const promosHtml = `
+                    <div>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Promociones asignadas (Ctrl/Cmd para varias)</label>
+                        <select id="ep-promociones" multiple style="width:100%;min-height:90px;padding:8px;border:2px solid #e0e0e0;border-radius:9px;box-sizing:border-box;">
+                            ${_promocionesTodas.map(pr => `<option value="${pr.id}" ${(p.promociones || []).includes(pr.id) ? 'selected' : ''}>${esc(pr.nombre)}${pr.activo ? '' : ' (pausada)'}</option>`).join('')}
+                        </select>
+                    </div>`;
+
         const modal = document.createElement('div');
         modal.id = 'modal-editar-profesional';
         modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
@@ -3772,10 +3815,17 @@ async function abrirModalEditarProfesional(id) {
                             ${servicios.map(s => `<option value="${s.id}" ${(p.servicios||[]).includes(s.id) ? 'selected' : ''}>${esc(s.nombre)}</option>`).join('')}
                         </select>
                     </div>
+                    ${promosHtml}
                     <div>
                         <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Porcentaje de retiro de la profesional (%)</label>
                         <input type="number" id="ep-porcentaje" value="${p.porcentaje_retiro ?? 70}" min="0" max="100" step="1"
                                style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Neto fijo para la estética ($ por día)</label>
+                        <input type="number" id="ep-neto" value="${p.neto_estetica ?? 0}" min="0" step="0.01"
+                               style="width:100%;padding:10px 12px;border:2px solid #e0e0e0;border-radius:9px;font-size:0.95rem;box-sizing:border-box;">
+                        <small style="color:#888;font-size:0.78rem;">Se descuenta del retiro de la profesional cada día que retira.</small>
                     </div>
                 </div>
                 <div style="display:flex;gap:10px;margin-top:22px;">
@@ -3800,7 +3850,8 @@ async function guardarProfesional(id) {
 
     if (!nombre || !email) { mostrarNotificacion('Nombre y email son obligatorios', 'error'); return; }
 
-    const body = { nombre, email, telefono, servicios: serviciosSel, porcentaje_retiro: parseFloat(document.getElementById('ep-porcentaje')?.value) || 0 };
+    const promosSel = Array.from(document.getElementById('ep-promociones')?.selectedOptions || []).map(o => parseInt(o.value));
+    const body = { nombre, email, telefono, servicios: serviciosSel, promociones: promosSel, porcentaje_retiro: parseFloat(document.getElementById('ep-porcentaje')?.value) || 0, neto_estetica: parseFloat(document.getElementById('ep-neto')?.value) || 0 };
 
     try {
         const res = await fetch(`${API_BASE}/usuarios/${id}`, {
@@ -4090,12 +4141,13 @@ async function cargarRetiros() {
             html += `<strong style="color:#555;">Profesionales con cobros de hoy (sugerencia de retiro):</strong>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                 ${pendientes.map(s => {
-                    const montoMax = (parseFloat(s.cobrado_hoy) * (parseFloat(s.porcentaje_retiro)||70) / 100).toFixed(2);
+                    const netoFijo = parseFloat(s.neto_estetica) || 0;
+                    const montoMax = Math.max(0, parseFloat(s.cobrado_hoy) * (parseFloat(s.porcentaje_retiro)||70) / 100 - netoFijo).toFixed(2);
                     return `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff8e1;border-left:3px solid #ffc107;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
                             <strong>${s.profesional_nombre}</strong>
-                            <small style="display:block;color:#888;">Cobrado hoy: $${parseFloat(s.cobrado_hoy).toFixed(2)} · ${s.turnos_cobrados} turno(s) · Retira ${parseFloat(s.porcentaje_retiro)}% = $${montoMax}</small>
+                            <small style="display:block;color:#888;">Cobrado hoy: $${parseFloat(s.cobrado_hoy).toFixed(2)} · ${s.turnos_cobrados} turno(s) · Retira ${parseFloat(s.porcentaje_retiro)}% − neto estética $${netoFijo.toFixed(2)} = <strong>$${montoMax}</strong></small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <select id="metodo-retiro-${s.profesional_id}" style="padding:8px 10px;border:2px solid #e0e0e0;border-radius:8px;font-size:0.85rem;background:white;">
@@ -4573,6 +4625,7 @@ function abrirModalGasto() {
                     <select id="gasto-tipo" style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
                         <option value="compra">Compra del local</option>
                         <option value="fijo">Gasto fijo</option>
+                        <option value="atencion_cliente">Atención al Cliente</option>
                     </select>
                 </div>
                 <div>
@@ -4697,7 +4750,7 @@ async function cargarGastosAdmin() {
                     ${gastos.map((g, i) => `
                         <tr style="background:${i % 2 === 0 ? 'white' : '#f6f0f8'};border-bottom:1px solid #eee;">
                             <td style="padding:10px 8px;white-space:nowrap;">${String(g.fecha).slice(0, 10).split('-').reverse().join('/')}</td>
-                            <td style="padding:10px 8px;">${g.tipo === 'fijo' ? 'Fijo' : 'Compra'}</td>
+                            <td style="padding:10px 8px;">${_etiquetaTipoGasto(g.tipo)}</td>
                             <td style="padding:10px 8px;"><strong>${g.descripcion}</strong></td>
                             <td style="padding:10px 8px;">${g.metodo_pago}</td>
                             <td style="padding:10px 8px;color:#777;font-size:0.8rem;">${g.cajero_nombre || g.registrado_por_nombre || '—'}</td>
@@ -4745,7 +4798,7 @@ async function cargarGastosCaja() {
                     <tbody>
                     ${deHoy.map((g, i) => `
                         <tr style="background:${i % 2 === 0 ? 'white' : '#f6f0f8'};border-bottom:1px solid #eee;">
-                            <td style="padding:8px;">${g.tipo === 'fijo' ? 'Fijo' : 'Compra'}</td>
+                            <td style="padding:8px;">${_etiquetaTipoGasto(g.tipo)}</td>
                             <td style="padding:8px;"><strong>${g.descripcion}</strong></td>
                             <td style="padding:8px;">${g.metodo_pago}</td>
                             <td style="padding:8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</td>
@@ -6711,21 +6764,37 @@ async function toggleTurnoSimultaneo(profesionalId, fecha, hora) {
         if (!Array.isArray(lista)) throw new Error(lista.message || 'Error al consultar');
 
         const existente = lista.find(a => a.hora === hora);
-        let r, d;
         if (existente) {
-            if (!confirm(`¿Quitar la autorización de turno simultáneo a las ${hora}?`)) return;
-            r = await fetch(`${API_BASE}/autorizaciones-simultaneas/${existente.id}`, { method: 'DELETE', headers });
+            // Desactivar: aviso rojo
+            const r = await fetch(`${API_BASE}/autorizaciones-simultaneas/${existente.id}`, { method: 'DELETE', headers });
+            const d = await r.json();
+            if (d.success) {
+                mostrarNotificacion(`Turno simultáneo desactivado (${hora})`, 'error');
+            } else {
+                mostrarNotificacion(d.message || 'No se pudo desactivar', 'error');
+            }
         } else {
-            if (!confirm(`¿Permitir un turno simultáneo a las ${hora} con esta profesional?\n\nSolo para una clienta distinta.`)) return;
-            r = await fetch(`${API_BASE}/autorizaciones-simultaneas`, {
+            // Activar: aviso verde
+            const r = await fetch(`${API_BASE}/autorizaciones-simultaneas`, {
                 method: 'POST', headers,
                 body: JSON.stringify({ profesional_id: profesionalId, fecha, hora })
             });
+            const d = await r.json();
+            if (d.success) {
+                mostrarNotificacion(`Turno simultáneo activado (${hora})`, 'success');
+            } else {
+                mostrarNotificacion(d.message || 'No se pudo activar', 'error');
+            }
         }
-        d = await r.json();
-        mostrarNotificacion(d.message || 'Listo', d.success ? 'success' : 'error');
         cargarTurnosProfesional();
     } catch (e) {
         mostrarNotificacion('Error de conexión', 'error');
     }
+}
+
+// Nombre legible del tipo de gasto (para tablas y listados)
+function _etiquetaTipoGasto(tipo) {
+    if (tipo === 'fijo') return 'Fijo';
+    if (tipo === 'atencion_cliente') return 'Atención al Cliente';
+    return 'Compra';
 }

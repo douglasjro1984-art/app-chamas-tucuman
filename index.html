@@ -512,13 +512,20 @@
                     </div>
                 </div>
             </section>
+            <section id="promociones" class="section">
+                <h2>Nuestras Promociones</h2>
+                <div class="section-actions">
+                    <button onclick="abrirAsistenteWhatsApp()" class="btn-whatsapp-mini btn-inline">Reservar por WhatsApp</button>
+                    <button onclick="mostrarEditorPromociones()" class="btn-whatsapp-mini btn-inline admin-only" style="background:var(--grad-brand);">Editar promociones</button>
+                </div>
+                <div id="promociones-grid" class="grid"></div>
 
-            <section id="promociones" class="section" style="padding:0 !important;margin:0 !important;">
-                <h2 style="margin:0 0 8px 0;padding:0;">Nuestras Promociones</h2>
-                <div id="promociones-grid" class="grid" style="padding:0 !important;margin:0 !important;"></div>
-                <div class="admin-only" style="margin-top:8px;display:flex;gap:8px;" id="promociones-admin-panel">
-                    <button onclick="abrirEditorPromocion()" style="padding:6px 14px;font-size:0.85rem;border:none;border-radius:8px;background:linear-gradient(135deg,#ff6b9c,#C06C84);color:#fff;cursor:pointer;font-weight:bold;">Agregar nueva</button>
-                    <button onclick="abrirSelectorEdicionPromocion()" style="padding:6px 14px;font-size:0.85rem;border:none;border-radius:8px;background:#ff9800;color:#fff;cursor:pointer;font-weight:bold;">Editar</button>
+                <div class="admin-only" id="editar-promos-panel" style="margin-top:30px;display:none;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px;">
+                        <h2 style="margin:0;">Gestión de Promociones (Admin)</h2>
+                        <button onclick="ocultarEditorPromociones()" class="btn-reset">Ocultar editor</button>
+                    </div>
+                    <div id="lista-promos-editar"></div>
                 </div>
             </section>
 

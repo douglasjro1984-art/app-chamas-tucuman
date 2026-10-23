@@ -705,7 +705,7 @@ app.post('/api/usuarios', autenticar, autorizar(['admin']), async (req, res) => 
 // Editar un profesional/usuario (nombre, email, telefono, rol, servicios, contraseÃ±a opcional)
 app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) => {
     const { id } = req.params;
-    const { nombre, email, telefono, password, rol, servicios, promociones, porcentaje_retiro } = req.body;
+    const { nombre, email, telefono, password, rol, servicios, promociones, porcentaje_retiro, neto_estetica } = req.body;
     try {
         const [u] = await pool.query('SELECT id, rol FROM usuarios WHERE id = ?', [id]);
         if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
@@ -724,6 +724,7 @@ app.put('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) 
         if (telefono !== undefined) { campos.push('telefono = ?'); valores.push(telefono); }
         if (rol !== undefined) { campos.push('rol = ?'); valores.push(rol); }
         if (porcentaje_retiro !== undefined) { campos.push('porcentaje_retiro = ?'); valores.push(Math.min(100, Math.max(0, parseFloat(porcentaje_retiro) || 0))); }
+        if (neto_estetica !== undefined) { campos.push('neto_estetica = ?'); valores.push(Math.max(0, parseFloat(neto_estetica) || 0)); }
         if (password) {
             const hashed = await bcrypt.hash(password, 10);
             campos.push('password = ?'); valores.push(hashed);
@@ -3275,13 +3276,13 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
 app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [sugerencias] = await pool.query(
-            `SELECT u.id AS profesional_id, u.nombre AS profesional_nombre, u.porcentaje_retiro,
+            `SELECT u.id AS profesional_id, u.nombre AS profesional_nombre, u.porcentaje_retiro, u.neto_estetica,
                     COALESCE(SUM(t.precio), 0) AS cobrado_hoy, COUNT(t.id) AS turnos_cobrados
              FROM usuarios u
              LEFT JOIN turnos t ON t.profesional_id = u.id
                   AND t.estado = 'cobrado' AND t.fecha = CURDATE()
              WHERE u.rol = 'profesional'
-             GROUP BY u.id, u.nombre, u.porcentaje_retiro
+             GROUP BY u.id, u.nombre, u.porcentaje_retiro, u.neto_estetica
              HAVING cobrado_hoy > 0
              ORDER BY u.nombre`
         );
@@ -3307,11 +3308,11 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
     const metodoRetiro = (metodo === 'transferencia') ? 'transferencia' : 'efectivo';
     try {
         const [rows] = await pool.query(
-            `SELECT u.id, u.nombre, u.porcentaje_retiro, COALESCE(SUM(t.precio), 0) AS cobrado_hoy
+            `SELECT u.id, u.nombre, u.porcentaje_retiro, u.neto_estetica, COALESCE(SUM(t.precio), 0) AS cobrado_hoy
              FROM usuarios u
              LEFT JOIN turnos t ON t.profesional_id = u.id
                   AND t.estado = 'cobrado' AND t.fecha = CURDATE()
-             WHERE u.id = ? GROUP BY u.id, u.nombre, u.porcentaje_retiro`, [profesional_id]
+             WHERE u.id = ? GROUP BY u.id, u.nombre, u.porcentaje_retiro, u.neto_estetica`, [profesional_id]
         );
         const p = rows[0];
         if (!p) return res.status(400).json({ success: false, message: 'Profesional no encontrado' });
@@ -3323,7 +3324,12 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
             [profesional_id]
         );
         const yaRetiradoTotal = parseFloat(yaRetirado[0]?.total || 0);
-        const maximo = Math.max(0, Math.round((bruto * pct / 100 - yaRetiradoTotal) * 100) / 100);
+        const neto = parseFloat(p.neto_estetica) || 0;
+        const porcionProf = bruto * pct / 100 - neto;
+        if (porcionProf < 0) {
+            return res.status(400).json({ success: false, message: 'El neto fijo supera lo que le corresponde a la profesional hoy' });
+        }
+        const maximo = Math.max(0, Math.round((porcionProf - yaRetiradoTotal) * 100) / 100);
         let retirado;
         if (monto_retirar !== undefined && monto_retirar !== null && monto_retirar !== '') {
             retirado = Math.min(maximo, Math.max(0, parseFloat(monto_retirar) || 0));
@@ -3353,9 +3359,9 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
 
         const [r] = await pool.query(
             `INSERT INTO retiros (caja_id, profesional_id, profesional_nombre, fecha, monto_bruto,
-                                  porcentaje_retiro, monto_retirado, monto_estetica, creado_por, metodo_retiro)
-             VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?)`,
-            [cajaId, p.id, p.nombre, bruto, pct, retirado, estetica, req.usuario.id, metodoRetiro]
+                                  porcentaje_retiro, monto_retirado, monto_estetica, creado_por, metodo_retiro, monto_neto)
+             VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?)`,
+            [cajaId, p.id, p.nombre, bruto, pct, retirado, estetica, req.usuario.id, metodoRetiro, neto]
         );
         res.json({
             success: true,
