@@ -979,7 +979,7 @@ app.get('/api/usuarios/:id', autenticar, autorizar(['admin']), async (req, res) 
     const { id } = req.params;
     try {
         const [u] = await pool.query(
-            'SELECT id, nombre, email, telefono, rol, porcentaje_retiro FROM usuarios WHERE id = ?', [id]
+            'SELECT id, nombre, email, telefono, rol, porcentaje_retiro, neto_estetica FROM usuarios WHERE id = ?', [id]
         );
         if (!u.length) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         const usuario = u[0];
