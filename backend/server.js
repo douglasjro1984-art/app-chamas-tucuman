@@ -2351,7 +2351,7 @@ app.get('/api/estadisticas', autenticar, autorizar(['admin']), async (req, res) 
 });
 
 // ============================================
-// ðŸ’µ CAJA - PANEL DE COBRO Y TICKETS
+//  CAJA - PANEL DE COBRO Y TICKETS
 // ============================================
 
 // ConfiguraciÃ³n del local (para el ticket)
@@ -3273,6 +3273,17 @@ app.post('/api/caja/turnos/:id/cerrar', autenticar, autorizar(['admin','recepcio
 // ============================================
 // Resumen de retiros del dÃ­a + lo que le corresponderÃ­a retirar a cada
 // profesional segÃºn sus turnos cobrados del dÃ­a (monto Ã— porcentaje_retiro).
+// Cantidad de servicios cobrados hoy de una profesional (cada servicio cuenta)
+async function contarServiciosCobradosHoy(profesionalId) {
+    const [r] = await pool.query(
+        `SELECT COALESCE(SUM(GREATEST(1, (SELECT COUNT(*) FROM turno_items ti WHERE ti.turno_id = t.id))), 0) AS n
+         FROM turnos t
+         WHERE t.profesional_id = ? AND t.estado = 'cobrado' AND t.fecha = CURDATE()`,
+        [profesionalId]
+    );
+    return parseInt(r[0]?.n || 0, 10);
+}
+
 app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
         const [sugerencias] = await pool.query(
@@ -3286,6 +3297,11 @@ app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), a
              HAVING cobrado_hoy > 0
              ORDER BY u.nombre`
         );
+        for (const sg of sugerencias) {
+            const nServ = await contarServiciosCobradosHoy(sg.profesional_id);
+            sg.servicios_hoy = nServ;
+            sg.neto_total = Math.round((parseFloat(sg.neto_estetica) || 0) * nServ * 100) / 100;
+        }
         const [retiros] = await pool.query(
             `SELECT r.id, r.profesional_id, r.profesional_nombre, r.monto_bruto,
                     r.porcentaje_retiro, r.monto_retirado, r.monto_estetica, r.metodo_retiro, r.deshecho, r.creado_at
@@ -3324,7 +3340,8 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
             [profesional_id]
         );
         const yaRetiradoTotal = parseFloat(yaRetirado[0]?.total || 0);
-        const neto = parseFloat(p.neto_estetica) || 0;
+        const netoPorServicio = parseFloat(p.neto_estetica) || 0;
+        const neto = Math.round(netoPorServicio * (await contarServiciosCobradosHoy(profesional_id)) * 100) / 100;
         const porcionProf = bruto * pct / 100 - neto;
         if (porcionProf < 0) {
             return res.status(400).json({ success: false, message: 'El neto fijo supera lo que le corresponde a la profesional hoy' });
@@ -3807,57 +3824,57 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.clear();
     console.log('\n' + '='.repeat(70));
-    console.log('ðŸš€  SERVIDOR CHAMAS INICIADO');
+    console.log('  SERVIDOR CHAMAS INICIADO');
     console.log('='.repeat(70));
-    console.log(`ðŸ“  URL: https://chamas-spa.onrender.com`);
-    console.log(`â°  Hora: ${new Date().toLocaleString()}`);
+    console.log(`  URL: https://chamas-spa.onrender.com`);
+    console.log(`  Hora: ${new Date().toLocaleString()}`);
     console.log('='.repeat(70));
-    console.log('\nðŸ“‹  RUTAS DISPONIBLES:\n');
-console.log('   ðŸ” POST   /api/auth/login');
-    console.log('   ðŸ‘¤ POST   /api/usuarios (registrar profesional)');
-    console.log('   ðŸ“¦ GET    /api/servicios');
-    console.log('   âœï¸  PUT    /api/servicios/:id');
-    console.log('   ðŸ‘¥ GET    /api/profesionales/servicio/:id');
-    console.log('   ðŸ‘¥ GET    /api/usuarios/profesionales');
-    console.log('   â° GET    /api/disponibilidad_completa/:id');
-    console.log('   â° GET    /api/disponibilidad/:profesionalId/:dia');
-    console.log('   ðŸ“… POST   /api/disponibilidad');
-    console.log('   ðŸ’¾ POST   /api/disponibilidad/guardar-directas (CALENDARIO)');
-    console.log('   ðŸ—‘ï¸  POST   /api/disponibilidad/eliminar-fecha (CALENDARIO)');
-    console.log('   ðŸ—‘ï¸  POST   /api/disponibilidad/eliminar-horas (CALENDARIO)');
-    console.log('   ðŸš« GET    /api/horarios-ocupados/:profesionalId/:fecha');
-    console.log('   ðŸ“‹ GET    /api/turnos/todos (ADMIN)');
-    console.log('   ðŸ“‹ GET    /api/turnos/:id (obtener uno)');
-    console.log('   ðŸ“‹ GET    /api/turnos/:id/items (servicios del turno)');
-    console.log('   âž• POST   /api/turnos/:id/servicios (agregar servicio)');
-    console.log('   âž– DELETE /api/turnos/:id/servicios/:itemId (quitar servicio)');
-    console.log('   ðŸ‘¥ POST   /api/profesionales/servicios (multi-servicio)');
-    console.log('   ðŸ“… GET    /api/turnos/profesional/:id');
-    console.log('   ðŸ“… GET    /api/turnos/cliente/:id');
-    console.log('   ðŸ“ POST   /api/turnos (crear)');
-    console.log('   âœï¸  PUT    /api/turnos/:id (editar)');
-    console.log('   ðŸ—‘ï¸  DELETE /api/turnos/:id (eliminar)');
-    console.log('   ðŸ’µ GET    /api/caja/estado (abierta/cerrada + totales)');
-    console.log('   ðŸ’µ POST   /api/caja/abrir (abrir caja del dÃ­a)');
-    console.log('   ðŸ’µ POST   /api/caja/cerrar (cerrar + resumen + COMISIONES)');
-    console.log('   ðŸ’µ POST   /api/caja/cerrar/semanal (cierre semanal para especialistas)');
-    console.log('   ðŸ’µ GET    /api/caja/historial (cierres previos)');
-    console.log('   ðŸ§¾ POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
-    console.log('   ðŸ’¸ GET    /api/caja/retiros (sugerencias + registrados)');
-console.log('   ðŸ’¸ POST   /api/caja/retiros (registrar retiro de profesional)');
-     console.log('   â¡¸ POST   /api/caja/retiros/:id/deshacer (deshacer retiro, admin y recep)');
-     console.log('   ðŸ”€ GET    /api/turnos/cancelados (historial de cancelados)');
-    console.log('   ðŸ”€ GET    /api/sobreturnos/disponibles (sobreturnos)');
-    console.log('   ðŸ”€ POST   /api/sobreturnos (crear sobreturno)');
-    console.log('   ðŸ”€ GET    /api/servicios/categorias (categorías)');
-    console.log('   ðŸ”€ GET    /api/roles/permisos (permisos del rol)');
-    console.log('   ðŸ”€ PUT    /api/horarios/config/:id (configurar horarios)');
-    console.log('   ðŸ“Š GET    /api/estadisticas');
-    console.log('   ðŸ” POST   /api/auth/recuperar (solicitar cÃ³digo)');
-    console.log('   ðŸ” POST   /api/auth/recuperar/confirmar (verificar cÃ³digo + nueva contraseÃ±a)');
-    console.log('   ðŸ” PATCH  /api/auth/cambiar-contrasena (con sesiÃ³n)');
-    console.log('   ðŸ¥ GET    /api/health');
+    console.log('\n  RUTAS DISPONIBLES:\n');
+console.log('    POST   /api/auth/login');
+    console.log('    POST   /api/usuarios (registrar profesional)');
+    console.log('    GET    /api/servicios');
+    console.log('    PUT    /api/servicios/:id');
+    console.log('    GET    /api/profesionales/servicio/:id');
+    console.log('    GET    /api/usuarios/profesionales');
+    console.log('    GET    /api/disponibilidad_completa/:id');
+    console.log('    GET    /api/disponibilidad/:profesionalId/:dia');
+    console.log('    POST   /api/disponibilidad');
+    console.log('    POST   /api/disponibilidad/guardar-directas (CALENDARIO)');
+    console.log('    POST   /api/disponibilidad/eliminar-fecha (CALENDARIO)');
+    console.log('    POST   /api/disponibilidad/eliminar-horas (CALENDARIO)');
+    console.log('    GET    /api/horarios-ocupados/:profesionalId/:fecha');
+    console.log('    GET    /api/turnos/todos (ADMIN)');
+    console.log('    GET    /api/turnos/:id (obtener uno)');
+    console.log('    GET    /api/turnos/:id/items (servicios del turno)');
+    console.log('    POST   /api/turnos/:id/servicios (agregar servicio)');
+    console.log('    DELETE /api/turnos/:id/servicios/:itemId (quitar servicio)');
+    console.log('    POST   /api/profesionales/servicios (multi-servicio)');
+    console.log('    GET    /api/turnos/profesional/:id');
+    console.log('   GET    /api/turnos/cliente/:id');
+    console.log('    POST   /api/turnos (crear)');
+    console.log('     PUT    /api/turnos/:id (editar)');
+    console.log('     DELETE /api/turnos/:id (eliminar)');
+    console.log('    GET    /api/caja/estado (abierta/cerrada + totales)');
+    console.log('    POST   /api/caja/abrir (abrir caja del dÃ­a)');
+    console.log('    POST   /api/caja/cerrar (cerrar + resumen + COMISIONES)');
+    console.log('   POST   /api/caja/cerrar/semanal (cierre semanal para especialistas)');
+    console.log('   GET    /api/caja/historial (cierres previos)');
+    console.log('    POST   /api/caja/turnos/:id/cerrar (cobrar + ticket)');
+    console.log('    GET    /api/caja/retiros (sugerencias + registrados)');
+console.log('    POST   /api/caja/retiros (registrar retiro de profesional)');
+     console.log('   POST   /api/caja/retiros/:id/deshacer (deshacer retiro, admin y recep)');
+     console.log('   GET    /api/turnos/cancelados (historial de cancelados)');
+    console.log('    GET    /api/sobreturnos/disponibles (sobreturnos)');
+    console.log('    POST   /api/sobreturnos (crear sobreturno)');
+    console.log('    GET    /api/servicios/categorias (categorías)');
+    console.log('    GET    /api/roles/permisos (permisos del rol)');
+    console.log('    PUT    /api/horarios/config/:id (configurar horarios)');
+    console.log('    GET    /api/estadisticas');
+    console.log('    POST   /api/auth/recuperar (solicitar cÃ³digo)');
+    console.log('    POST   /api/auth/recuperar/confirmar (verificar codigo + nueva contraseña)');
+    console.log('    PATCH  /api/auth/cambiar-contrasena (con sesiÃ³n)');
+    console.log('    GET    /api/health');
     console.log('\n' + '='.repeat(70));
-    console.log('âœ…  SERVIDOR LISTO - CALENDARIO INTERACTIVO ACTIVADO');
+    console.log('  SERVIDOR LISTO - CALENDARIO INTERACTIVO ACTIVADO');
     console.log('='.repeat(70) + '\n');
 });

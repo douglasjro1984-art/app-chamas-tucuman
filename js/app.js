@@ -4141,13 +4141,15 @@ async function cargarRetiros() {
             html += `<strong style="color:#555;">Profesionales con cobros de hoy (sugerencia de retiro):</strong>
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                 ${pendientes.map(s => {
-                    const netoFijo = parseFloat(s.neto_estetica) || 0;
+                    const netoFijo = parseFloat(s.neto_total) || 0;
+                    const nServ = parseInt(s.servicios_hoy, 10) || 0;
+                    const netoUnitario = parseFloat(s.neto_estetica) || 0;
                     const montoMax = Math.max(0, parseFloat(s.cobrado_hoy) * (parseFloat(s.porcentaje_retiro)||70) / 100 - netoFijo).toFixed(2);
                     return `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff8e1;border-left:3px solid #ffc107;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
                             <strong>${s.profesional_nombre}</strong>
-                            <small style="display:block;color:#888;">Cobrado hoy: $${parseFloat(s.cobrado_hoy).toFixed(2)} · ${s.turnos_cobrados} turno(s) · Retira ${parseFloat(s.porcentaje_retiro)}% − neto estética $${netoFijo.toFixed(2)} = <strong>$${montoMax}</strong></small>
+                            <small style="display:block;color:#888;">Cobrado hoy: $${parseFloat(s.cobrado_hoy).toFixed(2)} · ${s.turnos_cobrados} turno(s) · Retira ${parseFloat(s.porcentaje_retiro)}% − neto estética $${netoFijo.toFixed(2)} (${nServ} servicio${nServ === 1 ? '' : 's'} × $${netoUnitario.toFixed(2)}) = <strong>$${montoMax}</strong></small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <select id="metodo-retiro-${s.profesional_id}" style="padding:8px 10px;border:2px solid #e0e0e0;border-radius:8px;font-size:0.85rem;background:white;">
