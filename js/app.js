@@ -156,7 +156,7 @@ document.getElementById('form-registro-profesional')?.addEventListener('submit',
     const datos = {
         nombre: document.getElementById('prof-nombre').value.trim(),
         email: document.getElementById('prof-email').value.trim(),
-        password: rol === 'recepcionista' ? document.getElementById('prof-password-recepcionista')?.value : undefined,
+        password: (rol === 'recepcionista' || rol === 'contador') ? document.getElementById('prof-password-recepcionista')?.value : undefined,
         telefono: document.getElementById('prof-telefono').value.trim(),
         rol: rol,
         servicios: rol === 'profesional'
@@ -4144,7 +4144,8 @@ async function cargarRetiros() {
                     const netoFijo = parseFloat(s.neto_total) || 0;
                     const nServ = parseInt(s.servicios_hoy, 10) || 0;
                     const netoUnitario = parseFloat(s.neto_estetica) || 0;
-                    const montoMax = Math.max(0, parseFloat(s.cobrado_hoy) * (parseFloat(s.porcentaje_retiro)||70) / 100 - netoFijo).toFixed(2);
+                    const baseP = parseFloat(s.base_pct ?? s.cobrado_hoy) || 0;
+                    const montoMax = Math.max(0, baseP * (parseFloat(s.porcentaje_retiro)||70) / 100 - netoFijo).toFixed(2);
                     return `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff8e1;border-left:3px solid #ffc107;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
@@ -6800,3 +6801,53 @@ function _etiquetaTipoGasto(tipo) {
     if (tipo === 'atencion_cliente') return 'Atención al Cliente';
     return 'Compra';
 }
+
+// ==========================================
+// ROL CONTADOR: solo ver e imprimir la parte administrativa
+// ==========================================
+(function () {
+    // 1) Opción "Contador" en el formulario de alta de usuarios
+    const selRol = document.getElementById('prof-rol');
+    if (selRol && !selRol.querySelector('option[value="contador"]')) {
+        const op = document.createElement('option');
+        op.value = 'contador';
+        op.textContent = 'Contador (solo lectura)';
+        selRol.appendChild(op);
+    }
+
+    // 2) El contador usa la misma pantalla que recepción (contraseña, sin servicios ni porcentaje)
+    window.toggleRolUsuario = function () {
+        const rol = document.getElementById('prof-rol')?.value;
+        const sinServicios = rol === 'recepcionista' || rol === 'contador';
+        const grupo = document.getElementById('prof-servicios-grupo');
+        const pctGrupo = document.getElementById('prof-porcentaje-grupo');
+        const passGrupo = document.getElementById('prof-password-grupo');
+        if (grupo) grupo.style.display = sinServicios ? 'none' : 'block';
+        if (pctGrupo) pctGrupo.style.display = sinServicios ? 'none' : 'block';
+        if (passGrupo) passGrupo.style.display = sinServicios ? 'block' : 'none';
+    };
+
+    // 3) Ocultar en la pantalla todo lo que modifica datos
+    const estilo = document.createElement('style');
+    estilo.textContent = `
+        body.contador .nav-links button:not(.admin-only) { display: none !important; }
+        body.contador #form-registro-profesional,
+        body.contador #lista-profesionales-admin,
+        body.contador #promociones-admin-panel,
+        body.contador button[onclick*="abrirModalGasto"],
+        body.contador button[onclick*="eliminarGasto"],
+        body.contador button[onclick*="abrirModalNuevoServicio"] { display: none !important; }
+    `;
+    document.head.appendChild(estilo);
+
+    // 4) Al entrar, el contador va directo a Administración
+    const _configurarBase = window.configurarInterfazPorRol;
+    window.configurarInterfazPorRol = function (rol) {
+        document.body.classList.toggle('contador', rol === 'contador');
+        if (typeof _configurarBase === 'function') _configurarBase(rol);
+        if (rol === 'contador') {
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+            setTimeout(() => { if (typeof showSection === 'function') showSection('admin'); }, 0);
+        }
+    };
+})();
