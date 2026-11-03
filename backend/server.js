@@ -3637,8 +3637,16 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
             return res.status(400).json({ success: false, message: 'El neto fijo supera lo que le corresponde a la profesional hoy' });
         }
         const maximo = Math.max(0, Math.round((porcionProf - yaRetiradoTotal) * 100) / 100);
+        const splitEf = req.body.monto_efectivo !== undefined ? Math.max(0, parseFloat(req.body.monto_efectivo) || 0) : null;
+        const splitTr = req.body.monto_transferencia !== undefined ? Math.max(0, parseFloat(req.body.monto_transferencia) || 0) : null;
+        const usaSplit = splitEf !== null || splitTr !== null;
         let retirado;
-        if (monto_retirar !== undefined && monto_retirar !== null && monto_retirar !== '') {
+        if (usaSplit) {
+            retirado = Math.round(((splitEf || 0) + (splitTr || 0)) * 100) / 100;
+            if (retirado > maximo) {
+                return res.status(400).json({ success: false, message: `El retiro ($${retirado.toFixed(2)}) supera el saldo disponible ($${maximo.toFixed(2)})` });
+            }
+        } else if (monto_retirar !== undefined && monto_retirar !== null && monto_retirar !== '') {
             retirado = Math.min(maximo, Math.max(0, parseFloat(monto_retirar) || 0));
         } else {
             retirado = maximo; // por defecto, se retira TODO lo que le corresponde
@@ -3657,27 +3665,38 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
         }
         const cajaId = caja[0].id;
 
-        // Descontar del total correspondiente (efectivo o transferencia)
-        const colMetodo = (metodoRetiro === 'transferencia') ? 'total_transferencia' : 'total_efectivo';
-        await pool.query(
-            `UPDATE cajas SET ${colMetodo} = GREATEST(0, ${colMetodo} - ?) WHERE id = ?`,
-            [retirado, cajaId]
-        );
-
-        const [r] = await pool.query(
-            `INSERT INTO retiros (caja_id, profesional_id, profesional_nombre, fecha, monto_bruto,
-                                  porcentaje_retiro, monto_retirado, monto_estetica, creado_por, metodo_retiro, monto_neto)
-             VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?)`,
-            [cajaId, p.id, p.nombre, bruto, pct, retirado, estetica, req.usuario.id, metodoRetiro, neto]
-        );
+        // Un retiro puede ser en efectivo, en transferencia o en ambos.
+        // Con ambos se registra una fila por medio (así deshacer y totales siguen funcionando).
+        const partes = usaSplit
+            ? [{ metodo: 'efectivo', monto: splitEf || 0 }, { metodo: 'transferencia', monto: splitTr || 0 }].filter(x => x.monto > 0)
+            : [{ metodo: metodoRetiro, monto: retirado }];
+        let r = { insertId: null };
+        for (let k = 0; k < partes.length; k++) {
+            const parte = partes[k];
+            const colMetodo = parte.metodo === 'transferencia' ? 'total_transferencia' : 'total_efectivo';
+            await pool.query(
+                `UPDATE cajas SET ${colMetodo} = GREATEST(0, ${colMetodo} - ?) WHERE id = ?`,
+                [parte.monto, cajaId]
+            );
+            // Estética y neto se registran una sola vez (en la primera fila)
+            const estParte = k === 0 ? estetica : 0;
+            const netoParte = k === 0 ? neto : 0;
+            [r] = await pool.query(
+                `INSERT INTO retiros (caja_id, profesional_id, profesional_nombre, fecha, monto_bruto,
+                                      porcentaje_retiro, monto_retirado, monto_estetica, creado_por, metodo_retiro, monto_neto)
+                 VALUES (?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?)`,
+                [cajaId, p.id, p.nombre, bruto, pct, parte.monto, estParte, req.usuario.id, parte.metodo, netoParte]
+            );
+        }
+        const metodoRetiro2 = partes.length > 1 ? 'ambos' : partes[0].metodo;
         res.json({
             success: true,
             retiro: {
                 id: r.insertId, profesional_nombre: p.nombre, monto_bruto: bruto,
                 porcentaje_retiro: pct, monto_retirado: retirado, monto_estetica: estetica,
-                metodo_retiro: metodoRetiro
+                metodo_retiro: metodoRetiro2
             },
-            mensaje: `Retiro de $${retirado.toFixed(2)} (${metodoRetiro}) registrado para ${p.nombre}`
+            mensaje: `Retiro de $${retirado.toFixed(2)} (${metodoRetiro2}) registrado para ${p.nombre}`
         });
     } catch (e) {
         console.error('âŒ Error registrar retiro:', e.message);
