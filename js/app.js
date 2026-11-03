@@ -1,3 +1,9 @@
+// Formato de montos en pesos: sin decimales y con punto de miles (ej: $8.000)
+function fmtPesos(v) {
+    const n = Math.round(parseFloat(v) || 0);
+    return '$' + n.toLocaleString('es-AR');
+}
+
 // ==========================================
 // app.js - Gestión de la Interfaz y Servicios
 // ==========================================
@@ -140,7 +146,7 @@ async function cargarDatosDesdeAPI() {
         if (s.activo !== false) { 
             const option = document.createElement('option');
             option.value = s.id;
-            option.textContent = `${s.nombre} - $${s.precio}`;
+            option.textContent = `${s.nombre} - ${fmtPesos(s.precio)}`;
             select.appendChild(option);
         }
     });
@@ -220,7 +226,7 @@ function renderizarServicios() {
                 <h3>${s.nombre}</h3>
                 <p class="servicio-descripcion">${s.descripcion}</p>
                 <div class="servicio-footer">
-                    <p class="servicio-precio">$${s.precio.toLocaleString()}</p>
+                    <p class="servicio-precio">${fmtPesos(s.precio)}</p>
                 </div>
                 ${puedeAgendar ? `<div class="servicio-accion"><button class="btn-agendar-mini" onclick="prepararAgendado(${s.id})">AGENDAR</button></div>` : ''}
                 <div class="servicio-whatsapp"><button class="btn-whatsapp-mini" onclick="reservarPorWhatsApp(${s.id})">WhatsApp</button></div>
@@ -2212,7 +2218,7 @@ function renderizarPromociones() {
                 <h3>${esc(p.nombre)}</h3>
                 <p class="servicio-descripcion">${esc(p.descripcion || '')}</p>
                 <div class="servicio-footer">
-                    <p class="servicio-precio">$${parseFloat(p.precio || 0).toLocaleString()}</p>
+                    <p class="servicio-precio">${fmtPesos(parseFloat(p.precio || 0))}</p>
                 </div>
                 ${textoVigenciaPromo(p)}
                 ${puedeAgendar ? `<div class="servicio-accion"><button class="btn-agendar-mini" onclick="prepararAgendadoPromo(${p.id})">AGENDAR</button></div>` : ''}
@@ -2601,13 +2607,13 @@ async function generarImpresionReporteCaja() {
         const rowsHtml = filas.map(r => `
             <tr>
                 <td>${etiqueta(r.fecha)}</td>
-                ${metodos.includes('efectivo') ? `<td>$${(r.efectivo||0).toFixed(0)}</td>` : ''}
-                ${metodos.includes('transferencia') ? `<td>$${(r.transferencia||0).toFixed(0)}</td>` : ''}
-                ${metodos.includes('debito') ? `<td>$${(r.debito||0).toFixed(0)}</td>` : ''}
-                <td>$${(r.total_ventas||0).toFixed(0)}</td>
-                <td style="color:#dc3545;">-$${(r.total_gastos||0).toFixed(0)}</td>
-                <td style="color:#C06C84;">-$${(r.total_retiros||0).toFixed(0)}</td>
-                <td style="font-weight:700;">$${((r.total_ventas||0)-(r.total_gastos||0)-(r.total_retiros||0)).toFixed(0)}</td>
+                ${metodos.includes('efectivo') ? `<td>${fmtPesos((r.efectivo||0))}</td>` : ''}
+                ${metodos.includes('transferencia') ? `<td>${fmtPesos((r.transferencia||0))}</td>` : ''}
+                ${metodos.includes('debito') ? `<td>${fmtPesos((r.debito||0))}</td>` : ''}
+                <td>${fmtPesos((r.total_ventas||0))}</td>
+                <td style="color:#dc3545;">-${fmtPesos((r.total_gastos||0))}</td>
+                <td style="color:#C06C84;">-${fmtPesos((r.total_retiros||0))}</td>
+                <td style="font-weight:700;">${fmtPesos(((r.total_ventas||0)-(r.total_gastos||0)-(r.total_retiros||0)))}</td>
             </tr>
         `).join('');
         const win = window.open('', '_blank', 'width=900,height=700');
@@ -2641,13 +2647,13 @@ async function generarImpresionReporteCaja() {
             <tbody>${rowsHtml}</tbody>
             <tfoot><tr>
                 <td>TOTALES</td>
-                ${metodos.includes('efectivo') ? `<td>$${totalEf.toFixed(0)}</td>` : ''}
-                ${metodos.includes('transferencia') ? `<td>$${totalTr.toFixed(0)}</td>` : ''}
-                ${metodos.includes('debito') ? `<td>$${totalDb.toFixed(0)}</td>` : ''}
-                <td>$${totalVentas.toFixed(0)}</td>
-                <td style="color:#dc3545;">-$${totalGastos.toFixed(0)}</td>
-                <td style="color:#C06C84;">-$${totalRetiros.toFixed(0)}</td>
-                <td>$${neto.toFixed(0)}</td>
+                ${metodos.includes('efectivo') ? `<td>${fmtPesos(totalEf)}</td>` : ''}
+                ${metodos.includes('transferencia') ? `<td>${fmtPesos(totalTr)}</td>` : ''}
+                ${metodos.includes('debito') ? `<td>${fmtPesos(totalDb)}</td>` : ''}
+                <td>${fmtPesos(totalVentas)}</td>
+                <td style="color:#dc3545;">-${fmtPesos(totalGastos)}</td>
+                <td style="color:#C06C84;">-${fmtPesos(totalRetiros)}</td>
+                <td>${fmtPesos(neto)}</td>
             </tr></tfoot>
         </table>
         <p style="margin-top:20px;color:#888;font-size:0.8rem;">Generado el ${new Date().toLocaleString('es-AR')}</p>
@@ -2673,7 +2679,7 @@ function llenarSelectServiciosRegistro() {
     const select = document.getElementById('servicio-select');
     if (!select) return;
     select.innerHTML = '<option value="">Seleccionar servicio(s)...</option>' + 
-       servicios.map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
+       servicios.map(s => `<option value="${s.id}">${s.nombre} - ${fmtPesos(s.precio)}</option>`).join('');
     select.onchange = () => {
         const ids = Array.from(select.selectedOptions).map(o => o.value).filter(v => v);
         cargarProfesionalesPorServicios(ids.length ? ids : null);
@@ -2683,8 +2689,8 @@ function llenarSelectServiciosRegistro() {
 function llenarSelectServicios() {
     const select = document.getElementById('servicio-select');
     if (!select) return;
-    const opServ = servicios.map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
-    const opPromo = _promocionesVigentes.map(p => `<option value="p:${p.id}">${p.nombre} - $${p.precio}</option>`).join('');
+    const opServ = servicios.map(s => `<option value="${s.id}">${s.nombre} - ${fmtPesos(s.precio)}</option>`).join('');
+    const opPromo = _promocionesVigentes.map(p => `<option value="p:${p.id}">${p.nombre} - ${fmtPesos(p.precio)}</option>`).join('');
     select.innerHTML = '<option value="">Seleccionar servicio(s)...</option>' + opServ +
         (opPromo ? `<optgroup label="Promociones">${opPromo}</optgroup>` : '');
     select.onchange = () => {
@@ -3009,7 +3015,7 @@ function abrirAsistenteWhatsApp() {
     _asistenteBurbuja('bot', '¡Hola! Soy el asistente de CHAMAS. Voy a ayudarte a reservar tu turno en pocos pasos. ¿Qué servicio querés?');
     // Mostrar servicios como opciones
     _asistenteBurbuja('opciones', serviciosActivos.map(s =>
-        `<button onclick="asistenteElegirServicio(${s.id})" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">${s.nombre} · <strong>$${s.precio.toLocaleString()}</strong></button>`).join(''));
+        `<button onclick="asistenteElegirServicio(${s.id})" style="display:block;width:100%;padding:11px 14px;margin:4px 0;border:2px solid #25D366;background:white;color:#333;border-radius:10px;cursor:pointer;font-weight:600;text-align:left;">${s.nombre} · <strong>${fmtPesos(s.precio)}</strong></button>`).join(''));
 }
 
 function asistenteBurbujaDom(tipo, contenidoHtml) {
@@ -3032,7 +3038,7 @@ async function asistenteElegirServicio(id) {
     const s = servicios.find(x => String(x.id) === String(id));
     if (!s) return;
     _asistenteEstado.servicio = s;
-    _asistenteBurbuja('user', `${s.nombre} ($${s.precio.toLocaleString()})`);
+    _asistenteBurbuja('user', `${s.nombre} (${fmtPesos(s.precio)})`);
     _asistenteBurbuja('bot', '¿Con qué profesional querés el turno?');
     document.getElementById('asistente-input').innerHTML = '<p style="color:#888;text-align:center;font-size:0.85rem;">Cargando profesionales...</p>';
     try {
@@ -3227,7 +3233,7 @@ async function cargarEstadisticas() {
         const res = await fetch(`${API_BASE}/estadisticas`);
         const stats = await res.json();
         const elH=document.getElementById('stat-turnos-hoy'); if(elH) elH.textContent=stats.turnosHoy||0;
-        const elI=document.getElementById('stat-ingresos'); if(elI) elI.textContent='$'+(stats.ingresosMes||0).toLocaleString();
+        const elI=document.getElementById('stat-ingresos'); if(elI) elI.textContent=fmtPesos(stats.ingresosMes||0);
         const elC=document.getElementById('stat-clientes'); if(elC) elC.textContent=stats.clientesUnicos||0;
     } catch(e) { console.error('',e); }
     if (document.getElementById('panel-ganancias')) return;
@@ -3399,7 +3405,7 @@ async function calcG() {
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
             <div style="background:white;padding:16px;border-radius:12px;text-align:center;border-left:4px solid #28a745;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                 <p style="margin:0;color:#555;font-size:0.82rem;">Ingresos</p>
-                <p style="margin:5px 0 0;font-size:1.7rem;font-weight:900;color:#28a745;">$${total.toLocaleString()}</p>
+                <p style="margin:5px 0 0;font-size:1.7rem;font-weight:900;color:#28a745;">${fmtPesos(total)}</p>
             </div>
             <div style="background:white;padding:16px;border-radius:12px;text-align:center;border-left:4px solid #1976D2;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                 <p style="margin:0;color:#555;font-size:0.82rem;">Turnos</p>
@@ -3426,7 +3432,7 @@ async function calcG() {
                     <tr style="background:${i%2===0?'white':'#fdf5f8'};border-bottom:1px solid #f0e0ea;">
                         <td style="padding:9px 12px;font-weight:600;">${n}</td>
                         <td style="padding:9px 12px;text-align:center;">${d.lista.length}</td>
-                        <td style="padding:9px 12px;text-align:right;font-weight:700;color:#28a745;">$${d.total.toLocaleString()}</td>
+                        <td style="padding:9px 12px;text-align:right;font-weight:700;color:#28a745;">${fmtPesos(d.total)}</td>
                         <td style="padding:7px 12px;text-align:center;">
                             <button data-prof="${esc(n)}" data-desde="${esc(desde)}" data-hasta="${esc(hasta)}"
                                     data-turnos='${esc(JSON.stringify(d.lista))}'
@@ -3505,7 +3511,7 @@ function rptProf(nombre, turnos, desde, hasta) {
                             <td style="padding:6px 8px;">${esc(t.cliente_nombre||t.cliente||'N/A')}</td>
                             <td style="padding:6px 8px;">${esc(t.servicio||'N/A')}</td>
                             <td style="padding:6px 8px;white-space:nowrap;">${new Date(t.fecha).toLocaleDateString('es-ES')}</td>
-                            <td style="padding:6px 8px;text-align:right;font-weight:700;">$${parseFloat(t.precio||0).toLocaleString()}</td>
+                            <td style="padding:6px 8px;text-align:right;font-weight:700;">${fmtPesos(parseFloat(t.precio||0))}</td>
                         </tr>`).join('')}
                     </tbody>
                 </table>
@@ -3530,14 +3536,14 @@ function calcFact(bruto) {
     const esp=bruto*pE, mat=bruto*pM, iva=bruto*pI, neto=bruto-esp-mat-iva-oG;
     const r=document.getElementById('resumen-fact'); if(!r) return;
     r.innerHTML=`<div style="font-size:0.87rem;display:flex;flex-direction:column;gap:5px;">
-        <div style="display:flex;justify-content:space-between;"><span>Ingresos brutos</span><strong>$${bruto.toLocaleString()}</strong></div>
-        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>Espacio</span><span>-$${esp.toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>Materiales</span><span>-$${mat.toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>IVA</span><span>-$${iva.toLocaleString()}</span></div>
-        ${oG>0?`<div style="display:flex;justify-content:space-between;color:#e53935;"><span>Otros</span><span>-$${oG.toLocaleString()}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;"><span>Ingresos brutos</span><strong>${fmtPesos(bruto)}</strong></div>
+        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>Espacio</span><span>-${fmtPesos(esp)}</span></div>
+        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>Materiales</span><span>-${fmtPesos(mat)}</span></div>
+        <div style="display:flex;justify-content:space-between;color:#e53935;"><span>IVA</span><span>-${fmtPesos(iva)}</span></div>
+        ${oG>0?`<div style="display:flex;justify-content:space-between;color:#e53935;"><span>Otros</span><span>-${fmtPesos(oG)}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;border-top:2px solid #C06C84;padding-top:7px;margin-top:4px;">
             <strong style="color:#C06C84;">Neto profesional</strong>
-            <strong style="color:#28a745;font-size:1.05rem;">$${neto.toLocaleString()}</strong>
+            <strong style="color:#28a745;font-size:1.05rem;">${fmtPesos(neto)}</strong>
         </div></div>`;
 }
 
@@ -3563,12 +3569,12 @@ function impRptProf(event) {
     .footer{text-align:center;margin-top:30px;color:#aaa;font-size:0.8rem;}@media print{body{padding:20px;}}</style></head><body>
     <h1>CHAMAS SPA — Reporte Individual</h1>
     <p class="sub">Profesional: <strong>${escNombre}</strong><br>Período: ${escDesde} → ${escHasta}</p>
-    <div class="f"><span>Ingresos brutos</span><strong>$${bruto.toLocaleString()}</strong></div>
-    <div class="f g"><span>Espacio (${(pE*100).toFixed(1)}%)</span><span>-$${esp.toLocaleString()}</span></div>
-    <div class="f g"><span>Materiales (${(pM*100).toFixed(1)}%)</span><span>-$${mat.toLocaleString()}</span></div>
-    <div class="f g"><span>IVA (${(pI*100).toFixed(1)}%)</span><span>-$${iva.toLocaleString()}</span></div>
-    ${oG>0?`<div class="f g"><span>Otros gastos</span><span>-$${oG.toLocaleString()}</span></div>`:''}
-    <div class="f tot"><span class="n">Neto profesional</span><span class="n">$${neto.toLocaleString()}</span></div>
+    <div class="f"><span>Ingresos brutos</span><strong>${fmtPesos(bruto)}</strong></div>
+    <div class="f g"><span>Espacio (${(pE*100).toFixed(1)}%)</span><span>-${fmtPesos(esp)}</span></div>
+    <div class="f g"><span>Materiales (${(pM*100).toFixed(1)}%)</span><span>-${fmtPesos(mat)}</span></div>
+    <div class="f g"><span>IVA (${(pI*100).toFixed(1)}%)</span><span>-${fmtPesos(iva)}</span></div>
+    ${oG>0?`<div class="f g"><span>Otros gastos</span><span>-${fmtPesos(oG)}</span></div>`:''}
+    <div class="f tot"><span class="n">Neto profesional</span><span class="n">${fmtPesos(neto)}</span></div>
     <div class="footer">Generado: ${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}<br>CHAMAS - Sistema de Gestión de Turnos</div>
     <script>window.onload=()=>{window.print();}<\/script></body></html>`);
     win.document.close();
@@ -4121,10 +4127,10 @@ async function cargarRetiros() {
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:${r.deshecho ? '#f0f0f0' : '#fdf5f8'};border-left:3px solid ${r.deshecho ? '#999' : '#C06C84'};border-radius:8px;padding:10px 12px;flex-wrap:wrap;${r.deshecho ? 'opacity:0.75;' : ''}">
                         <div>
                             <strong>${esc(r.profesional_nombre)}</strong>
-                            <small style="display:block;color:#888;">${r.metodo_retiro === 'transferencia' ? 'Transferencia' : 'Efectivo'} · Bruto del día: $${parseFloat(r.monto_bruto).toFixed(0)} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: $${parseFloat(r.monto_estetica).toFixed(0)}</small>
+                            <small style="display:block;color:#888;">${r.metodo_retiro === 'transferencia' ? 'Transferencia' : 'Efectivo'} · Bruto del día: ${fmtPesos(parseFloat(r.monto_bruto))} · Retira ${parseFloat(r.porcentaje_retiro)}% · Queda en estética: ${fmtPesos(parseFloat(r.monto_estetica))}</small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(0)}</strong>
+                            <strong style="color:#C06C84;">-${fmtPesos(parseFloat(r.monto_retirado))}</strong>
                             ${r.deshecho
                                 ? '<span style="background:#999;color:white;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:700;">DESHECHO</span>'
                                 : (esAdmin() ? '<button onclick="deshacerRetiro(' + r.id + ')" style="background:#f0f0f0;color:#C06C84;padding:4px 10px;border:1px solid #C06C84;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:700;">Deshacer</button>' : '')}
@@ -4150,7 +4156,7 @@ async function cargarRetiros() {
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff8e1;border-left:3px solid #ffc107;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
                             <strong>${s.profesional_nombre}</strong>
-                            <small style="display:block;color:#888;">Cobrado hoy: $${parseFloat(s.cobrado_hoy).toFixed(0)} · ${s.turnos_cobrados} turno(s) · Retira ${parseFloat(s.porcentaje_retiro)}% − neto estética $${netoFijo.toFixed(0)} (${nServ} servicio${nServ === 1 ? '' : 's'} × $${netoUnitario.toFixed(0)}) = <strong>$${montoMax}</strong></small>
+                            <small style="display:block;color:#888;">Cobrado hoy: ${fmtPesos(parseFloat(s.cobrado_hoy))} · ${s.turnos_cobrados} turno(s) · Retira ${parseFloat(s.porcentaje_retiro)}% − neto estética ${fmtPesos(netoFijo)} (${nServ} servicio${nServ === 1 ? '' : 's'} × ${fmtPesos(netoUnitario)}) = <strong>$${montoMax}</strong></small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <select id="metodo-retiro-${s.profesional_id}" onchange="toggleRetiroAmbos(${s.profesional_id})" style="padding:8px 10px;border:2px solid #e0e0e0;border-radius:8px;font-size:0.85rem;background:white;"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="ambos">Efectivo + Transferencia</option></select><span id="split-retiro-${s.profesional_id}" style="display:none;gap:6px;"><input id="ret-ef-${s.profesional_id}" type="number" min="0" step="0.01" placeholder="Efectivo $" style="width:110px;padding:7px;border:2px solid #e0e0e0;border-radius:8px;"><input id="ret-tr-${s.profesional_id}" type="number" min="0" step="0.01" placeholder="Transf. $" style="width:110px;padding:7px;border:2px solid #e0e0e0;border-radius:8px;"></span>
@@ -4183,7 +4189,7 @@ async function registrarRetiro(event, profesionalId) {
     const ef = parseFloat(document.getElementById('ret-ef-'+profesionalId)?.value) || 0;
     const tr = parseFloat(document.getElementById('ret-tr-'+profesionalId)?.value) || 0;
     if (metodo === 'ambos' && ef + tr <= 0) { mostrarNotificacion('Indicá el monto en efectivo y/o transferencia', 'error'); return; }
-    const detalle = metodo === 'ambos' ? `Efectivo $${ef.toFixed(0)} + Transferencia $${tr.toFixed(0)}` : (metodo === 'transferencia' ? 'Transferencia' : 'Efectivo');
+    const detalle = metodo === 'ambos' ? `Efectivo ${fmtPesos(ef)} + Transferencia ${fmtPesos(tr)}` : (metodo === 'transferencia' ? 'Transferencia' : 'Efectivo');
     if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${detalle}\nSe descontará de la caja de hoy.`)) return;
     event.currentTarget.disabled = true;
     const btnText = event.currentTarget.textContent;
@@ -4235,7 +4241,7 @@ function renderUltimoCierreCard(data) {
         <div style="background:#e8f5e9;border:2px solid #28a745;border-radius:12px;padding:14px 18px;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div>
                 <strong style="color:#155724;display:block;">Último cierre (${fecha})</strong>
-                <small style="color:#256029;">Quedaron en caja <strong>$${parseFloat(a.monto_final || 0).toFixed(0)}</strong>.${a.diferencia !== null && a.diferencia !== undefined ? ` Diferencia del cierre: <strong>$${parseFloat(a.diferencia).toFixed(0)}</strong>.` : ''}</small>
+                <small style="color:#256029;">Quedaron en caja <strong>${fmtPesos(parseFloat(a.monto_final || 0))}</strong>.${a.diferencia !== null && a.diferencia !== undefined ? ` Diferencia del cierre: <strong>${fmtPesos(parseFloat(a.diferencia))}</strong>.` : ''}</small>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button onclick="abrirFacturasCaja(${a.id}, ${esAdmin})" style="background:#B9770E;color:white;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Ver facturas</button>
@@ -4444,7 +4450,7 @@ async function abrirFacturasCaja(cajaId, esAdmin) {
             <td style="padding:8px;">${esc(f.cliente_nombre || '—')}</td>
             <td style="padding:8px;">${esc(f.profesional_nombre || '—')}</td>
             <td style="padding:8px;">${esc(f.metodo_pago || '')}</td>
-            <td style="padding:8px;text-align:right;font-weight:700;">$${parseFloat(f.total || 0).toFixed(0)}</td>
+            <td style="padding:8px;text-align:right;font-weight:700;">${fmtPesos(parseFloat(f.total || 0))}</td>
             ${esAdmin ? `<td style="padding:8px;"><button onclick="editarFactura(${f.numero}, ${cajaId})" style="background:#2c7be5;color:white;padding:5px 10px;border:none;border-radius:6px;cursor:pointer;">Editar</button></td>` : ''}
         </tr>`).join('') : '<tr><td colspan="7" style="padding:12px;color:#888;text-align:center;">Sin facturas en esta caja.</td></tr>';
     const modal = document.createElement('div');
@@ -4608,19 +4614,19 @@ function renderizarAperturaCaja(data) {
     const pagosHtml = tickets.length ? tickets.map((t, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
             <span style="color:#444;"><strong>#${t.numero}</strong> <small style="color:#aaa;">${t.hora}hs</small> · ${esc(t.cliente_nombre || 'Cliente')}${t.profesional_nombre ? ' · <span style="color:#C06C84;">' + esc(t.profesional_nombre) + '</span>' : ''}<br><small style="color:#777;">${esc(itemsLegibles(t.items))}</small></span>
-            <span><strong>${etiquetaPago(t)} $${parseFloat(t.total).toFixed(0)}</strong></span>
+            <span><strong>${etiquetaPago(t)} ${fmtPesos(parseFloat(t.total))}</strong></span>
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Todavía no se cobró ningún turno del día.</p>';
 
     const gastosHtml = gastos.length ? gastos.map((g, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;">
             <span style="color:#555;"><strong>${g.tipo === 'fijo' ? '' : ''} ${g.descripcion}</strong><br><small style="color:#aaa;">${metodoIcon(g.metodo_pago)}</small></span>
-            <span style="font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(0)}</span>
+            <span style="font-weight:700;color:#dc3545;">-${fmtPesos(parseFloat(g.monto))}</span>
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Sin gastos registrados.</p>';
 
     const retirosHtml = retiros.length ? retiros.map((r, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
-            <span style="color:#555;"><strong>${esc(r.profesional_nombre)}</strong><br><small style="color:#aaa;">Bruto $${parseFloat(r.monto_bruto).toFixed(0)} · Retira ${r.porcentaje_retiro}%</small></span>
-            <span style="font-weight:700;color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(0)}</span>
+            <span style="color:#555;"><strong>${esc(r.profesional_nombre)}</strong><br><small style="color:#aaa;">Bruto ${fmtPesos(parseFloat(r.monto_bruto))} · Retira ${r.porcentaje_retiro}%</small></span>
+            <span style="font-weight:700;color:#C06C84;">-${fmtPesos(parseFloat(r.monto_retirado))}</span>
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Aún no se retiraron porcentajes. Se sugieren abajo según los cobros del día.</p>';
 
     return `
@@ -4629,17 +4635,17 @@ function renderizarAperturaCaja(data) {
                 <div>
                     <h3 style="margin:0;color:#28a745;">Apertura de Caja del Día</h3>
                     <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">
-                        Fondo inicial: <strong>$${c.monto_inicial ? parseFloat(c.monto_inicial).toFixed(0) : '0.00'}</strong> ·
-                        Cobrado: <strong style="color:#28a745;">$${(parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0)).toFixed(0)}</strong>
+                        Fondo inicial: <strong>${fmtPesos(c.monto_inicial)}</strong> ·
+                        Cobrado: <strong style="color:#28a745;">${fmtPesos((parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0)))}</strong>
                         ${c.cajero_nombre ? ' · ' + c.cajero_nombre : ''}
                     </p>
                 </div>
                 <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Arqueo y Cierre</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:14px 0;">
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Efectivo</small><br><strong>$${parseFloat(c.total_efectivo || 0).toFixed(0)}</strong></div>
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Transferencia</small><br><strong>$${parseFloat(c.total_transferencia || 0).toFixed(0)}</strong></div>
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Débito</small><br><strong>$${parseFloat(c.total_debito || 0).toFixed(0)}</strong></div>
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Efectivo</small><br><strong>${fmtPesos(parseFloat(c.total_efectivo || 0))}</strong></div>
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Transferencia</small><br><strong>${fmtPesos(parseFloat(c.total_transferencia || 0))}</strong></div>
+                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Débito</small><br><strong>${fmtPesos(parseFloat(c.total_debito || 0))}</strong></div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
                 <div>
@@ -4748,9 +4754,9 @@ function actualizarTotalArqueo() {
         const sub = v * cant;
         total += sub;
         const sp = document.querySelector(`.subtotal-arqueo[data-denom="${inp.dataset.denom}"]`);
-        if (sp) sp.textContent = '$' + sub.toFixed(0);
+        if (sp) sp.textContent = fmtPesos(sub);
     });
-    document.getElementById('arqueo-total').textContent = '$' + total.toFixed(0);
+    document.getElementById('arqueo-total').textContent = fmtPesos(total);
 }
 
 async function confirmarCerrarCaja() {
@@ -4795,29 +4801,29 @@ function mostrarResumenCierre(r) {
         <div style="background:white;border-radius:20px;padding:32px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
             <h3 style="color:#C06C84;margin:0 0 16px 0;text-align:center;">Cierre de Caja</h3>
             <div style="background:#f9f9f9;border-radius:12px;padding:16px;font-size:0.92rem;">
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Fondo inicial</span><strong>$${r.monto_inicial.toFixed(0)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Efectivo</span><strong>$${r.total_efectivo.toFixed(0)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Transferencia</span><strong>$${r.total_transferencia.toFixed(0)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Débito</span><strong>$${r.total_debito.toFixed(0)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed #ccc;margin-top:4px;"><span style="color:#555;font-weight:700;">Total ventas</span><strong style="color:#28a745;">$${r.total_ventas.toFixed(0)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Retiros de profesionales</span><strong style="color:#C06C84;">-$${(r.total_retiros||0).toFixed(0)}</strong></div>
-                ${r.total_gastos ? `<div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Gastos del local</span><strong style="color:#dc3545;">-$${(r.total_gastos||0).toFixed(0)}</strong></div>` : ''}
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Fondo inicial</span><strong>${fmtPesos(r.monto_inicial)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Efectivo</span><strong>${fmtPesos(r.total_efectivo)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Transferencia</span><strong>${fmtPesos(r.total_transferencia)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Débito</span><strong>${fmtPesos(r.total_debito)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px dashed #ccc;margin-top:4px;"><span style="color:#555;font-weight:700;">Total ventas</span><strong style="color:#28a745;">${fmtPesos(r.total_ventas)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Retiros de profesionales</span><strong style="color:#C06C84;">-${fmtPesos((r.total_retiros||0))}</strong></div>
+                ${r.total_gastos ? `<div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Gastos del local</span><strong style="color:#dc3545;">-${fmtPesos((r.total_gastos||0))}</strong></div>` : ''}
                 ${(r.arqueo && r.arqueo.length) ? `
                 <div style="border-top:1px dashed #ccc;margin-top:4px;padding-top:6px;">
                     <span style="color:#555;font-weight:700;">Arqueo</span>
                     <div style="margin-top:4px;">
                     ${r.arqueo.map(a => `
                         <div style="display:flex;justify-content:space-between;padding:2px 0;font-size:0.85rem;">
-                            <span style="color:#888;">${a.tipo === 'moneda' ? '' : ''} $${a.denominacion} × ${a.cantidad}</span><strong>$${a.subtotal.toFixed(0)}</strong>
+                            <span style="color:#888;">${a.tipo === 'moneda' ? '' : ''} $${a.denominacion} × ${a.cantidad}</span><strong>${fmtPesos(a.subtotal)}</strong>
                         </div>`).join('')}
                     </div>
                 </div>` : ''}
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Debería haber</span><strong>$${r.dinero_en_caja_esperado.toFixed(0)}</strong></div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Dinero contado</span><strong>$${r.dinero_contado.toFixed(0)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Debería haber</span><strong>${fmtPesos(r.dinero_en_caja_esperado)}</strong></div>
+                <div style="display:flex;justify-content:space-between;padding:5px 0;"><span style="color:#888;">Dinero contado</span><strong>${fmtPesos(r.dinero_contado)}</strong></div>
                 <div style="display:flex;justify-content:space-between;padding:8px 0 0;border-top:2px solid #C06C84;margin-top:4px;">
                     <span style="font-weight:800;color:#C06C84;">Diferencia</span>
                     <strong style="color:${r.diferencia === 0 ? '#28a745' : (r.diferencia < 0 ? '#dc3545' : '#f39c12')};">
-                        ${r.diferencia > 0 ? '+' : ''}$${r.diferencia.toFixed(0)}
+                        ${r.diferencia > 0 ? '+' : ''}${fmtPesos(r.diferencia)}
                     </strong>
                 </div>
             </div>
@@ -4849,21 +4855,21 @@ function abrirModalPlanillaCierre(event) {
     <p style="margin:2px 0;">${new Date().toLocaleString('es-AR')}</p>
   </div>
   <hr>
-  <div class="row"><span>Fondo inicial</span><span>$${r.monto_inicial.toFixed(0)}</span></div>
-  <div class="row"><span>Efectivo</span><span>$${r.total_efectivo.toFixed(0)}</span></div>
-  <div class="row"><span>Transferencia</span><span>$${r.total_transferencia.toFixed(0)}</span></div>
-  <div class="row"><span>Débito</span><span>$${r.total_debito.toFixed(0)}</span></div>
-  <div class="row"><span>Total ventas</span><span>$${r.total_ventas.toFixed(0)}</span></div>
-  <div class="row"><span>Retiros</span><span>-$${(r.total_retiros||0).toFixed(0)}</span></div>
-  ${r.total_gastos ? `<div class="row"><span>Gastos local</span><span>-$${r.total_gastos.toFixed(0)}</span></div>` : ''}
+  <div class="row"><span>Fondo inicial</span><span>${fmtPesos(r.monto_inicial)}</span></div>
+  <div class="row"><span>Efectivo</span><span>${fmtPesos(r.total_efectivo)}</span></div>
+  <div class="row"><span>Transferencia</span><span>${fmtPesos(r.total_transferencia)}</span></div>
+  <div class="row"><span>Débito</span><span>${fmtPesos(r.total_debito)}</span></div>
+  <div class="row"><span>Total ventas</span><span>${fmtPesos(r.total_ventas)}</span></div>
+  <div class="row"><span>Retiros</span><span>-${fmtPesos((r.total_retiros||0))}</span></div>
+  ${r.total_gastos ? `<div class="row"><span>Gastos local</span><span>-${fmtPesos(r.total_gastos)}</span></div>` : ''}
   <hr>
   ${(r.arqueo && r.arqueo.length) ? `
   <div class="center bold" style="margin:4px 0;">-- ARQUEO --</div>
-  ${r.arqueo.map(a => `<div class="row"><span>${a.tipo === 'moneda' ? 'Moneda' : 'Billete'} $${a.denominacion} × ${a.cantidad}</span><span>$${a.subtotal.toFixed(0)}</span></div>`).join('')}
+  ${r.arqueo.map(a => `<div class="row"><span>${a.tipo === 'moneda' ? 'Moneda' : 'Billete'} $${a.denominacion} × ${a.cantidad}</span><span>${fmtPesos(a.subtotal)}</span></div>`).join('')}
   <hr>` : ''}
-  <div class="row"><span>Debería haber</span><span>$${r.dinero_en_caja_esperado.toFixed(0)}</span></div>
-  <div class="row"><span>Dinero contado</span><span>$${r.dinero_contado.toFixed(0)}</span></div>
-  <div class="row bold"><span>DIFERENCIA</span><span>$${r.diferencia.toFixed(0)}</span></div>
+  <div class="row"><span>Debería haber</span><span>${fmtPesos(r.dinero_en_caja_esperado)}</span></div>
+  <div class="row"><span>Dinero contado</span><span>${fmtPesos(r.dinero_contado)}</span></div>
+  <div class="row bold"><span>DIFERENCIA</span><span>${fmtPesos(r.diferencia)}</span></div>
   <hr>
   <div class="center"><p>Firma cajero: ______________</p></div>
   <script>window.onload=()=>{window.print();}<\/script>
@@ -4903,7 +4909,7 @@ async function cargarTurnosCaja() {
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <strong style="color:#28a745;font-size:1.15rem;">$${parseFloat(t.precio || 0).toFixed(0)}</strong>
+                    <strong style="color:#28a745;font-size:1.15rem;">${fmtPesos(parseFloat(t.precio || 0))}</strong>
                     ${esCobrado
                         ? `<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">Cobrado</span>
                         <button onclick="abrirModalEditar(${t.id})" title="Editar turno" style="background:#6c757d;color:white;padding:6px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">Editar</button>`
@@ -5090,7 +5096,7 @@ async function cargarGastosAdmin() {
                 <td style="padding:10px 8px;"><strong>${g.descripcion}</strong></td>
                 <td style="padding:10px 8px;">${g.metodo_pago}</td>
                 <td style="padding:10px 8px;color:#777;font-size:0.8rem;">${g.cajero_nombre || g.registrado_por_nombre || '—'}</td>
-                <td style="padding:10px 8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(0)}</td>
+                <td style="padding:10px 8px;font-weight:700;color:#dc3545;">-${fmtPesos(parseFloat(g.monto))}</td>
                 ${esAdmin ? `<td style="padding:10px 8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;">×</button></td>` : ''}
             </tr>`;
 
@@ -5103,7 +5109,7 @@ async function cargarGastosAdmin() {
                 <details ${idx === 0 ? 'open' : ''} style="margin-bottom:10px;border:1px solid #e5d4ea;border-radius:10px;overflow:hidden;">
                     <summary style="padding:12px 14px;cursor:pointer;background:#f6f0f8;font-weight:700;color:#6C3483;display:flex;justify-content:space-between;align-items:center;">
                         <span style="text-transform:capitalize;">${nombre} (${lista.length})</span>
-                        <span style="color:#dc3545;">-$${sub.toFixed(0)}</span>
+                        <span style="color:#dc3545;">-${fmtPesos(sub)}</span>
                     </summary>
                     <div style="overflow-x:auto;">
                         <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:650px;">
@@ -5125,7 +5131,7 @@ async function cargarGastosAdmin() {
         container.innerHTML = `${bloques}
             <div style="margin-top:10px;text-align:right;font-size:0.95rem;">
                 <strong style="color:#6C3483;">Total de gastos del filtro: </strong>
-                <strong style="color:#dc3545;">$${total.toFixed(0)}</strong>
+                <strong style="color:#dc3545;">${fmtPesos(total)}</strong>
             </div>`;
     } catch (e) {
         container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar los gastos</p>';
@@ -5164,14 +5170,14 @@ async function cargarGastosCaja() {
                             <td style="padding:8px;">${_etiquetaTipoGasto(g.tipo)}</td>
                             <td style="padding:8px;"><strong>${g.descripcion}</strong></td>
                             <td style="padding:8px;">${g.metodo_pago}</td>
-                            <td style="padding:8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(0)}</td>
+                            <td style="padding:8px;font-weight:700;color:#dc3545;">-${fmtPesos(parseFloat(g.monto))}</td>
                             ${esAdmin ? `<td style="padding:8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:5px 9px;border:none;border-radius:6px;cursor:pointer;">×</button></td>` : ''}
                         </tr>`).join('')}
                     </tbody>
                 </table>
                 <div style="margin-top:8px;text-align:right;font-size:0.9rem;">
                     <strong style="color:#6C3483;">Total gastos hoy: </strong>
-                    <strong style="color:#dc3545;">$${total.toFixed(0)}</strong>
+                    <strong style="color:#dc3545;">${fmtPesos(total)}</strong>
                 </div>
             </div>`;
     } catch (e) {
@@ -5224,25 +5230,25 @@ async function cargarGastosCaja() {
                     ${filas.map((r, i) => `
                         <tr style="background:${i % 2 === 0 ? 'white' : '#fdf5f8'};border-bottom:1px solid #f0e0ea;">
                             <td style="padding:10px 8px;font-weight:700;color:#C06C84;">${etiqueta(r.fecha)}</td>
-                            <td style="padding:10px 8px;">$${r.efectivo.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${r.transferencia.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${r.debito.toFixed(0)}</td>
-                            <td style="padding:10px 8px;font-weight:700;">$${r.total_ventas.toFixed(0)}</td>
-                            <td style="padding:10px 8px;color:#dc3545;">-$${r.total_gastos.toFixed(0)}</td>
-                            <td style="padding:10px 8px;color:#C06C84;">-$${r.total_retiros.toFixed(0)}</td>
-                            <td style="padding:10px 8px;font-weight:700;color:#28a745;">$${(r.total_ventas - r.total_gastos - r.total_retiros).toFixed(0)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(r.efectivo)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(r.transferencia)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(r.debito)}</td>
+                            <td style="padding:10px 8px;font-weight:700;">${fmtPesos(r.total_ventas)}</td>
+                            <td style="padding:10px 8px;color:#dc3545;">-${fmtPesos(r.total_gastos)}</td>
+                            <td style="padding:10px 8px;color:#C06C84;">-${fmtPesos(r.total_retiros)}</td>
+                            <td style="padding:10px 8px;font-weight:700;color:#28a745;">${fmtPesos((r.total_ventas - r.total_gastos - r.total_retiros))}</td>
                         </tr>`).join('')}
                     </tbody>
                     <tfoot>
                         <tr style="background:#C06C84;color:white;font-weight:700;">
                             <td style="padding:10px 8px;">TOTALES</td>
-                            <td style="padding:10px 8px;">$${filas.reduce((s, r) => s + r.efectivo, 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${filas.reduce((s, r) => s + r.transferencia, 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${filas.reduce((s, r) => s + r.debito, 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${totalVentas.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">-$${totalGastos.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">-$${totalRetiros.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${neto.toFixed(0)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(filas.reduce((s, r) => s + r.efectivo, 0))}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(filas.reduce((s, r) => s + r.transferencia, 0))}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(filas.reduce((s, r) => s + r.debito, 0))}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(totalVentas)}</td>
+                            <td style="padding:10px 8px;">-${fmtPesos(totalGastos)}</td>
+                            <td style="padding:10px 8px;">-${fmtPesos(totalRetiros)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(neto)}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -5266,12 +5272,12 @@ async function chequearReasignacionCobros(container) {
         const data = await res.json();
         if (!data.cantidad) return;
         const lista = (data.dias || []).map(d =>
-            `${d.cantidad} cobro${d.cantidad === 1 ? '' : 's'} del ${String(d.fecha).split('-').reverse().join('/')} ($${Number(d.monto).toFixed(0)})`
+            `${d.cantidad} cobro${d.cantidad === 1 ? '' : 's'} del ${String(d.fecha).split('-').reverse().join('/')} (${fmtPesos(Number(d.monto))})`
         ).join(' · ');
         cont.insertAdjacentHTML('afterbegin', `
             <div style="background:#fff4e5;border:1px solid #f0c36d;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:0.86rem;color:#7a4b00;">
                 <strong style="display:block;margin-bottom:4px;">Hay cobros guardados en una caja de otro día</strong>
-                ${data.cantidad} cobro${data.cantidad === 1 ? '' : 's'} (total $${Number(data.monto_total).toFixed(0)}) están anotados en una caja que no es del día en que se cobraron${data.sin_caja ? `, y ${data.sin_caja} sin caja asignada` : ''}:
+                ${data.cantidad} cobro${data.cantidad === 1 ? '' : 's'} (total ${fmtPesos(Number(data.monto_total))}) están anotados en una caja que no es del día en que se cobraron${data.sin_caja ? `, y ${data.sin_caja} sin caja asignada` : ''}:
                 <div style="margin:6px 0;color:#8a5a00;">${lista}</div>
                 Si los reasignás, cada día va a mostrar su propio cobro en este registro.
                 <button onclick="reasignarCobrosASuDia()" style="margin-top:8px;background:#B9770E;color:white;padding:7px 12px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Reasignar cobros a su día</button>
@@ -5360,13 +5366,13 @@ const cacheDetalleCajas = {};
                             <td style="padding:10px 8px;font-weight:700;color:#B9770E;">${fmt(c.fecha)}</td>
                             <td style="padding:10px 8px;">${c.estado === 'abierta' ? '<span style="background:#e8f8f0;color:#1aa851;padding:3px 8px;border-radius:6px;font-weight:700;">Abierta</span>' : '<span style="background:#fdf5f8;color:#C06C84;padding:3px 8px;border-radius:6px;font-weight:700;">Cerrada</span>'}</td>
                             <td style="padding:10px 8px;">${c.cajero_nombre || '—'}<br><small style="color:#aaa;">${fmtHora(c.abierta_at)}hs</small></td>
-                            <td style="padding:10px 8px;">$${parseFloat(c.monto_inicial || 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${parseFloat(c.efectivo || 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${parseFloat(c.transferencia || 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${parseFloat(c.debito || 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;font-weight:700;">$${parseFloat(c.total_cobrado || 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;color:#dc3545;">-$${Number(c.total_gastos || 0).toFixed(0)}</td>
-                            <td style="padding:10px 8px;color:#C06C84;">-$${Number(c.total_retiros || 0).toFixed(0)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(parseFloat(c.monto_inicial || 0))}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(parseFloat(c.efectivo || 0))}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(parseFloat(c.transferencia || 0))}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(parseFloat(c.debito || 0))}</td>
+                            <td style="padding:10px 8px;font-weight:700;">${fmtPesos(parseFloat(c.total_cobrado || 0))}</td>
+                            <td style="padding:10px 8px;color:#dc3545;">-${fmtPesos(Number(c.total_gastos || 0))}</td>
+                            <td style="padding:10px 8px;color:#C06C84;">-${fmtPesos(Number(c.total_retiros || 0))}</td>
                             <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? (c.monto_final == null ? '<span style="color:#bbb;font-weight:400;">Sin arqueo</span>' : '$' + Number(c.monto_final).toFixed(0) + '<br><small style="color:#aaa;font-weight:400;">' + fmtHora(c.cerrada_at) + 'hs</small>') : '—'}</td>
                             <td style="padding:10px 8px;">
                                 <button title="Ver detalle completo" onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Ver</button>
@@ -5384,13 +5390,13 @@ const cacheDetalleCajas = {};
                         <tr style="background:#B9770E;color:white;font-weight:700;">
                             <td style="padding:10px 8px;">TOTALES</td>
                             <td style="padding:10px 8px;" colspan="2">${reales.length} caja${reales.length === 1 ? '' : 's'}</td>
-                            <td style="padding:10px 8px;">$${tot.ini.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${tot.ef.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${tot.tr.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${tot.db.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">$${tot.co.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">-$${tot.ga.toFixed(0)}</td>
-                            <td style="padding:10px 8px;">-$${tot.re.toFixed(0)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(tot.ini)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(tot.ef)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(tot.tr)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(tot.db)}</td>
+                            <td style="padding:10px 8px;">${fmtPesos(tot.co)}</td>
+                            <td style="padding:10px 8px;">-${fmtPesos(tot.ga)}</td>
+                            <td style="padding:10px 8px;">-${fmtPesos(tot.re)}</td>
                             <td style="padding:10px 8px;"></td>
                             <td style="padding:10px 8px;"></td>
                         </tr>
@@ -5431,25 +5437,25 @@ async function verDetalleCaja(cajaId) {
         const pagos = (d.tickets || []).map((t, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
                 <span style="color:#444;"><strong>#${t.numero}</strong> · ${esc(t.hora)}hs · ${esc(t.cliente_nombre || 'Cliente')} · ${esc(t.profesional_nombre || '')} ${esc(itemsLegibles(t.items))}</span>
-                <span><strong>${etiquetaPago(t)} $${parseFloat(t.total).toFixed(0)}</strong></span>
+                <span><strong>${etiquetaPago(t)} ${fmtPesos(parseFloat(t.total))}</strong></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin pagos.</p>';
 
         const gastos = (d.gastos || []).map((g, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
                 <span style="color:#444;"><strong>${g.tipo === 'fijo' ? '' : ''} ${g.descripcion}</strong> · ${metodoIcon(g.metodo_pago)}</span>
-                <span><strong style="color:#dc3545;">-$${parseFloat(g.monto).toFixed(0)}</strong></span>
+                <span><strong style="color:#dc3545;">-${fmtPesos(parseFloat(g.monto))}</strong></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin gastos.</p>';
 
         const retiros = (d.retiros || []).map((r, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;gap:8px;flex-wrap:wrap;">
-                <span style="color:#444;"><strong>${esc(r.profesional_nombre)}</strong> · bruto $${parseFloat(r.monto_bruto).toFixed(0)} · ${r.porcentaje_retiro}%</span>
-                <span><strong style="color:#C06C84;">-$${parseFloat(r.monto_retirado).toFixed(0)}</strong> <small style="color:#aaa;">${metodoIcon(r.metodo_retiro)}</small></span>
+                <span style="color:#444;"><strong>${esc(r.profesional_nombre)}</strong> · bruto ${fmtPesos(parseFloat(r.monto_bruto))} · ${r.porcentaje_retiro}%</span>
+                <span><strong style="color:#C06C84;">-${fmtPesos(parseFloat(r.monto_retirado))}</strong> <small style="color:#aaa;">${metodoIcon(r.metodo_retiro)}</small></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin retiros.</p>';
 
         const arqueo = (d.arqueo || []).map((a, i) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};border-radius:7px;margin-bottom:4px;font-size:0.85rem;">
                 <span style="color:#444;">${a.tipo === 'moneda' ? '' : ''} $${a.denominacion} × ${a.cantidad}</span>
-                <span><strong>$${parseFloat(a.subtotal).toFixed(0)}</strong></span>
+                <span><strong>${fmtPesos(parseFloat(a.subtotal))}</strong></span>
             </div>`).join('') || '<p style="color:#888;font-size:0.85rem;">Sin arqueo registrado.</p>';
 
         const c = d.caja || {};
@@ -5459,9 +5465,9 @@ async function verDetalleCaja(cajaId) {
         td.innerHTML = `
             <div style="padding:16px 20px;">
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px;">
-                    <div style="background:#fdf7ea;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Apertura</small><br><strong>$${parseFloat(c.monto_inicial || 0).toFixed(0)}</strong></div>
-                    <div style="background:#e8f8f0;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Cobrado</small><br><strong style="color:#1aa851;">$${parseFloat(d.total_ventas || 0).toFixed(0)}</strong></div>
-                    <div style="background:#fdf5f8;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Esperado</small><br><strong>$${esperado.toFixed(0)}</strong></div>
+                    <div style="background:#fdf7ea;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Apertura</small><br><strong>${fmtPesos(parseFloat(c.monto_inicial || 0))}</strong></div>
+                    <div style="background:#e8f8f0;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Cobrado</small><br><strong style="color:#1aa851;">${fmtPesos(parseFloat(d.total_ventas || 0))}</strong></div>
+                    <div style="background:#fdf5f8;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Esperado</small><br><strong>${fmtPesos(esperado)}</strong></div>
                     <div style="background:#fdf5f8;border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Contado (cierre)</small><br><strong>${c.estado === 'cerrada' ? '$' + parseFloat(c.monto_final || 0).toFixed(0) : '—'}</strong></div>
                     <div style="background:${diferencia === null ? '#f0f0f0' : (diferencia === 0 ? '#e8f8f0' : (diferencia < 0 ? '#fdeaea' : '#fff8e1'))};border-radius:9px;padding:10px;text-align:center;"><small style="color:#888;">Diferencia</small><br><strong style="color:${diferencia === null ? '#888' : (diferencia === 0 ? '#1aa851' : (diferencia < 0 ? '#dc3545' : '#B9770E'))};">${diferencia === null ? '—' : (diferencia >= 0 ? '+' : '') + diferencia.toFixed(0)}</strong></div>
                 </div>
@@ -5515,7 +5521,7 @@ function etiquetaPago(t) {
             const d = JSON.parse(t.metodo_pago_detalle);
             const partes = ['efectivo', 'transferencia', 'debito']
                 .filter(k => parseFloat(d[k]) > 0)
-                .map(k => `${nombreMetodoPago(k)} $${parseFloat(d[k]).toFixed(0)}`);
+                .map(k => `${nombreMetodoPago(k)} ${fmtPesos(parseFloat(d[k]))}`);
             if (partes.length) return `${base} (${partes.join(' + ')})`;
         } catch (e) {}
     }
@@ -5607,15 +5613,15 @@ function actualizarRepartoCobro() {
     const aviso = document.getElementById('cobro-reparto-aviso');
     if (!aviso) return;
     if (Math.abs(dif) <= 0.01) {
-        aviso.textContent = 'Reparto correcto: suma $' + total.toFixed(0);
+        aviso.textContent = 'Reparto correcto: suma ' + fmtPesos(total);
         aviso.classList.add('ok');
         aviso.classList.remove('mal');
     } else if (dif > 0) {
-        aviso.textContent = 'Falta repartir $' + dif.toFixed(0);
+        aviso.textContent = 'Falta repartir ' + fmtPesos(dif);
         aviso.classList.add('mal');
         aviso.classList.remove('ok');
     } else {
-        aviso.textContent = 'Sobran $' + Math.abs(dif).toFixed(0);
+        aviso.textContent = 'Sobran ' + fmtPesos(Math.abs(dif));
         aviso.classList.add('mal');
         aviso.classList.remove('ok');
     }
@@ -5732,8 +5738,8 @@ function recalcularTotalModalCobro() {
     const subDisenos = cantDisenos * 800;
     const spP = document.getElementById('subtotal-piedreria');
     const spD = document.getElementById('subtotal-disenos');
-    if (spP) spP.textContent = '$' + subPiedreria.toFixed(0);
-    if (spD) spD.textContent = '$' + subDisenos.toFixed(0);
+    if (spP) spP.textContent = fmtPesos(subPiedreria);
+    if (spD) spD.textContent = fmtPesos(subDisenos);
     const descuentoPct = parseFloat(document.getElementById('cobro-descuento')?.value || 0) || 0;
     let total = base + subPiedreria + subDisenos;
     if (descuentoPct > 0 && total > 0) {
@@ -5764,7 +5770,7 @@ async function cargarItemsModalCobro(turnoId) {
             <div style="display:flex;justify-content:space-between;align-items:center;background:#f9f9f9;border-radius:8px;padding:8px 10px;">
                 <span style="font-size:0.9rem;">${esc(it.nombre)}</span>
                 <span style="display:flex;align-items:center;gap:8px;">
-                    <strong style="color:#28a745;font-size:0.9rem;">$${parseFloat(it.precio || 0).toFixed(0)}</strong>
+                    <strong style="color:#28a745;font-size:0.9rem;">${fmtPesos(parseFloat(it.precio || 0))}</strong>
                     <button onclick="quitarServicioDelTurno(${turnoId}, ${it.id})" title="Quitar servicio"
                         style="background:#fff0f0;border:none;color:#dc3545;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">×</button>
                 </span>
@@ -5782,7 +5788,7 @@ function llenarServiciosExtraModal() {
     const idsTurno = new Set(_turnoItemsActivos.map(it => String(it.servicio_id)));
     select.innerHTML = '<option value="">Agregar servicio...</option>' +
         servicios.filter(s => s.activo !== false && !idsTurno.has(String(s.id)))
-            .map(s => `<option value="${s.id}">${s.nombre} - $${s.precio}</option>`).join('');
+            .map(s => `<option value="${s.id}">${s.nombre} - ${fmtPesos(s.precio)}</option>`).join('');
     select.disabled = false;
 }
 
@@ -5856,7 +5862,7 @@ async function confirmarCobro(turnoId) {
         }
         const suma = Math.round(pagos.reduce((s, p) => s + p.monto, 0) * 100) / 100;
         if (Math.abs(suma - montoNum) > 0.01) {
-            mostrarNotificacion(`La suma de los pagos debe ser igual al total ($${montoNum.toFixed(0)})`, 'error');
+            mostrarNotificacion(`La suma de los pagos debe ser igual al total (${fmtPesos(montoNum)})`, 'error');
             return;
         }
     } else {
@@ -5904,7 +5910,7 @@ async function confirmarCobro(turnoId) {
 // el CAE y reemplazar/complementar el contenido por el comprobante oficial.
 function imprimirTicket(t) {
     const itemsHtml = (t.items || []).map(it =>
-        `<tr><td style="padding:2px 0;">${esc(it.servicio)}</td><td style="padding:2px 0;text-align:right;">$${parseFloat(it.importe).toFixed(0)}</td></tr>`
+        `<tr><td style="padding:2px 0;">${esc(it.servicio)}</td><td style="padding:2px 0;text-align:right;">${fmtPesos(parseFloat(it.importe))}</td></tr>`
     ).join('');
 
     const cuitLine = t.local_cuit ? `<p style="margin:2px 0;">CUIT: ${esc(t.local_cuit)}</p>` : '';
@@ -5939,13 +5945,13 @@ function imprimirTicket(t) {
   </table>
   <hr>
   <div style="text-align:right;">
-    <p style="margin:2px 0;">Subtotal: $${parseFloat(t.subtotal).toFixed(0)}</p>
-    ${t.descuento ? '<p style="margin:2px 0;">Descuento: -$' + parseFloat(t.descuento).toFixed(0) + '</p>' : ''}
-    <p class="bold" style="margin:2px 0;font-size:14px;">TOTAL: $${parseFloat(t.total).toFixed(0)}</p>
+    <p style="margin:2px 0;">Subtotal: ${fmtPesos(parseFloat(t.subtotal))}</p>
+    ${t.descuento ? '<p style="margin:2px 0;">Descuento: -' + fmtPesos(t.descuento) + '</p>' : ''}
+    <p class="bold" style="margin:2px 0;font-size:14px;">TOTAL: ${fmtPesos(parseFloat(t.total))}</p>
   </div>
   <hr>
   ${Array.isArray(t.pagos) && t.pagos.length > 1
-      ? t.pagos.map(p => `<p style="margin:2px 0;">${nombreMetodoPago(p.metodo)}: $${parseFloat(p.monto).toFixed(0)}</p>`).join('')
+      ? t.pagos.map(p => `<p style="margin:2px 0;">${nombreMetodoPago(p.metodo)}: ${fmtPesos(parseFloat(p.monto))}</p>`).join('')
       : `<p style="margin:2px 0;">Método de pago: ${nombreMetodoPago(t.metodo_pago)}</p>`}
   <div class="footer">
     <p>Comprobante NO FISCAL</p>
@@ -6254,7 +6260,7 @@ async function llenarSelectCupones() {
         if (srvSel) {
             srvSel.innerHTML = '<option value="">Seleccionar servicio...</option>' +
                 (Array.isArray(srv) ? srv.map(s =>
-                    `<option value="${s.id}">${s.nombre} — $${parseFloat(s.precio || 0).toLocaleString()}</option>`
+                    `<option value="${s.id}">${s.nombre} — ${fmtPesos(parseFloat(s.precio || 0))}</option>`
                 ).join('') : '');
         }
     } catch (e) {
@@ -6349,7 +6355,7 @@ async function abrirModalSobreturno(event, profId) {
         const sel = document.getElementById('sob-servicios');
         if (!sel) return;
         sel.innerHTML = filtrados.length
-            ? filtrados.map(s => `<option value="${s.id}">${s.nombre} (${parseInt(s.duracion || 60, 10)} min) — $${parseFloat(s.precio || 0).toFixed(0)}</option>`).join('')
+            ? filtrados.map(s => `<option value="${s.id}">${s.nombre} (${parseInt(s.duracion || 60, 10)} min) — ${fmtPesos(parseFloat(s.precio || 0))}</option>`).join('')
             : '<option value="" disabled>Sin servicios que quepan en ${minutos} min</option>';
         setTimeout(() => document.getElementById('sob-nombre')?.focus(), 80);
     } catch (e) {
@@ -6494,7 +6500,7 @@ async function generarImpresionReporteCaja() {
         }
         
         // Formateador de moneda
-        const fMoneda = (val) => '$' + (Number(val) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fMoneda = (val) => fmtPesos(val);
         
         // Formateador de fecha corta
         const fFecha = (f) => {
@@ -6877,7 +6883,7 @@ function _semanaTitulo(lunesISO) {
     dom.setDate(d.getDate() + 6);
     return `Semana del ${_fmtFechaCorta(lunesISO)} al ${_fmtFechaCorta(_isoLocal(dom))}`;
 }
-function _m(v) { return '$' + (Number(v) || 0).toFixed(0); }
+function _m(v) { return fmtPesos(v); }
 
 // Pone por defecto: desde el 1 del mes actual hasta hoy (solo si están vacíos)
 function _rangoInicialCaja(desdeId, hastaId) {
