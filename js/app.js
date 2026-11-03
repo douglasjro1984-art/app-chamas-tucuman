@@ -4215,6 +4215,324 @@ async function deshacerRetiro(retiroId) {
 
 // Carga los turnos del día para el panel de caja
 // Estado de la caja del día (abierta/cerrada con totales)
+function notificarCaja(msg, tipo) {
+    if (typeof mostrarNotificacion === 'function') mostrarNotificacion(msg, tipo);
+    else alert(msg);
+}
+
+function renderUltimoCierreCard(data) {
+    const a = data.caja_anterior;
+    const esAdmin = !!(data.usuario && (data.usuario.rol === 'admin' || data.usuario.rol === 'super_admin'));
+    const fecha = String(a.fecha_larga || '').split('-').reverse().join('/');
+    return `
+        <div style="background:#e8f5e9;border:2px solid #28a745;border-radius:12px;padding:14px 18px;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div>
+                <strong style="color:#155724;display:block;">Último cierre (${fecha})</strong>
+                <small style="color:#256029;">Quedaron en caja <strong>$${parseFloat(a.monto_final || 0).toFixed(2)}</strong>.${a.diferencia !== null && a.diferencia !== undefined ? ` Diferencia del cierre: <strong>$${parseFloat(a.diferencia).toFixed(2)}</strong>.` : ''}</small>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="abrirFacturasCaja(${a.id}, ${esAdmin})" style="background:#B9770E;color:white;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Ver facturas</button>
+                ${esAdmin ? `<button onclick="generarCodigoReapertura()" style="background:#6c757d;color:white;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Código de reapertura</button>` : ''}
+                <button onclick="reabrirCaja(${a.id}, ${esAdmin})" style="background:#28a745;color:white;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Reabrir caja</button>
+            </div>
+        </div>`;
+}
+
+function reabrirCaja(cajaId, esAdmin = false) {
+    document.getElementById('modal-motivo-caja')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'modal-motivo-caja';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:26px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="color:#C06C84;margin:0 0 8px 0;">Reabrir caja</h3>
+            <p style="color:#888;font-size:0.88rem;margin:0 0 14px 0;">Motivo del cambio (obligatorio, mínimo 5 caracteres).</p>
+            <textarea id="motivo-caja-texto" rows="3" style="width:100%;padding:10px;border:2px solid #C06C84;border-radius:9px;box-sizing:border-box;font-size:0.92rem;font-family:inherit;resize:vertical;"></textarea>
+            ${esAdmin ? '' : `<label style="display:block;font-weight:600;color:#555;font-size:0.85rem;margin-top:12px;">Código de reapertura (lo da el administrador)</label>
+            <input id="motivo-caja-codigo" maxlength="6" inputmode="numeric" placeholder="6 dígitos" style="width:100%;padding:10px;border:2px solid #C06C84;border-radius:9px;box-sizing:border-box;font-size:1rem;letter-spacing:4px;text-align:center;">`}
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button onclick="confirmarReabrirCaja(${cajaId})" style="flex:1;background:#C06C84;color:white;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Aceptar</button>
+                <button onclick="document.getElementById('modal-motivo-caja').remove()" style="flex:1;background:#f0f0f0;color:#555;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">Cancelar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    setTimeout(() => document.getElementById('motivo-caja-texto')?.focus(), 80);
+}
+
+async function confirmarReabrirCaja(cajaId) {
+    const motivo = (document.getElementById('motivo-caja-texto')?.value || '').trim();
+    const codigo = (document.getElementById('motivo-caja-codigo')?.value || '').trim();
+    if (motivo.length < 5) {
+        notificarCaja('Escribí un motivo de al menos 5 caracteres', 'error');
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/caja/${cajaId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: 'abierta', motivo, codigo })
+        });
+        const data = await res.json();
+        document.getElementById('modal-motivo-caja')?.remove();
+        if (data.success) {
+            notificarCaja('Caja reabierta. Ya podés corregirla y volver a cerrarla.');
+        } else {
+            notificarCaja(data.message || 'No se pudo reabrir la caja', 'error');
+        }
+        cargarEstadoCaja();
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+    }
+}
+
+async function generarCodigoReapertura() {
+    try {
+        const res = await fetch(`${API_BASE}/caja/codigo-reapertura`, { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) {
+            notificarCaja(data.message || 'Error', 'error');
+            return;
+        }
+        document.getElementById('modal-codigo-reapertura')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'modal-codigo-reapertura';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:21000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+        modal.innerHTML = `
+            <div style="background:white;border-radius:16px;padding:26px;max-width:380px;width:92%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <h3 style="color:#C06C84;margin:0 0 8px 0;">Código de reapertura</h3>
+                <p style="color:#666;font-size:0.88rem;margin:0 0 14px 0;">Pasale este código a quien debe reabrir la caja. Vence en 10 minutos y sirve una sola vez.</p>
+                <div style="font-size:2.2rem;font-weight:700;letter-spacing:8px;color:#721c24;background:#fdf4f6;border-radius:12px;padding:14px;">${esc(data.codigo)}</div>
+                <button onclick="document.getElementById('modal-codigo-reapertura').remove()" style="margin-top:18px;background:#C06C84;color:white;padding:11px 24px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Listo</button>
+            </div>`;
+        document.body.appendChild(modal);
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+    }
+}
+
+async function editarCaja(cajaId) {
+    const panel = document.getElementById(`panel-caja-${cajaId}`);
+    if (!panel) return;
+    try {
+        const res = await fetch(`${API_BASE}/caja/estado`);
+        const data = await res.json();
+        const c = data.caja || {};
+        const campo = (id, label, valor) => `
+            <label style="display:flex;flex-direction:column;font-size:0.8rem;color:#555;gap:3px;">${label}
+                <input id="ec-${id}" type="number" step="0.01" min="0" value="${parseFloat(valor || 0).toFixed(2)}" style="padding:7px 9px;border:1px solid #ccc;border-radius:7px;">
+            </label>`;
+        panel.innerHTML = `
+            <div style="border:1px solid #B9770E;border-radius:10px;padding:14px;margin-bottom:14px;background:#fffdf7;">
+                <strong>Editar caja de hoy</strong>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0;">
+                    ${campo('monto_inicial', 'Apertura', c.monto_inicial)}
+                    ${campo('total_efectivo', 'Efectivo', c.total_efectivo)}
+                    ${campo('total_transferencia', 'Transferencia', c.total_transferencia)}
+                    ${campo('total_debito', 'Débito', c.total_debito)}
+                </div>
+                <label style="display:block;font-size:0.8rem;color:#555;margin-bottom:10px;">Motivo del cambio <strong>(obligatorio)</strong>
+                    <textarea id="ec-motivo" rows="2" style="width:100%;padding:7px;border:1px solid #ccc;border-radius:7px;box-sizing:border-box;"></textarea>
+                </label>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="guardarEdicionCaja(${cajaId})" style="background:#B9770E;color:white;padding:8px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Guardar cambios</button>
+                    <button onclick="document.getElementById('panel-caja-${cajaId}').innerHTML=''" style="background:#eee;color:#333;padding:8px 14px;border:none;border-radius:7px;cursor:pointer;">Cancelar</button>
+                </div>
+            </div>`;
+    } catch (e) {
+        notificarCaja('No se pudo abrir la edición', 'error');
+    }
+}
+
+async function guardarEdicionCaja(cajaId) {
+    const motivo = (document.getElementById('ec-motivo')?.value || '').trim();
+    if (motivo.length < 5) {
+        notificarCaja('El motivo es obligatorio (mínimo 5 caracteres)', 'error');
+        return;
+    }
+    const v = id => parseFloat(document.getElementById(`ec-${id}`)?.value) || 0;
+    try {
+        const res = await fetch(`${API_BASE}/caja/${cajaId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                motivo,
+                monto_inicial: v('monto_inicial'),
+                total_efectivo: v('total_efectivo'),
+                total_transferencia: v('total_transferencia'),
+                total_debito: v('total_debito')
+            })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            notificarCaja(data.message || 'Error al guardar', 'error');
+            return;
+        }
+        notificarCaja('Caja actualizada');
+        cargarEstadoCaja();
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+    }
+}
+
+async function cargarPendientesRevision() {
+    const cont = document.getElementById('caja-estado');
+    if (!cont) return;
+    try {
+        const res = await fetch(`${API_BASE}/caja/pendientes-revision`);
+        const data = await res.json();
+        if (!data.success || !data.cajas.length) return;
+        const esAdmin = obtenerUsuarioActual()?.rol === 'admin';
+        const items = data.cajas.map(c => `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-bottom:1px dashed #f0d0d0;">
+                <div>
+                    <strong style="color:#721c24;">Caja del ${String(c.fecha).split('-').reverse().join('/')}</strong>
+                    <div style="font-size:0.88rem;color:#555;">${esc(c.alerta_revision)}</div>
+                </div>
+                ${esAdmin ? `<button onclick="marcarCajaRevisada(${c.id})" style="background:#28a745;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Marcar revisada</button>` : ''}
+            </div>`).join('');
+        cont.insertAdjacentHTML('beforeend', `
+            <div style="background:#fff5f5;border:2px solid #dc3545;border-radius:14px;padding:18px;margin-bottom:18px;">
+                <h3 style="margin:0 0 6px 0;color:#dc3545;">Revisar caja (${data.cajas.length})</h3>
+                <p style="margin:0 0 6px 0;color:#666;font-size:0.88rem;">Estas cajas se abrieron con un fondo que no concuerda con el cierre anterior.</p>
+                ${items}
+            </div>`);
+    } catch (e) {
+        console.error('Error revisión caja:', e);
+    }
+}
+
+async function marcarCajaRevisada(id) {
+    try {
+        const res = await fetch(`${API_BASE}/caja/${id}/revisada`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            notificarCaja('Caja marcada como revisada');
+            cargarEstadoCaja();
+        } else {
+            notificarCaja(data.message || 'Error', 'error');
+        }
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+    }
+}
+
+let _facturasCaja = {};
+
+async function abrirFacturasCaja(cajaId, esAdmin) {
+    document.getElementById('modal-facturas-caja')?.remove();
+    let facturas = [];
+    try {
+        const res = await fetch(`${API_BASE}/caja/${cajaId}/facturas`);
+        const data = await res.json();
+        facturas = data.facturas || [];
+    } catch (e) {
+        notificarCaja('Error al cargar las facturas', 'error');
+        return;
+    }
+    _facturasCaja = {};
+    facturas.forEach(f => { _facturasCaja[f.numero] = f; });
+    const filas = facturas.length ? facturas.map(f => `
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:8px;">${String(f.numero).padStart(6, '0')}</td>
+            <td style="padding:8px;">${f.hora || ''}</td>
+            <td style="padding:8px;">${esc(f.cliente_nombre || '—')}</td>
+            <td style="padding:8px;">${esc(f.profesional_nombre || '—')}</td>
+            <td style="padding:8px;">${esc(f.metodo_pago || '')}</td>
+            <td style="padding:8px;text-align:right;font-weight:700;">$${parseFloat(f.total || 0).toFixed(2)}</td>
+            ${esAdmin ? `<td style="padding:8px;"><button onclick="editarFactura(${f.numero}, ${cajaId})" style="background:#2c7be5;color:white;padding:5px 10px;border:none;border-radius:6px;cursor:pointer;">Editar</button></td>` : ''}
+        </tr>`).join('') : '<tr><td colspan="7" style="padding:12px;color:#888;text-align:center;">Sin facturas en esta caja.</td></tr>';
+    const modal = document.createElement('div');
+    modal.id = 'modal-facturas-caja';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:22px;max-width:760px;width:94%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 style="margin:0;color:#C06C84;">Facturas de la caja</h3>
+                <button onclick="document.getElementById('modal-facturas-caja').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#999;">×</button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+                    <thead><tr style="background:#B9770E;color:white;">
+                        <th style="padding:8px;">N°</th><th style="padding:8px;">Hora</th><th style="padding:8px;">Cliente</th>
+                        <th style="padding:8px;">Profesional</th><th style="padding:8px;">Pago</th><th style="padding:8px;text-align:right;">Total</th>
+                        ${esAdmin ? '<th style="padding:8px;"></th>' : ''}
+                    </tr></thead>
+                    <tbody>${filas}</tbody>
+                </table>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+}
+
+function editarFactura(numero, cajaId) {
+    const f = _facturasCaja[numero];
+    if (!f) return;
+    document.getElementById('modal-editar-factura')?.remove();
+    const mixto = f.metodo_pago === 'mixto';
+    const opciones = ['efectivo', 'transferencia', 'debito']
+        .map(m => `<option value="${m}" ${f.metodo_pago === m ? 'selected' : ''}>${m}</option>`).join('');
+    const campo = 'width:100%;padding:8px 10px;border:2px solid #C06C84;border-radius:8px;box-sizing:border-box;font-size:0.9rem;';
+    const modal = document.createElement('div');
+    modal.id = 'modal-editar-factura';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:21000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 12px 0;color:#C06C84;">Editar factura N° ${String(numero).padStart(6, '0')}</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <label>Cliente<input id="ef-cliente" value="${esc(f.cliente_nombre || '')}" style="${campo}"></label>
+                <label>Teléfono<input id="ef-telefono" value="${esc(f.cliente_telefono || '')}" style="${campo}"></label>
+                <label>Profesional<input id="ef-profesional" value="${esc(f.profesional_nombre || '')}" style="${campo}"></label>
+                <label>Método de pago
+                    <select id="ef-metodo" ${mixto ? 'disabled' : ''} style="${campo}">${mixto ? '<option>Mixto (no editable)</option>' : opciones}</select>
+                </label>
+                <label>Descuento ($)<input id="ef-descuento" type="number" min="0" step="0.01" value="${parseFloat(f.descuento || 0).toFixed(2)}" ${mixto ? 'disabled' : ''} style="${campo}"></label>
+                <label>Motivo del cambio <strong>(obligatorio)</strong>
+                    <textarea id="ef-motivo" rows="2" style="${campo}"></textarea>
+                </label>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button onclick="guardarEdicionFactura(${numero}, ${cajaId})" style="flex:1;background:#28a745;color:white;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Guardar</button>
+                <button onclick="document.getElementById('modal-editar-factura').remove()" style="flex:1;background:#f0f0f0;color:#555;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">Cancelar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+async function guardarEdicionFactura(numero, cajaId) {
+    const motivo = (document.getElementById('ef-motivo')?.value || '').trim();
+    if (motivo.length < 5) {
+        notificarCaja('El motivo es obligatorio (mínimo 5 caracteres)', 'error');
+        return;
+    }
+    const body = {
+        motivo,
+        cliente_nombre: document.getElementById('ef-cliente').value.trim(),
+        cliente_telefono: document.getElementById('ef-telefono').value.trim(),
+        profesional_nombre: document.getElementById('ef-profesional').value.trim()
+    };
+    if (!document.getElementById('ef-metodo').disabled) {
+        body.metodo_pago = document.getElementById('ef-metodo').value;
+        body.descuento = parseFloat(document.getElementById('ef-descuento').value) || 0;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/caja/tickets/${numero}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!data.success) {
+            notificarCaja(data.message || 'Error al guardar', 'error');
+            return;
+        }
+        document.getElementById('modal-editar-factura')?.remove();
+        notificarCaja('Factura actualizada. Caja y diferencia recalculadas.');
+        abrirFacturasCaja(cajaId, true);
+        cargarEstadoCaja();
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+    }
+}
+
 async function cargarEstadoCaja() {
     const cont = document.getElementById('caja-estado');
     if (!cont) return;
@@ -4232,6 +4550,7 @@ async function cargarEstadoCaja() {
                     </div>
                     <button onclick="abrirCajaModal()" style="background:#C06C84;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Abrir Caja</button>
                 </div>`;
+            if (data.caja_anterior) cont.insertAdjacentHTML('beforeend', renderUltimoCierreCard(data));
         } else {
             const c = data.caja;
             const avisoAnterior = data.dia_anterior ? `
@@ -4245,7 +4564,19 @@ async function cargarEstadoCaja() {
                     <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:10px 18px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Arqueo y Cierre</button>
                 </div>` : '';
             cont.innerHTML = avisoAnterior + renderizarAperturaCaja(data);
+            if (c.alerta_revision) cont.insertAdjacentHTML('afterbegin', `
+                <div style="background:#f8d7da;border:2px solid #dc3545;border-radius:12px;padding:14px 18px;margin-bottom:14px;color:#721c24;">
+                    <strong>⚠ Revisar apertura:</strong> ${esc(c.alerta_revision)}
+                </div>`);
+            const esAdminCaja = !!(data.usuario && (data.usuario.rol === 'admin' || data.usuario.rol === 'super_admin'));
+            cont.insertAdjacentHTML('beforeend', `<div style="margin:0 0 14px;"><button onclick="abrirFacturasCaja(${c.id}, ${esAdminCaja})" style="background:#B9770E;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Ver facturas</button></div>`);
+            if (data.usuario && (data.usuario.rol === 'admin' || data.usuario.rol === 'super_admin')) {
+                cont.insertAdjacentHTML('beforeend', `
+                    <div style="margin:0 0 14px;"><button onclick="editarCaja(${c.id})" style="background:#B9770E;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Editar caja</button></div>
+                    <div id="panel-caja-${c.id}"></div>`);
+            }
         }
+        cargarPendientesRevision();
     } catch (e) {
         console.error('Error estado caja:', e);
         cont.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar el estado de la caja</p>';
@@ -4737,35 +5068,57 @@ async function cargarGastosAdmin() {
         const total = gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
         const usuario = obtenerUsuarioActual();
         const esAdmin = usuario && usuario.rol === 'admin';
-        container.innerHTML = `
-            <div style="overflow-x:auto;">
-                <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:650px;">
-                    <thead><tr style="background:#6C3483;color:white;">
-                        <th style="padding:10px 8px;">Fecha</th>
-                        <th style="padding:10px 8px;">Tipo</th>
-                        <th style="padding:10px 8px;">Descripción</th>
-                        <th style="padding:10px 8px;">Método</th>
-                        <th style="padding:10px 8px;">Registrado por</th>
-                        <th style="padding:10px 8px;">Monto</th>
-                        ${esAdmin ? '<th style="padding:10px 8px;">Acciones</th>' : ''}
-                    </tr></thead>
-                    <tbody>
-                    ${gastos.map((g, i) => `
-                        <tr style="background:${i % 2 === 0 ? 'white' : '#f6f0f8'};border-bottom:1px solid #eee;">
-                            <td style="padding:10px 8px;white-space:nowrap;">${String(g.fecha).slice(0, 10).split('-').reverse().join('/')}</td>
-                            <td style="padding:10px 8px;">${_etiquetaTipoGasto(g.tipo)}</td>
-                            <td style="padding:10px 8px;"><strong>${g.descripcion}</strong></td>
-                            <td style="padding:10px 8px;">${g.metodo_pago}</td>
-                            <td style="padding:10px 8px;color:#777;font-size:0.8rem;">${g.cajero_nombre || g.registrado_por_nombre || '—'}</td>
-                            <td style="padding:10px 8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</td>
-                            ${esAdmin ? `<td style="padding:10px 8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;">×</button></td>` : ''}
-                        </tr>`).join('')}
-                    </tbody>
-                </table>
-                <div style="margin-top:10px;text-align:right;font-size:0.95rem;">
-                    <strong style="color:#6C3483;">Total de gastos del filtro: </strong>
-                    <strong style="color:#dc3545;">$${total.toFixed(2)}</strong>
-                </div>
+
+        const porMes = {};
+        for (const g of gastos) {
+            const k = String(g.fecha).slice(0, 7);
+            (porMes[k] = porMes[k] || []).push(g);
+        }
+        const meses = Object.keys(porMes).sort().reverse();
+
+        const fila = (g, i) => `
+            <tr style="background:${i % 2 === 0 ? 'white' : '#f6f0f8'};border-bottom:1px solid #eee;">
+                <td style="padding:10px 8px;white-space:nowrap;">${String(g.fecha).slice(0, 10).split('-').reverse().join('/')}</td>
+                <td style="padding:10px 8px;">${_etiquetaTipoGasto(g.tipo)}</td>
+                <td style="padding:10px 8px;"><strong>${g.descripcion}</strong></td>
+                <td style="padding:10px 8px;">${g.metodo_pago}</td>
+                <td style="padding:10px 8px;color:#777;font-size:0.8rem;">${g.cajero_nombre || g.registrado_por_nombre || '—'}</td>
+                <td style="padding:10px 8px;font-weight:700;color:#dc3545;">-$${parseFloat(g.monto).toFixed(2)}</td>
+                ${esAdmin ? `<td style="padding:10px 8px;"><button title="Eliminar" onclick="eliminarGasto(${g.id})" style="background:#dc3545;color:white;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;">×</button></td>` : ''}
+            </tr>`;
+
+        const bloques = meses.map((m, idx) => {
+            const lista = porMes[m];
+            const sub = lista.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+            const [yy, mm] = m.split('-');
+            const nombre = new Date(Number(yy), Number(mm) - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+            return `
+                <details ${idx === 0 ? 'open' : ''} style="margin-bottom:10px;border:1px solid #e5d4ea;border-radius:10px;overflow:hidden;">
+                    <summary style="padding:12px 14px;cursor:pointer;background:#f6f0f8;font-weight:700;color:#6C3483;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="text-transform:capitalize;">${nombre} (${lista.length})</span>
+                        <span style="color:#dc3545;">-$${sub.toFixed(2)}</span>
+                    </summary>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;font-size:0.86rem;min-width:650px;">
+                            <thead><tr style="background:#6C3483;color:white;">
+                                <th style="padding:10px 8px;">Fecha</th>
+                                <th style="padding:10px 8px;">Tipo</th>
+                                <th style="padding:10px 8px;">Descripción</th>
+                                <th style="padding:10px 8px;">Método</th>
+                                <th style="padding:10px 8px;">Registrado por</th>
+                                <th style="padding:10px 8px;">Monto</th>
+                                ${esAdmin ? '<th style="padding:10px 8px;">Acciones</th>' : ''}
+                            </tr></thead>
+                            <tbody>${lista.map(fila).join('')}</tbody>
+                        </table>
+                    </div>
+                </details>`;
+        }).join('');
+
+        container.innerHTML = `${bloques}
+            <div style="margin-top:10px;text-align:right;font-size:0.95rem;">
+                <strong style="color:#6C3483;">Total de gastos del filtro: </strong>
+                <strong style="color:#dc3545;">$${total.toFixed(2)}</strong>
             </div>`;
     } catch (e) {
         container.innerHTML = '<p style="color:#dc3545;text-align:center;padding:16px;">Error al cargar los gastos</p>';
@@ -6665,7 +7018,7 @@ function _filaCajaDia(c, i) {
             <td style="padding:10px 8px;color:#dc3545;">-${_m(c.total_gastos)}</td>
             <td style="padding:10px 8px;color:#C06C84;">-${_m(c.total_retiros)}</td>
             <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? (c.monto_final == null ? '<span style="color:#bbb;font-weight:400;">Sin arqueo</span>' : _m(c.monto_final)) : '—'}</td>
-            <td style="padding:10px 8px;"><button onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Ver</button></td>
+            <td style="padding:10px 8px;white-space:nowrap;"><button onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Ver</button>${c.estado === 'cerrada' && esAdmin() ? `<button onclick="reabrirCaja(${c.id}, true)" title="Solo administrador" style="background:#28a745;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;margin-left:6px;">Reabrir</button>` : ''}</td>
         </tr>
         <tr id="detalle-caja-${c.id}" style="display:none;"><td colspan="12" style="padding:0;background:#fffdf7;"></td></tr>`;
 }

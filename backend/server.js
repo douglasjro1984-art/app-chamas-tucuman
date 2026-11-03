@@ -153,6 +153,10 @@ function fechaHoyAR() {
         const [horariosCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'horarios_config' AND COLUMN_NAME = 'sobreturno_duracion'`);
         const existentesHorarios = new Set(horariosCols.map(c => c.COLUMN_NAME));
         if (!existentesHorarios.has('sobreturno_duracion')) await pool.query(`ALTER TABLE horarios_config ADD COLUMN sobreturno_duracion INT NOT NULL DEFAULT 30`);
+        const [cajasCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cajas'`);
+        if (!cajasCols.some(c => c.COLUMN_NAME === 'alerta_revision')) await pool.query(`ALTER TABLE cajas ADD COLUMN alerta_revision VARCHAR(255) NULL`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS codigos_reapertura (id BIGINT AUTO_INCREMENT PRIMARY KEY, codigo_hash VARCHAR(64) NOT NULL, creado_por BIGINT NULL, expira_at DATETIME NOT NULL, usado TINYINT(1) NOT NULL DEFAULT 0, usado_por BIGINT NULL, usado_at DATETIME NULL, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`);
+        try { await pool.query('ALTER TABLE cajas ADD COLUMN diferencia DECIMAL(10,2) NULL'); } catch (e) {}
         // Migración para cobros con varios métodos de pago (metodo_pago = 'mixto')
         const [ticketsCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'tickets' AND COLUMN_NAME = 'metodo_pago_detalle'`);
         if (!ticketsCols.length) await pool.query(`ALTER TABLE tickets ADD COLUMN metodo_pago_detalle TEXT NULL`);
@@ -2345,9 +2349,9 @@ app.get('/api/estadisticas', autenticar, autorizar(['admin']), async (req, res) 
     try {
         const [turnosHoy] = await pool.query('SELECT COUNT(*) as count FROM turnos WHERE DATE(fecha) = CURDATE()');
         const [ingresosMes] = await pool.query(
-            `SELECT SUM(s.precio) as total FROM turnos t 
-             LEFT JOIN servicios s ON t.servicio_id = s.id 
-             WHERE MONTH(t.fecha) = MONTH(CURDATE()) AND YEAR(t.fecha) = YEAR(CURDATE())`
+            `SELECT COALESCE(SUM(t.total), 0) AS total FROM tickets t
+             JOIN cajas c ON c.id = t.caja_id
+             WHERE MONTH(c.fecha) = MONTH(CURDATE()) AND YEAR(c.fecha) = YEAR(CURDATE())`
         );
         const [clientesUnicos] = await pool.query('SELECT COUNT(DISTINCT id) as count FROM usuarios WHERE rol = "cliente"');
         
@@ -2445,7 +2449,11 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
              FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1`
         );
         if (!caja.length) {
-            return res.json({ abierta: false });
+            const [ant] = await pool.query(
+                `SELECT id, DATE_FORMAT(fecha, '%Y-%m-%d') as fecha_larga, estado, monto_inicial, monto_final, diferencia
+                 FROM cajas WHERE estado = 'cerrada' ORDER BY fecha DESC, id DESC LIMIT 1`
+            );
+            return res.json({ abierta: false, caja_anterior: ant[0] || null, usuario: { rol: req.usuario.rol } });
         }
         const [gastos] = await pool.query(
             'SELECT id, tipo, descripcion, monto, metodo_pago, fecha FROM gastos WHERE caja_id = ? ORDER BY id', [caja[0].id]
@@ -2473,7 +2481,7 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
         res.json({
             abierta: true,
             dia_anterior: caja[0].es_hoy !== 1 && caja[0].es_hoy !== '1' && caja[0].es_hoy !== true,
-            caja: caja[0], gastos, tickets, retiros, sugerencias
+            caja: caja[0], gastos, tickets, retiros, sugerencias, usuario: { rol: req.usuario.rol }
         });
     } catch (e) {
         console.error('❌ Error caja estado:', e.message);
@@ -2482,6 +2490,32 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
 });
 
 // Abrir caja del dÃ­a (con monto inicial)
+// Diferencia de una caja cerrada: contado - (apertura + ventas). Se guarda y se recalcula.
+async function recalcularDiferencia(db, cajaId) {
+    const [rowsC] = await db.query(
+        'SELECT monto_inicial, monto_final, total_efectivo, total_transferencia, total_debito FROM cajas WHERE id = ?', [cajaId]
+    );
+    if (!rowsC.length || rowsC[0].monto_final === null) return;
+    const c = rowsC[0];
+    const esperado = parseFloat(c.monto_inicial || 0) + parseFloat(c.total_efectivo || 0)
+                   + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0);
+    const dif = Math.round((parseFloat(c.monto_final) - esperado) * 100) / 100;
+    await db.query('UPDATE cajas SET diferencia = ? WHERE id = ?', [dif, cajaId]);
+}
+
+// Monto del último cierre (día anterior)
+async function obtenerMontoCierreAnterior(pool) {
+    try {
+        const [rows] = await pool.query(
+            `SELECT monto_final FROM cajas WHERE estado = 'cerrada' AND fecha < CURDATE()
+             ORDER BY fecha DESC, id DESC LIMIT 1`
+        );
+        return rows.length && rows[0].monto_final !== null ? (parseFloat(rows[0].monto_final) || 0) : 0;
+    } catch (e) {
+        return 0;
+    }
+}
+
 app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { monto_inicial } = req.body;
     try {
@@ -2501,7 +2535,15 @@ app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), as
             'INSERT INTO cajas (fecha, estado, monto_inicial, cajero_id, cajero_nombre) VALUES (CURDATE(), "abierta", ?, ?, ?)',
             [inicial, req.usuario.id, req.usuario.nombre || null]
         );
-        res.json({ success: true, id: r.insertId, message: 'Caja abierta correctamente' });
+        let alerta = null;
+        if (monto_inicial !== undefined && monto_inicial !== '') {
+            const anterior = await obtenerMontoCierreAnterior(pool);
+            if (Math.abs(inicial - anterior) > 0.009) {
+                alerta = `Fondo inicial $${inicial.toFixed(2)} no concuerda con el cierre anterior $${anterior.toFixed(2)}`;
+                await pool.query('UPDATE cajas SET alerta_revision = ? WHERE id = ?', [alerta, r.insertId]);
+            }
+        }
+        res.json({ success: true, id: r.insertId, message: 'Caja abierta correctamente', monto_inicial: inicial, alerta });
     } catch (e) {
         console.error('âŒ Error abrir caja:', e.message);
         res.status(500).json({ success: false, message: 'Error al abrir la caja' });
@@ -2529,11 +2571,18 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
         );
         const totalRetiros = retiros.reduce((s, r) => s + parseFloat(r.monto_retirado || 0), 0);
         const totalGastos = gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+        // Cierre automático = neto de la caja: apertura + ventas - gastos - retiros (ya descontados en las columnas)
+        const esperadoAuto = Math.round((parseFloat(c.monto_inicial || 0) + total) * 100) / 100;
 
         let real;
         const detalleArqueo = [];
         if (Array.isArray(arqueo) && arqueo.length) {
-            real = arqueo.reduce((s, a) => s + (parseFloat(a.subtotal) || 0), 0);
+            const sumaArqueo = Math.round(arqueo.reduce((s, a) => s + (parseFloat(a.subtotal) || 0), 0) * 100) / 100;
+            if (Math.abs(sumaArqueo - esperadoAuto) > 0.009 && !req.body.confirmar_diferencia) {
+                return res.status(400).json({ success: false, code: 'arqueo_no_coincide', esperado: esperadoAuto, contado: sumaArqueo, diferencia: Math.round((sumaArqueo - esperadoAuto) * 100) / 100,
+                    message: `El arqueo ($${sumaArqueo.toFixed(2)}) no coincide con el cierre calculado ($${esperadoAuto.toFixed(2)}). Revisá el conteo o confirmá la diferencia.` });
+            }
+            real = sumaArqueo;
             for (const a of arqueo) {
                 const denominacion = (a.denominacion || '').trim();
                 const cantidad = parseInt(a.cantidad) || 0;
@@ -2551,7 +2600,7 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
                 );
             }
         } else {
-            real = parseFloat(monto_real) || 0;
+            real = esperadoAuto;
         }
 
         // Los retiros y gastos ya descontaron dinero de las columnas al registrarse,
@@ -2563,6 +2612,8 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
             `UPDATE cajas SET estado = 'cerrada', monto_final = ?, cerrada_at = NOW() WHERE id = ?`,
             [real, c.id]
         );
+        await recalcularDiferencia(pool, c.id);
+        if (Math.abs(real - esperado) > 0.009) await pool.query('UPDATE cajas SET alerta_revision = ? WHERE id = ?', [`Cierre con diferencia de $${(real - esperado).toFixed(2)} (contado $${real.toFixed(2)} vs calculado $${esperado.toFixed(2)})`, c.id]);
 
         res.json({
             success: true,
@@ -2594,6 +2645,214 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
 //  - mensual: todos los días del mes de "fecha" (días sin caja = "sin_caja")
 //  - semanal: los 7 días de la semana (lunes a domingo) de "fecha"
 //  - diario (o sin filtro): solo los días con caja registrada
+// Código de reapertura (un solo uso, vence en 10 minutos). Solo admin.
+app.post('/api/caja/codigo-reapertura', autenticar, autorizar(['admin']), async (req, res) => {
+    try {
+        const codigo = String(Math.floor(100000 + Math.random() * 900000));
+        const hash = crypto.createHash('sha256').update(codigo).digest('hex');
+        await pool.query('UPDATE codigos_reapertura SET usado = 1 WHERE usado = 0');
+        await pool.query(
+            'INSERT INTO codigos_reapertura (codigo_hash, creado_por, expira_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))',
+            [hash, req.usuario.id]
+        );
+        res.json({ success: true, codigo, message: 'Código generado. Vence en 10 minutos.' });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Error al generar el código' });
+    }
+});
+
+// Editar o reabrir una caja. Admin: edita montos y reabre sin código.
+// Recepción: solo puede reabrir una caja cerrada con el código del admin.
+app.put('/api/caja/:id', autenticar, autorizar(['admin', 'recepcionista']), async (req, res) => {
+    const { id } = req.params;
+    const body = req.body || {};
+    const esAdmin = req.usuario.rol === 'admin' || req.usuario.rol === 'super_admin';
+    const motivo = String(body.motivo || '').trim();
+    if (motivo.length < 5) {
+        return res.status(400).json({ success: false, message: 'El motivo es obligatorio (mínimo 5 caracteres)' });
+    }
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [rows] = await conn.query('SELECT * FROM cajas WHERE id = ? FOR UPDATE', [id]);
+        if (!rows.length) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, message: 'Caja no encontrada' });
+        }
+        const c = rows[0];
+        const reabrir = body.estado === 'abierta';
+
+        if (!esAdmin) {
+            if (!reabrir || c.estado !== 'cerrada') {
+                await conn.rollback();
+                return res.status(403).json({ success: false, message: 'Solo el administrador puede editar la caja' });
+            }
+            const codigo = String(body.codigo || '').trim();
+            if (!/^\d{6}$/.test(codigo)) {
+                await conn.rollback();
+                return res.status(403).json({ success: false, message: 'Pedile al administrador el código de reapertura' });
+            }
+            const hash = crypto.createHash('sha256').update(codigo).digest('hex');
+            const [v] = await conn.query(
+                'SELECT id FROM codigos_reapertura WHERE codigo_hash = ? AND usado = 0 AND expira_at > NOW() LIMIT 1', [hash]
+            );
+            if (!v.length) {
+                await conn.rollback();
+                return res.status(403).json({ success: false, message: 'Código incorrecto, vencido o ya usado' });
+            }
+            await conn.query(
+                'UPDATE codigos_reapertura SET usado = 1, usado_por = ?, usado_at = NOW() WHERE id = ?', [req.usuario.id, v[0].id]
+            );
+        }
+
+        if (reabrir) {
+            if (c.estado === 'cerrada') {
+                const [otra] = await conn.query("SELECT id FROM cajas WHERE estado = 'abierta' AND id <> ? LIMIT 1", [id]);
+                if (otra.length) {
+                    await conn.rollback();
+                    return res.status(400).json({ success: false, message: 'Ya hay otra caja abierta. Cerrala antes de reabrir esta.' });
+                }
+                await conn.query("UPDATE cajas SET estado = 'abierta', monto_final = NULL, cerrada_at = NULL WHERE id = ?", [id]);
+            }
+        } else {
+            const permitidos = ['monto_inicial', 'total_efectivo', 'total_transferencia', 'total_debito'];
+            const campos = permitidos.filter(k => body[k] !== undefined && body[k] !== '');
+            if (!campos.length) {
+                await conn.rollback();
+                return res.status(400).json({ success: false, message: 'No hay cambios para guardar' });
+            }
+            const sets = campos.map(k => `${k} = ?`).join(', ');
+            await conn.query(`UPDATE cajas SET ${sets} WHERE id = ?`, [...campos.map(k => Math.max(0, parseFloat(body[k]) || 0)), id]);
+        }
+        await conn.commit();
+        res.json({ success: true, message: reabrir ? 'Caja reabierta' : 'Caja actualizada' });
+    } catch (e) {
+        await conn.rollback();
+        console.error('❌ Error editar caja:', e.message);
+        res.status(500).json({ success: false, message: 'Error al guardar la caja' });
+    } finally {
+        conn.release();
+    }
+});
+
+// Facturas de una caja (para ver y editar)
+app.get('/api/caja/:id/facturas', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const [facturas] = await pool.query(
+            `SELECT numero, DATE_FORMAT(fecha_emision, '%H:%i') AS hora, cliente_nombre, cliente_telefono,
+                    profesional_nombre, subtotal, descuento, total, metodo_pago, metodo_pago_detalle
+             FROM tickets WHERE caja_id = ? ORDER BY numero`, [req.params.id]
+        );
+        res.json({ success: true, facturas });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Error al obtener facturas' });
+    }
+});
+
+// Editar una factura (admin). Recalcula caja y diferencia automáticamente.
+app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (req, res) => {
+    const { numero } = req.params;
+    const body = req.body || {};
+    const motivo = String(body.motivo || '').trim();
+    if (motivo.length < 5) {
+        return res.status(400).json({ success: false, message: 'El motivo es obligatorio (mínimo 5 caracteres)' });
+    }
+    const METODOS = ['efectivo', 'transferencia', 'debito'];
+    const col = { efectivo: 'total_efectivo', transferencia: 'total_transferencia', debito: 'total_debito' };
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [rows] = await conn.query('SELECT * FROM tickets WHERE numero = ? FOR UPDATE', [numero]);
+        if (!rows.length) {
+            await conn.rollback();
+            return res.status(404).json({ success: false, message: 'Factura no encontrada' });
+        }
+        const t = rows[0];
+        const esMixto = t.metodo_pago === 'mixto';
+        const subtotal = parseFloat(t.subtotal) || parseFloat(t.total) || 0;
+        const descAnt = parseFloat(t.descuento) || 0;
+        const descNuevo = body.descuento === undefined ? descAnt
+            : Math.max(0, Math.round((parseFloat(body.descuento) || 0) * 100) / 100);
+        const metodoNuevo = body.metodo_pago === undefined ? t.metodo_pago : String(body.metodo_pago).toLowerCase();
+
+        if (esMixto && (descNuevo !== descAnt || metodoNuevo !== t.metodo_pago)) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: 'Las facturas con pago mixto solo permiten editar cliente y profesional' });
+        }
+        if (!esMixto && !METODOS.includes(metodoNuevo)) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: 'Método de pago inválido' });
+        }
+        if (descNuevo > subtotal) {
+            await conn.rollback();
+            return res.status(400).json({ success: false, message: 'El descuento no puede superar el subtotal' });
+        }
+        const totalNuevo = esMixto ? parseFloat(t.total) : Math.round((subtotal - descNuevo) * 100) / 100;
+
+        if (t.caja_id) {
+            const anterior = esMixto
+                ? JSON.parse(t.metodo_pago_detalle || '{}')
+                : { [t.metodo_pago]: parseFloat(t.total) || 0 };
+            for (const [m, monto] of Object.entries(anterior)) {
+                if (col[m]) await conn.query(`UPDATE cajas SET ${col[m]} = GREATEST(${col[m]} - ?, 0) WHERE id = ?`, [monto, t.caja_id]);
+            }
+            if (!esMixto) {
+                await conn.query(`UPDATE cajas SET ${col[metodoNuevo]} = ${col[metodoNuevo]} + ? WHERE id = ?`, [totalNuevo, t.caja_id]);
+            }
+        }
+
+        await conn.query(
+            `UPDATE tickets SET cliente_nombre = ?, cliente_telefono = ?, profesional_nombre = ?,
+                    metodo_pago = ?, metodo_pago_detalle = ?, descuento = ?, total = ?
+             WHERE id = ?`,
+            [
+                body.cliente_nombre ?? t.cliente_nombre,
+                body.cliente_telefono ?? t.cliente_telefono,
+                body.profesional_nombre ?? t.profesional_nombre,
+                esMixto ? t.metodo_pago : metodoNuevo,
+                esMixto ? t.metodo_pago_detalle : null,
+                descNuevo,
+                totalNuevo,
+                t.id
+            ]
+        );
+        if (t.turno_id) await conn.query('UPDATE turnos SET precio = ? WHERE id = ?', [totalNuevo, t.turno_id]);
+        if (t.caja_id) await recalcularDiferencia(conn, t.caja_id);
+
+        await conn.commit();
+        res.json({ success: true, message: 'Factura actualizada' });
+    } catch (e) {
+        await conn.rollback();
+        console.error('❌ Error editar factura:', e.message);
+        res.status(500).json({ success: false, message: 'Error al editar la factura' });
+    } finally {
+        conn.release();
+    }
+});
+
+// Cajas con alerta de revisión pendiente
+app.get('/api/caja/pendientes-revision', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const [cajas] = await pool.query(
+            `SELECT id, DATE_FORMAT(fecha, '%Y-%m-%d') as fecha, estado, monto_inicial, monto_final, alerta_revision
+             FROM cajas WHERE alerta_revision IS NOT NULL ORDER BY fecha DESC, id DESC`
+        );
+        res.json({ success: true, cajas });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Error al obtener revisiones' });
+    }
+});
+
+// Marcar una caja como revisada (quita la alerta). Solo admin.
+app.post('/api/caja/:id/revisada', autenticar, autorizar(['admin']), async (req, res) => {
+    try {
+        await pool.query('UPDATE cajas SET alerta_revision = NULL WHERE id = ?', [req.params.id]);
+        res.json({ success: true, message: 'Caja marcada como revisada' });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Error al marcar la revisión' });
+    }
+});
+
 app.get('/api/caja/historial', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     const { periodo, fecha } = req.query;
     try {
