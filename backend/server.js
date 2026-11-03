@@ -186,7 +186,11 @@ function fechaHoyAR() {
         const [turnoItemsCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'turno_items' AND COLUMN_NAME = 'promocion_id'`);
         if (!turnoItemsCols.length) await pool.query(`ALTER TABLE turno_items ADD COLUMN promocion_id BIGINT NULL`);
         // turnos.servicio_id debe permitir NULL (para turnos con solo promocion)
-        await pool.query(`ALTER TABLE turnos MODIFY servicio_id BIGINT NULL`);
+        try {
+            await pool.query(`ALTER TABLE turnos MODIFY servicio_id BIGINT NULL`);
+        } catch (e) {
+            console.warn('⚠️ No se pudo ajustar turnos.servicio_id (no afecta el arranque):', e.message);
+        }
         console.log('🧾 Tablas auxiliares y RBAC verificadas');
     } catch (e) { console.error('❌ Error creando tablas:', e.message); }
 })();
