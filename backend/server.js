@@ -2578,15 +2578,13 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
         // Cierre automático = neto de la caja: apertura + ventas - gastos - retiros (ya descontados en las columnas)
         const esperadoAuto = Math.round((parseFloat(c.monto_inicial || 0) + total) * 100) / 100;
 
+        let arqueoContado = null;
         let real;
         const detalleArqueo = [];
         if (Array.isArray(arqueo) && arqueo.length) {
             const sumaArqueo = Math.round(arqueo.reduce((s, a) => s + (parseFloat(a.subtotal) || 0), 0) * 100) / 100;
-            if (Math.abs(sumaArqueo - esperadoAuto) > 0.009 && !req.body.confirmar_diferencia) {
-                return res.status(400).json({ success: false, code: 'arqueo_no_coincide', esperado: esperadoAuto, contado: sumaArqueo, diferencia: Math.round((sumaArqueo - esperadoAuto) * 100) / 100,
-                    message: `El arqueo ($${sumaArqueo.toFixed(2)}) no coincide con el cierre calculado ($${esperadoAuto.toFixed(2)}). Revisá el conteo o confirmá la diferencia.` });
-            }
-            real = sumaArqueo;
+            if (Math.abs(sumaArqueo - esperadoAuto) > 0.009) arqueoContado = sumaArqueo;
+            real = esperadoAuto;
             for (const a of arqueo) {
                 const denominacion = (a.denominacion || '').trim();
                 const cantidad = parseInt(a.cantidad) || 0;
@@ -2616,6 +2614,11 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
             `UPDATE cajas SET estado = 'cerrada', monto_final = ?, cerrada_at = NOW() WHERE id = ?`,
             [real, c.id]
         );
+        if (arqueoContado !== null) {
+            const dif = Math.round((arqueoContado - esperado) * 100) / 100;
+            await pool.query('UPDATE cajas SET diferencia = ?, alerta_revision = ? WHERE id = ?', [dif,
+                `Arqueo $${arqueoContado.toFixed(2)} no coincide con el neto $${esperado.toFixed(2)} (diferencia $${dif.toFixed(2)}). Caja cerrada con el neto; revisar el conteo.`, c.id]);
+        }
         await recalcularDiferencia(pool, c.id);
         if (Math.abs(real - esperado) > 0.009) await pool.query('UPDATE cajas SET alerta_revision = ? WHERE id = ?', [`Cierre con diferencia de $${(real - esperado).toFixed(2)} (contado $${real.toFixed(2)} vs calculado $${esperado.toFixed(2)})`, c.id]);
 
