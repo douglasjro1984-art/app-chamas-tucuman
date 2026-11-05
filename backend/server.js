@@ -1942,7 +1942,7 @@ app.post('/api/turnos', autenticar, async (req, res) => {
 // EDITAR turno
 app.put('/api/turnos/:id', autenticar, async (req, res) => {
     const { id } = req.params;
-    const { servicio_id, profesional_id, fecha, hora_inicio, estado } = req.body;
+    let { servicio_id, profesional_id, fecha, hora_inicio, estado } = req.body;
     try {
         if (estado && !servicio_id && !profesional_id && !fecha && !hora_inicio) {
             if (req.usuario.rol !== 'admin' && req.usuario.rol !== 'recepcionista') {
@@ -1955,6 +1955,14 @@ app.put('/api/turnos/:id', autenticar, async (req, res) => {
             }
             return res.json({ success: true, message: 'Estado actualizado' });
         }
+        const [actual] = await pool.query(
+            "SELECT servicio_id, profesional_id, DATE_FORMAT(fecha, '%Y-%m-%d') AS fecha, TIME_FORMAT(hora_inicio, '%H:%i:%s') AS hora_inicio FROM turnos WHERE id = ?", [id]
+        );
+        if (!actual.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
+        servicio_id = servicio_id || actual[0].servicio_id;
+        profesional_id = profesional_id || actual[0].profesional_id;
+        fecha = fecha || actual[0].fecha;
+        hora_inicio = hora_inicio || actual[0].hora_inicio;
         // Verificar que el nuevo horario no estÃ© ocupado (excluyendo el turno actual)
         const [existente] = await pool.query(
             'SELECT id FROM turnos WHERE profesional_id = ? AND fecha = ? AND hora_inicio = ? AND id != ? AND estado <> \'cancelado\'',
@@ -2857,6 +2865,42 @@ app.post('/api/caja/:id/revisada', autenticar, autorizar(['admin']), async (req,
         res.json({ success: true, message: 'Caja marcada como revisada' });
     } catch (e) {
         res.status(500).json({ success: false, message: 'Error al marcar la revisión' });
+    }
+});
+
+// Detalle de un ticket: servicios cobrados, totales y pago
+app.get('/api/caja/tickets/:numero', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT numero, DATE_FORMAT(fecha_emision, '%d/%m/%Y %H:%i') AS fecha, cliente_nombre, cliente_telefono,
+                    profesional_nombre, items, subtotal, descuento, total, metodo_pago, metodo_pago_detalle
+             FROM tickets WHERE numero = ? LIMIT 1`, [req.params.numero]
+        );
+        if (!rows.length) return res.status(404).json({ success: false, message: 'Ticket no encontrado' });
+        res.json({ success: true, ticket: rows[0] });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Error al obtener el ticket' });
+    }
+});
+
+// Facturas emitidas de un cliente (según el turno)
+app.get('/api/caja/turnos/:id/facturas-cliente', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
+    try {
+        const [t] = await pool.query('SELECT cliente_nombre, cliente_telefono FROM turnos WHERE id = ?', [req.params.id]);
+        if (!t.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
+        const tel = t[0].cliente_telefono || '';
+        const nom = t[0].cliente_nombre || '';
+        const [facturas] = await pool.query(
+            `SELECT numero, DATE_FORMAT(fecha_emision, '%d/%m/%Y %H:%i') AS fecha, cliente_nombre, cliente_telefono,
+                    profesional_nombre, total, metodo_pago
+             FROM tickets
+             WHERE (? <> '' AND cliente_telefono = ?) OR (? <> '' AND cliente_nombre = ?)
+             ORDER BY fecha_emision DESC LIMIT 100`,
+            [tel, tel, nom, nom]
+        );
+        res.json({ success: true, facturas });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Error al obtener las facturas del cliente' });
     }
 });
 

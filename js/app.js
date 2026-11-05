@@ -1949,14 +1949,14 @@ document.getElementById('form-editar-turno')?.addEventListener('submit', async (
     const profesionalId = document.getElementById('edit-profesional-select').value;
     const fecha = document.getElementById('edit-turno-fecha').value;
     const hora = document.getElementById('edit-turno-hora').value;
-    if (!servicioId || !profesionalId || !fecha || !hora) {
-        mostrarNotificacion('Completa todos los campos', 'error');
+    if (!servicioId || !profesionalId) {
+        mostrarNotificacion('Completa el servicio y el profesional', 'error');
         return;
     }
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ servicio_id: parseInt(servicioId), profesional_id: parseInt(profesionalId), fecha: fecha, hora_inicio: hora + ':00' })
+            body: JSON.stringify({ servicio_id: parseInt(servicioId), profesional_id: parseInt(profesionalId), fecha: fecha || undefined, hora_inicio: hora ? hora + ':00' : undefined })
         });
         const data = await res.json();
         if (data.success) {
@@ -4428,6 +4428,101 @@ async function marcarCajaRevisada(id) {
     }
 }
 
+async function verTicket(numero) {
+    document.getElementById('modal-ver-ticket')?.remove();
+    let t;
+    try {
+        const res = await fetch(`${API_BASE}/caja/tickets/${numero}`);
+        const data = await res.json();
+        if (!data.success) { notificarCaja(data.message || 'No se pudo cargar el ticket', 'error'); return; }
+        t = data.ticket;
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+        return;
+    }
+    let items = [];
+    try { items = typeof t.items === 'string' ? JSON.parse(t.items || '[]') : (t.items || []); } catch (e) { items = []; }
+    const filas = items.length ? items.map(it => `
+        <tr>
+            <td style="padding:6px 0;">${esc(it.servicio || it.nombre || it.descripcion || 'Servicio')}</td>
+            <td style="padding:6px 0;text-align:right;">${fmtPesos(it.importe ?? it.precio ?? 0)}</td>
+        </tr>`).join('') : '<tr><td colspan="2" style="padding:6px 0;color:#888;">Sin detalle de servicios</td></tr>';
+    const pagoTxt = t.metodo_pago === 'mixto' ? 'Mixto' : (t.metodo_pago || '');
+    const modal = document.createElement('div');
+    modal.id = 'modal-ver-ticket';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:22000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                <div>
+                    <h3 style="margin:0;color:#C06C84;">Ticket N° ${String(t.numero).padStart(6, '0')}</h3>
+                    <small style="color:#888;">${esc(t.fecha || '')}</small>
+                </div>
+                <button onclick="document.getElementById('modal-ver-ticket').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#999;">×</button>
+            </div>
+            <div style="font-size:0.88rem;color:#555;margin-bottom:10px;">
+                ${t.cliente_nombre ? `<div><strong>Cliente:</strong> ${esc(t.cliente_nombre)}</div>` : ''}
+                ${t.profesional_nombre ? `<div><strong>Profesional:</strong> ${esc(t.profesional_nombre)}</div>` : ''}
+                <div><strong>Pago:</strong> ${esc(pagoTxt)}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:0.9rem;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc;">
+                <thead><tr><th style="text-align:left;padding:5px 0;color:#888;">Servicio</th><th style="text-align:right;padding:5px 0;color:#888;">Importe</th></tr></thead>
+                <tbody>${filas}</tbody>
+            </table>
+            <div style="text-align:right;margin-top:10px;font-size:0.9rem;color:#555;">
+                <div>Subtotal: ${fmtPesos(t.subtotal)}</div>
+                ${parseFloat(t.descuento || 0) ? `<div>Descuento: -${fmtPesos(t.descuento)}</div>` : ''}
+                <div style="font-size:1.1rem;font-weight:700;color:#1aa851;margin-top:4px;">TOTAL: ${fmtPesos(t.total)}</div>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+}
+
+async function verFacturasCliente(turnoId) {
+    document.getElementById('modal-facturas-cliente')?.remove();
+    let facturas = [];
+    try {
+        const res = await fetch(`${API_BASE}/caja/turnos/${turnoId}/facturas-cliente`);
+        const data = await res.json();
+        if (!data.success) { notificarCaja(data.message || 'Error', 'error'); return; }
+        facturas = data.facturas || [];
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+        return;
+    }
+    const filas = facturas.length ? facturas.map(f => `
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:8px;">${String(f.numero).padStart(6, '0')}</td>
+            <td style="padding:8px;">${esc(f.fecha || '')}</td>
+            <td style="padding:8px;">${esc(f.profesional_nombre || '—')}</td>
+            <td style="padding:8px;">${esc(f.metodo_pago || '')}</td>
+            <td style="padding:8px;text-align:right;font-weight:700;">${fmtPesos(f.total)}</td>
+            <td style="padding:8px;"><button onclick="verTicket(${f.numero})" style="background:#B9770E;color:white;padding:5px 10px;border:none;border-radius:6px;cursor:pointer;">Ver ticket</button></td>
+        </tr>`).join('') : '<tr><td colspan="6" style="padding:12px;color:#888;text-align:center;">Este cliente no tiene facturas emitidas.</td></tr>';
+    const modal = document.createElement('div');
+    modal.id = 'modal-facturas-cliente';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:22px;max-width:760px;width:94%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 style="margin:0;color:#C06C84;">Facturas emitidas del cliente</h3>
+                <button onclick="document.getElementById('modal-facturas-cliente').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#999;">×</button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+                    <thead><tr style="background:#B9770E;color:white;">
+                        <th style="padding:8px;">N°</th><th style="padding:8px;">Fecha</th><th style="padding:8px;">Profesional</th>
+                        <th style="padding:8px;">Pago</th><th style="padding:8px;text-align:right;">Total</th><th style="padding:8px;"></th>
+                    </tr></thead>
+                    <tbody>${filas}</tbody>
+                </table>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+}
+
 let _facturasCaja = {};
 
 async function abrirFacturasCaja(cajaId, esAdmin) {
@@ -4451,8 +4546,9 @@ async function abrirFacturasCaja(cajaId, esAdmin) {
             <td style="padding:8px;">${esc(f.profesional_nombre || '—')}</td>
             <td style="padding:8px;">${esc(f.metodo_pago || '')}</td>
             <td style="padding:8px;text-align:right;font-weight:700;">${fmtPesos(parseFloat(f.total || 0))}</td>
+            <td style="padding:8px;"><button onclick="verTicket(${f.numero})" style="background:#B9770E;color:white;padding:5px 10px;border:none;border-radius:6px;cursor:pointer;">Ver ticket</button></td>
             ${esAdmin ? `<td style="padding:8px;"><button onclick="editarFactura(${f.numero}, ${cajaId})" style="background:#2c7be5;color:white;padding:5px 10px;border:none;border-radius:6px;cursor:pointer;">Editar</button></td>` : ''}
-        </tr>`).join('') : '<tr><td colspan="7" style="padding:12px;color:#888;text-align:center;">Sin facturas en esta caja.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="8" style="padding:12px;color:#888;text-align:center;">Sin facturas en esta caja.</td></tr>';
     const modal = document.createElement('div');
     modal.id = 'modal-facturas-caja';
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
@@ -4467,6 +4563,7 @@ async function abrirFacturasCaja(cajaId, esAdmin) {
                     <thead><tr style="background:#B9770E;color:white;">
                         <th style="padding:8px;">N°</th><th style="padding:8px;">Hora</th><th style="padding:8px;">Cliente</th>
                         <th style="padding:8px;">Profesional</th><th style="padding:8px;">Pago</th><th style="padding:8px;text-align:right;">Total</th>
+                        <th style="padding:8px;"></th>
                         ${esAdmin ? '<th style="padding:8px;"></th>' : ''}
                     </tr></thead>
                     <tbody>${filas}</tbody>
@@ -4912,6 +5009,7 @@ async function cargarTurnosCaja() {
                     <strong style="color:#28a745;font-size:1.15rem;">${fmtPesos(parseFloat(t.precio || 0))}</strong>
                     ${esCobrado
                         ? `<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">Cobrado</span>
+                        <button onclick="verFacturasCliente(${t.id})" title="Facturas emitidas del cliente" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">Facturas</button>
                         <button onclick="abrirModalEditar(${t.id})" title="Editar turno" style="background:#6c757d;color:white;padding:6px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">Editar</button>`
                         : `<button onclick="abrirModalCobro(event, ${t.id})" data-cliente="${esc(t.cliente_nombre||'')}" data-precio="${t.precio||0}" style="background:#28a745;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Cobrar</button>
                         <button onclick="cancelarTurno(${t.id})" style="background:#dc3545;color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Cancelar</button>`}
