@@ -2883,20 +2883,14 @@ app.get('/api/caja/tickets/:numero', autenticar, autorizar(['admin','recepcionis
     }
 });
 
-// Facturas emitidas de un cliente (según el turno)
+// Factura(s) emitida(s) de un turno
 app.get('/api/caja/turnos/:id/facturas-cliente', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
     try {
-        const [t] = await pool.query('SELECT cliente_nombre, cliente_telefono FROM turnos WHERE id = ?', [req.params.id]);
-        if (!t.length) return res.status(404).json({ success: false, message: 'Turno no encontrado' });
-        const tel = t[0].cliente_telefono || '';
-        const nom = t[0].cliente_nombre || '';
         const [facturas] = await pool.query(
             `SELECT numero, DATE_FORMAT(fecha_emision, '%d/%m/%Y %H:%i') AS fecha, cliente_nombre, cliente_telefono,
                     profesional_nombre, total, metodo_pago
-             FROM tickets
-             WHERE (? <> '' AND cliente_telefono = ?) OR (? <> '' AND cliente_nombre = ?)
-             ORDER BY fecha_emision DESC LIMIT 100`,
-            [tel, tel, nom, nom]
+             FROM tickets WHERE turno_id = ? ORDER BY numero DESC`,
+            [req.params.id]
         );
         res.json({ success: true, facturas });
     } catch (e) {

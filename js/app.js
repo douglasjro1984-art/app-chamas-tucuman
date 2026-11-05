@@ -4500,14 +4500,14 @@ async function verFacturasCliente(turnoId) {
             <td style="padding:8px;">${esc(f.metodo_pago || '')}</td>
             <td style="padding:8px;text-align:right;font-weight:700;">${fmtPesos(f.total)}</td>
             <td style="padding:8px;"><button onclick="verTicket(${f.numero})" style="background:#B9770E;color:white;padding:5px 10px;border:none;border-radius:6px;cursor:pointer;">Ver ticket</button></td>
-        </tr>`).join('') : '<tr><td colspan="6" style="padding:12px;color:#888;text-align:center;">Este cliente no tiene facturas emitidas.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="6" style="padding:12px;color:#888;text-align:center;">Este turno todavía no tiene factura emitida.</td></tr>';
     const modal = document.createElement('div');
     modal.id = 'modal-facturas-cliente';
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
     modal.innerHTML = `
         <div style="background:white;border-radius:16px;padding:22px;max-width:760px;width:94%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <h3 style="margin:0;color:#C06C84;">Facturas emitidas del cliente</h3>
+                <h3 style="margin:0;color:#C06C84;">Factura de este turno</h3>
                 <button onclick="document.getElementById('modal-facturas-cliente').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#999;">×</button>
             </div>
             <div style="overflow-x:auto;">
