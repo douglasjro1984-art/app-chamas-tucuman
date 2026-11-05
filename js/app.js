@@ -1863,6 +1863,7 @@ async function abrirModalEditar(turnoId) {
         document.getElementById('edit-profesional-select').value = turno.profesional_id;
         await cargarHorariosModal(turno.profesional_id, turno.fecha.split('T')[0], turno.id);
         document.getElementById('edit-turno-hora').value = turno.hora_inicio.substring(0,5);
+        document.getElementById('edit-turno-hora').removeAttribute('required');
         const usuario = obtenerUsuarioActual();
         const btnBorrar = document.getElementById('btn-borrar-cobro');
         if (btnBorrar) {
