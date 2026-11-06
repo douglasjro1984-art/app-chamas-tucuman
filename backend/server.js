@@ -1397,6 +1397,7 @@ app.get('/api/turnos/todos', autenticar, autorizar(['admin','recepcionista']), a
                 t.estado,
                 t.profesional_id,
                 s.nombre as servicio, s.precio,
+                (SELECT COALESCE(SUM(tk.total), 0) FROM tickets tk WHERE tk.turno_id = t.id) AS cobrado,
                 p.nombre as profesional,
                 COALESCE(t.cliente_nombre, c.nombre) as cliente_nombre,
                 COALESCE(t.cliente_telefono, c.telefono) as telefono,

@@ -3413,17 +3413,18 @@ async function calcG() {
         if(desde) url+='fecha_desde='+desde+'&';
         if(hasta) url+='fecha_hasta='+hasta+'&';
         if(profId) url+='profesional_id='+profId+'&';
-        const turnos=await (await fetch(url, { headers: { 'Authorization': 'Bearer ' + obtenerToken() } })).json();
+        let turnos=await (await fetch(url, { headers: { 'Authorization': 'Bearer ' + obtenerToken() } })).json();
+        if(Array.isArray(turnos)) turnos=turnos.filter(t=>t.estado==='cobrado');
         if(!Array.isArray(turnos)||!turnos.length){
             cont.innerHTML='<div style="background:white;border-radius:12px;padding:24px;text-align:center;color:#888;box-shadow:0 2px 8px rgba(0,0,0,0.06);">Sin turnos en ese período</div>';return;
         }
-        const total=turnos.reduce((s,t)=>s+parseFloat(t.precio||0),0);
+        const total=turnos.reduce((s,t)=>s+parseFloat(t.cobrado||0),0);
         const porProf={};
         turnos.forEach(t=>{
             const n=t.profesional||'Sin asignar';
             if(!porProf[n])porProf[n]={lista:[],total:0};
             porProf[n].lista.push(t);
-            porProf[n].total+=parseFloat(t.precio||0);
+            porProf[n].total+=parseFloat(t.cobrado||0);
         });
         cont.innerHTML=`
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
@@ -4471,6 +4472,12 @@ async function verTicket(numero) {
             <td style="padding:6px 0;">${esc(it.servicio || it.nombre || it.descripcion || 'Servicio')}</td>
             <td style="padding:6px 0;text-align:right;">${fmtPesos(it.importe ?? it.precio ?? 0)}</td>
         </tr>`).join('') : '<tr><td colspan="2" style="padding:6px 0;color:#888;">Sin detalle de servicios</td></tr>';
+    window._facturaActual = {
+        ...t,
+        items: items.map(it => ({ servicio: it.servicio || it.nombre || it.descripcion || 'Servicio', importe: parseFloat(it.importe ?? it.precio ?? 0) || 0 })),
+        profesional: t.profesional_nombre,
+        fecha_emision: t.fecha
+    };
     const pagoTxt = t.metodo_pago === 'mixto' ? 'Mixto' : (t.metodo_pago || '');
     const modal = document.createElement('div');
     modal.id = 'modal-ver-ticket';
@@ -4482,7 +4489,7 @@ async function verTicket(numero) {
                     <h3 style="margin:0;color:#C06C84;">Ticket N° ${String(t.numero).padStart(6, '0')}</h3>
                     <small style="color:#888;">${esc(t.fecha || '')}</small>
                 </div>
-                <button onclick="document.getElementById('modal-ver-ticket').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#999;">×</button>
+                <div style="display:flex;align-items:center;gap:8px;"><button onclick="imprimirFacturaActual()" style="background:#C06C84;color:white;padding:6px 12px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Imprimir</button><button onclick="document.getElementById('modal-ver-ticket').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#999;">×</button></div>
             </div>
             <div style="font-size:0.88rem;color:#555;margin-bottom:10px;">
                 ${t.cliente_nombre ? `<div><strong>Cliente:</strong> ${esc(t.cliente_nombre)}</div>` : ''}
