@@ -1,3 +1,26 @@
+function confirmarAccion(mensaje) {
+    return new Promise(resolve => {
+        document.getElementById('modal-confirmar')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'modal-confirmar';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:23000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+        const cerrar = valor => { modal.remove(); resolve(valor); };
+        modal.innerHTML = `
+            <div style="background:white;border-radius:16px;padding:26px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <h3 style="color:#C06C84;margin:0 0 10px 0;">Confirmar</h3>
+                <p style="color:#555;font-size:0.95rem;margin:0 0 18px 0;white-space:pre-line;">${esc(mensaje)}</p>
+                <div style="display:flex;gap:10px;">
+                    <button id="confirmar-si" style="flex:1;background:#C06C84;color:white;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Aceptar</button>
+                    <button id="confirmar-no" style="flex:1;background:#f0f0f0;color:#555;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">Cancelar</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.querySelector('#confirmar-si').onclick = () => cerrar(true);
+        modal.querySelector('#confirmar-no').onclick = () => cerrar(false);
+        modal.onclick = ev => { if (ev.target === modal) cerrar(false); };
+    });
+}
+
 // Formato de montos en pesos: sin decimales y con punto de miles (ej: $8.000)
 function fmtPesos(v) {
     const n = Math.round(parseFloat(v) || 0);
@@ -479,7 +502,7 @@ async function confirmarNuevoServicio() {
 async function togglePausarServicio(id, activoActual) {
     const activar = String(activoActual) === '0';
     const accion = activar ? 'activar' : 'pausar';
-    if (!confirm(`¿Querés ${accion} este servicio?\n${activar ? 'Volverá a ser visible para agendar turnos.' : 'No aparecerá en el formulario de turnos.'}`)) return;
+    if (!(await confirmarAccion(`¿Querés ${accion} este servicio?\n${activar ? 'Volverá a ser visible para agendar turnos.' : 'No aparecerá en el formulario de turnos.'}`)))  return;
     try {
         // Leer campos actuales del formulario para que el PUT no rechace por "sin campos"
         const nombre = document.getElementById(`edit-nombre-${id}`)?.value?.trim();
@@ -510,7 +533,7 @@ async function togglePausarServicio(id, activoActual) {
 // ── Eliminar servicio ───────────────────────────────────────
 async function eliminarServicio(event, id) {
     const nombre = event.currentTarget.dataset.nombre || '';
-    if (!confirm(`¿Eliminar el servicio "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausalo.`)) return;
+    if (!(await confirmarAccion(`¿Eliminar el servicio "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausalo.`)))  return;
     try {
         const res = await fetch(`${API_BASE}/servicios/${id}`, { method: 'DELETE' });
         const data = await res.json();
@@ -1102,7 +1125,7 @@ async function _actualizarHorariosGuardados(profesionalId) {
 // ELIMINAR DÍA COMPLETO
 // ==========================================
 async function eliminarDiaCompleto(fecha, profesionalId) {
-    if (!confirm(`¿Eliminar todos los horarios del ${fecha}?`)) {
+    if (!(await confirmarAccion(`¿Eliminar todos los horarios del ${fecha}?`))) {
         return;
     }
 
@@ -1881,7 +1904,7 @@ function cerrarModalEditar() {
 
 async function borrarCobroTurno() {
     const turnoId = document.getElementById('edit-turno-id').value;
-    if (!confirm('¿Borrar el cobro de este turno? Volverá a estado pendiente.')) return;
+    if (!(await confirmarAccion('¿Borrar el cobro de este turno? Volverá a estado pendiente.')))  return;
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}/revertir-cobro`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + obtenerToken() }
@@ -1973,7 +1996,7 @@ document.getElementById('form-editar-turno')?.addEventListener('submit', async (
 });
 
 async function eliminarTurno(turnoId) {
-    if (!confirm('¿Eliminar este turno?')) return;
+    if (!(await confirmarAccion('¿Eliminar este turno?')))  return;
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}`, { method: 'DELETE' });
         const data = await res.json();
@@ -1989,7 +2012,7 @@ async function eliminarTurno(turnoId) {
 }
 
 async function cancelarTurno(turnoId) {
-    if (!confirm('¿Cancelar este turno? Quedará registrado y no se contará en la caja.')) return;
+    if (!(await confirmarAccion('¿Cancelar este turno? Quedará registrado y no se contará en la caja.')))  return;
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -2424,14 +2447,14 @@ async function guardarCambiosPromocion(id) {
 async function togglePausarPromocion(id, activoActual) {
     const activar = String(activoActual) === '0';
     const accion = activar ? 'activar' : 'pausar';
-    if (!confirm(`¿Querés ${accion} esta promoción?\n${activar ? 'Volverá a ser visible para agendar.' : 'No aparecerá para agendar turnos.'}`)) return;
+    if (!(await confirmarAccion(`¿Querés ${accion} esta promoción?\n${activar ? 'Volverá a ser visible para agendar.' : 'No aparecerá para agendar turnos.'}`)))  return;
     await enviarPromocion(`${API_BASE}/promociones/${id}`, 'PUT', { activo: activar },
         activar ? 'Promoción activada' : 'Promoción pausada');
 }
 
 async function eliminarPromocion(event, id) {
     const nombre = event.currentTarget.dataset.nombre || '';
-    if (!confirm(`¿Eliminar la promoción "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausala.`)) return;
+    if (!(await confirmarAccion(`¿Eliminar la promoción "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausala.`)))  return;
     try {
         const res = await fetch(`${API_BASE}/promociones/${id}`, {
             method: 'DELETE', headers: { 'Authorization': 'Bearer ' + obtenerToken() }
@@ -3880,7 +3903,7 @@ async function guardarProfesional(id) {
 
 async function eliminarProfesional(event, id) {
     const nombre = event.currentTarget.dataset.nombre || '';
-    if (!confirm(`¿Eliminar a "${nombre}"?\nEsto eliminará también sus horarios y disponibilidad.`)) return;
+    if (!(await confirmarAccion(`¿Eliminar a "${nombre}"?\nEsto eliminará también sus horarios y disponibilidad.`)))  return;
     try {
         const res = await fetch(`${API_BASE}/usuarios/${id}`, { method: 'DELETE' });
         const data = await res.json();
@@ -4191,7 +4214,7 @@ async function registrarRetiro(event, profesionalId) {
     const tr = parseFloat(document.getElementById('ret-tr-'+profesionalId)?.value) || 0;
     if (metodo === 'ambos' && ef + tr <= 0) { mostrarNotificacion('Indicá el monto en efectivo y/o transferencia', 'error'); return; }
     const detalle = metodo === 'ambos' ? `Efectivo ${fmtPesos(ef)} + Transferencia ${fmtPesos(tr)}` : (metodo === 'transferencia' ? 'Transferencia' : 'Efectivo');
-    if (!confirm(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${detalle}\nSe descontará de la caja de hoy.`)) return;
+    if (!(await confirmarAccion(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${detalle}\nSe descontará de la caja de hoy.`)))  return;
     event.currentTarget.disabled = true;
     const btnText = event.currentTarget.textContent;
     event.currentTarget.textContent = 'Registrando...';
@@ -4218,7 +4241,7 @@ async function registrarRetiro(event, profesionalId) {
 
 async function deshacerRetiro(retiroId) {
     if (!esAdmin()) { mostrarNotificacion('Solo el admin puede deshacer retiros', 'error'); return; }
-    if (!confirm('¿Deshacer este retiro? Se restaurará el monto a la caja de hoy. El registro se conserva.')) return;
+    if (!(await confirmarAccion('¿Deshacer este retiro? Se restaurará el monto a la caja de hoy. El registro se conserva.')))  return;
     try {
         const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}/deshacer`, { method: 'POST' });
         const data = await res.json();
@@ -4830,6 +4853,19 @@ function cerrarCajaModal() {
                 <h4 style="margin:8px 0 6px;color:#555;font-size:0.9rem;">Billetes</h4>
                 ${billetes.map(b => fila(b, 'billete')).join('')}
             </div>
+            <div style="margin-top:12px;">
+                <h4 style="margin:8px 0 6px;color:#555;font-size:0.9rem;">Transferencias y débito</h4>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;">
+                    <span style="font-weight:600;color:#555;min-width:90px;">Transferencia</span>
+                    <input id="arq-transf" type="number" min="0" step="0.01" value="0" oninput="actualizarTotalArqueo()" style="width:110px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
+                    <span id="sub-transf" style="font-weight:700;color:#28a745;min-width:70px;text-align:right;">$0</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;">
+                    <span style="font-weight:600;color:#555;min-width:90px;">Débito</span>
+                    <input id="arq-debito" type="number" min="0" step="0.01" value="0" oninput="actualizarTotalArqueo()" style="width:110px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
+                    <span id="sub-debito" style="font-weight:700;color:#28a745;min-width:70px;text-align:right;">$0</span>
+                </div>
+            </div>
             <div style="margin-top:14px;background:#f9f9f9;border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
                 <span style="font-weight:700;color:#555;">Total contado</span>
                 <strong id="arqueo-total" style="color:#28a745;font-size:1.25rem;">$0.00</strong>
@@ -4854,7 +4890,11 @@ function actualizarTotalArqueo() {
         const sp = document.querySelector(`.subtotal-arqueo[data-denom="${inp.dataset.denom}"]`);
         if (sp) sp.textContent = fmtPesos(sub);
     });
-    document.getElementById('arqueo-total').textContent = fmtPesos(total);
+    const tr = parseFloat(document.getElementById('arq-transf')?.value) || 0;
+    const de = parseFloat(document.getElementById('arq-debito')?.value) || 0;
+    document.getElementById('sub-transf').textContent = fmtPesos(tr);
+    document.getElementById('sub-debito').textContent = fmtPesos(de);
+    document.getElementById('arqueo-total').textContent = fmtPesos(total + tr + de);
 }
 
 async function confirmarCerrarCaja() {
@@ -4873,7 +4913,7 @@ async function confirmarCerrarCaja() {
     try {
         const res = await fetch(`${API_BASE}/caja/cerrar`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ arqueo })
+            body: JSON.stringify({ arqueo, transferencia_contada: parseFloat(document.getElementById('arq-transf')?.value) || 0, debito_contado: parseFloat(document.getElementById('arq-debito')?.value) || 0 })
         });
         const data = await res.json();
         if (data.success) {
@@ -5140,7 +5180,7 @@ async function confirmarRegistrarGasto() {
 }
 
 async function eliminarGasto(id) {
-    if (!confirm('¿Eliminar este gasto? El dinero vuelve a la caja si sigue abierta.')) return;
+    if (!(await confirmarAccion('¿Eliminar este gasto? El dinero vuelve a la caja si sigue abierta.')))  return;
     try {
         const res = await fetch(`${API_BASE}/gastos/${id}`, { method: 'DELETE' });
         const data = await res.json();
@@ -5385,7 +5425,7 @@ async function chequearReasignacionCobros(container) {
 }
 
 async function reasignarCobrosASuDia() {
-    if (!confirm('Se moverá cada cobro a la caja del día que se realizó (se crea la caja del día si no existe).\n\nNo se borra ningún dato: queda un respaldo de lo que había antes.\n\n¿Continuar?')) return;
+    if (!(await confirmarAccion('Se moverá cada cobro a la caja del día que se realizó (se crea la caja del día si no existe).\n\nNo se borra ningún dato: queda un respaldo de lo que había antes.\n\n¿Continuar?')))  return;
     try {
         const res = await fetch(`${API_BASE}/caja/reasignar`, { method: 'POST' });
         const data = await res.json();
@@ -5916,7 +5956,7 @@ async function agregarServicioAlTurno(turnoId) {
 }
 
 async function quitarServicioDelTurno(turnoId, itemId) {
-    if (!confirm('¿Quitar este servicio del turno?')) return;
+    if (!(await confirmarAccion('¿Quitar este servicio del turno?')))  return;
     try {
         const res = await fetch(`${API_BASE}/turnos/${turnoId}/servicios/${itemId}`, {
             method: 'DELETE'

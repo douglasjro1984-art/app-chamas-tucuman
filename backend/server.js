@@ -2589,9 +2589,15 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
         let arqueoContado = null;
         let real;
         const detalleArqueo = [];
-        if (Array.isArray(arqueo) && arqueo.length) {
+        if (Array.isArray(arqueo)) {
             const sumaArqueo = Math.round(arqueo.reduce((s, a) => s + (parseFloat(a.subtotal) || 0), 0) * 100) / 100;
-            if (Math.abs(sumaArqueo - esperadoAuto) > 0.009) arqueoContado = sumaArqueo;
+            const trContado = Math.round((parseFloat(req.body.transferencia_contada) || 0) * 100) / 100;
+            const deContado = Math.round((parseFloat(req.body.debito_contado) || 0) * 100) / 100;
+            const efeEsperado = Math.round((parseFloat(c.monto_inicial || 0) + parseFloat(c.total_efectivo || 0)) * 100) / 100;
+            const trEsperado = Math.round(parseFloat(c.total_transferencia || 0) * 100) / 100;
+            const deEsperado = Math.round(parseFloat(c.total_debito || 0) * 100) / 100;
+            const hayDif = Math.abs(sumaArqueo - efeEsperado) > 0.009 || Math.abs(trContado - trEsperado) > 0.009 || Math.abs(deContado - deEsperado) > 0.009;
+            if (hayDif) arqueoContado = Math.round((sumaArqueo + trContado + deContado) * 100) / 100;
             real = esperadoAuto;
             for (const a of arqueo) {
                 const denominacion = (a.denominacion || '').trim();
