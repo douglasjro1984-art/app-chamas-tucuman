@@ -3684,7 +3684,8 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
         const neto = Math.round(netoPorServicio * (await contarServiciosCobradosHoy(profesional_id)) * 100) / 100;
         const excluidoHoy = await montoSinPorcentajeHoy(profesional_id);
         const basePct = Math.round((bruto - excluidoHoy) * 100) / 100;
-        const porcionProf = basePct * pct / 100 - neto;
+        // Primero se restan los servicios realizados (neto) y después se aplica el porcentaje
+        const porcionProf = (basePct - neto) * pct / 100;
         if (porcionProf < 0) {
             return res.status(400).json({ success: false, message: 'El neto fijo supera lo que le corresponde a la profesional hoy' });
         }
