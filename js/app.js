@@ -532,7 +532,8 @@ async function togglePausarServicio(id, activoActual) {
 
 // ── Eliminar servicio ───────────────────────────────────────
 async function eliminarServicio(event, id) {
-    const nombre = event.currentTarget.dataset.nombre || '';
+    const _btn = event.currentTarget;
+    const nombre = _btn.dataset.nombre || '';
     if (!(await confirmarAccion(`¿Eliminar el servicio "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausalo.`)))  return;
     try {
         const res = await fetch(`${API_BASE}/servicios/${id}`, { method: 'DELETE' });
@@ -2453,7 +2454,8 @@ async function togglePausarPromocion(id, activoActual) {
 }
 
 async function eliminarPromocion(event, id) {
-    const nombre = event.currentTarget.dataset.nombre || '';
+    const _btn = event.currentTarget;
+    const nombre = _btn.dataset.nombre || '';
     if (!(await confirmarAccion(`¿Eliminar la promoción "${nombre}"?\n\nEsto es permanente. Si tiene turnos próximos, primero pausala.`)))  return;
     try {
         const res = await fetch(`${API_BASE}/promociones/${id}`, {
@@ -3903,7 +3905,8 @@ async function guardarProfesional(id) {
 }
 
 async function eliminarProfesional(event, id) {
-    const nombre = event.currentTarget.dataset.nombre || '';
+    const _btn = event.currentTarget;
+    const nombre = _btn.dataset.nombre || '';
     if (!(await confirmarAccion(`¿Eliminar a "${nombre}"?\nEsto eliminará también sus horarios y disponibilidad.`)))  return;
     try {
         const res = await fetch(`${API_BASE}/usuarios/${id}`, { method: 'DELETE' });
@@ -4209,16 +4212,17 @@ function toggleRetiroAmbos(profesionalId) {
 }
 
 async function registrarRetiro(event, profesionalId) {
-    const nombre = event.currentTarget.dataset.nombre || '';
+    const _btn = event.currentTarget;
+    const nombre = _btn.dataset.nombre || '';
     const metodo = document.getElementById('metodo-retiro-'+profesionalId)?.value || 'efectivo';
     const ef = parseFloat(document.getElementById('ret-ef-'+profesionalId)?.value) || 0;
     const tr = parseFloat(document.getElementById('ret-tr-'+profesionalId)?.value) || 0;
     if (metodo === 'ambos' && ef + tr <= 0) { mostrarNotificacion('Indicá el monto en efectivo y/o transferencia', 'error'); return; }
     const detalle = metodo === 'ambos' ? `Efectivo ${fmtPesos(ef)} + Transferencia ${fmtPesos(tr)}` : (metodo === 'transferencia' ? 'Transferencia' : 'Efectivo');
     if (!(await confirmarAccion(`¿Registrar el retiro de "${nombre}" por lo cobrado hoy?\nMétodo: ${detalle}\nSe descontará de la caja de hoy.`)))  return;
-    event.currentTarget.disabled = true;
-    const btnText = event.currentTarget.textContent;
-    event.currentTarget.textContent = 'Registrando...';
+    _btn.disabled = true;
+    const btnText = _btn.textContent;
+    _btn.textContent = 'Registrando...';
     try {
         const res = await fetch(`${API_BASE}/caja/retiros`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -4235,8 +4239,8 @@ async function registrarRetiro(event, profesionalId) {
     } catch (e) {
         mostrarNotificacion('Error de conexión', 'error');
     } finally {
-        event.currentTarget.disabled = false;
-        event.currentTarget.textContent = btnText;
+        _btn.disabled = false;
+        _btn.textContent = btnText;
     }
 }
 
