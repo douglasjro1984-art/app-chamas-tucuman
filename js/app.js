@@ -1,3 +1,15 @@
+// Ajuste de la vista en celulares (tarjetas de turnos en Caja)
+(function () {
+    const st = document.createElement('style');
+    st.textContent = `
+        @media (max-width: 640px) {
+            .turno-card { flex-wrap: wrap !important; padding: 12px 14px !important; }
+            .turno-card > div:first-child { flex: 1 1 100%; }
+            .turno-acciones { flex-wrap: wrap !important; width: 100%; justify-content: flex-start !important; }
+        }`;
+    document.head.appendChild(st);
+})();
+
 function confirmarAccion(mensaje) {
     return new Promise(resolve => {
         document.getElementById('modal-confirmar')?.remove();
@@ -5047,7 +5059,7 @@ async function cargarTurnosCaja() {
         const cobrados = activos.filter(t => (t.estado || '') === 'cobrado');
 
         const tarjeta = (t, esCobrado) => `
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;padding:14px 18px;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${t.tipo === 'sobreturno' ? '#8E44AD' : (esCobrado ? '#28a745' : '#C06C84')};flex-wrap:wrap;">
+            <div class="turno-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;padding:14px 18px;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${t.tipo === 'sobreturno' ? '#8E44AD' : (esCobrado ? '#28a745' : '#C06C84')};flex-wrap:wrap;">
                 <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
                     <div style="display:flex;flex-direction:column;align-items:center;background:${t.tipo === 'sobreturno' ? '#f4ecf7' : (esCobrado ? '#eafaf1' : '#fdf0f4')};padding:6px 12px;border-radius:8px;min-width:60px;">
                         <strong style="color:${t.tipo === 'sobreturno' ? '#6C3483' : '#C06C84'};font-size:1.1rem;">${t.hora_inicio}</strong>
@@ -5057,7 +5069,7 @@ async function cargarTurnosCaja() {
                         <small style="color:#888;display:block;">${esc(t.servicio)}${parseInt(t.cant_items||1) > 1 ? ` <span style="background:#fdf0f4;color:#C06C84;border-radius:6px;padding:1px 6px;font-weight:700;">+${parseInt(t.cant_items)-1}</span>` : ''} · ${esc(t.profesional || 'Sin profesional')}${t.cliente_telefono ? ' · ' + esc(t.cliente_telefono) : ''}</small>
                     </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:10px;">
+                <div class="turno-acciones" style="display:flex;align-items:center;gap:10px;">
                     <strong style="color:#28a745;font-size:1.15rem;">${fmtPesos(parseFloat(t.precio || 0))}</strong>
                     ${esCobrado
                         ? `<span style="background:#28a745;color:white;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.85rem;">Cobrado</span>
