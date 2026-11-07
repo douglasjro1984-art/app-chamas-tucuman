@@ -1,3 +1,15 @@
+// Barra del usuario dentro del menú en celulares
+(function () {
+    const st = document.createElement('style');
+    st.textContent = `
+        @media (max-width: 640px) {
+            .user-status-card { flex-wrap: wrap !important; justify-content: center !important; max-width: 100% !important; box-sizing: border-box !important; gap: 8px !important; padding: 12px !important; }
+            .user-status-card .user-info { width: 100%; justify-content: center; }
+            .user-status-card button { flex: 1 1 auto !important; min-width: 0 !important; }
+        }`;
+    document.head.appendChild(st);
+})();
+
 // Ajuste de la vista en celulares (tarjetas de turnos en Caja)
 (function () {
     const st = document.createElement('style');
