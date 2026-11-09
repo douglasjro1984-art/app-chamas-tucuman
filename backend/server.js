@@ -2478,7 +2478,7 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
         );
         const [retiros] = await pool.query(
             `SELECT id, profesional_nombre, monto_bruto, porcentaje_retiro, monto_retirado, monto_estetica, metodo_retiro
-             FROM retiros WHERE caja_id = ? ORDER BY id`, [caja[0].id]
+             FROM retiros WHERE caja_id = ? AND deshecho = 0 ORDER BY id`, [caja[0].id]
         );
         const [sugerencias] = await pool.query(
             `SELECT u.id AS profesional_id, u.nombre AS profesional_nombre, u.porcentaje_retiro,
@@ -3645,7 +3645,7 @@ app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), a
         const [retiros] = await pool.query(
             `SELECT r.id, r.profesional_id, r.profesional_nombre, r.monto_bruto,
                     r.porcentaje_retiro, r.monto_retirado, r.monto_estetica, r.metodo_retiro, r.deshecho, r.creado_at
-             FROM retiros r WHERE r.fecha = CURDATE() ORDER BY r.id`
+             FROM retiros r WHERE r.fecha = CURDATE() AND r.deshecho = 0 ORDER BY r.id`
         );
         res.json({ sugerencias, retiros });
     } catch (e) {
