@@ -2951,7 +2951,7 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin','recepcionista']),
                     (SELECT COUNT(*) FROM tickets t WHERE t.caja_id = c.id) AS cantidad_turnos,
                     (SELECT COALESCE(SUM(t.total),0) FROM tickets t WHERE t.caja_id = c.id) AS total_cobrado,
                     (SELECT COALESCE(SUM(g.monto),0) FROM gastos g WHERE g.caja_id = c.id) AS total_gastos,
-                    (SELECT COALESCE(SUM(r.monto_retirado),0) FROM retiros r WHERE r.caja_id = c.id) AS total_retiros
+                    (SELECT COALESCE(SUM(r.monto_retirado),0) FROM retiros r WHERE r.caja_id = c.id AND r.deshecho = 0) AS total_retiros
              FROM cajas c`;
         const sqlParams = [];
         if (filtroDesde) {
@@ -3218,7 +3218,7 @@ app.get('/api/caja/reporte', autenticar, autorizar(['admin','recepcionista']), a
             else b.gastos_compras += parseFloat(g.total || 0);
         }
         const [retiros] = await pool.query(
-            `SELECT caja_id, COALESCE(monto_retirado,0) as total FROM retiros WHERE caja_id IS NOT NULL`
+            `SELECT caja_id, COALESCE(monto_retirado,0) as total FROM retiros WHERE caja_id IS NOT NULL AND deshecho = 0`
         );
         for (const r of retiros) {
             const b = porCaja[r.caja_id];
@@ -3676,7 +3676,7 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
         const bruto = parseFloat(p.cobrado_hoy) || 0;
         // Descontar lo que la profesional ya retirÃ³ hoy para no retirar dos veces
         const [yaRetirado] = await pool.query(
-            'SELECT COALESCE(SUM(monto_retirado),0) AS total FROM retiros WHERE profesional_id = ? AND fecha = CURDATE()',
+            'SELECT COALESCE(SUM(monto_retirado),0) AS total FROM retiros WHERE profesional_id = ? AND fecha = CURDATE() AND deshecho = 0',
             [profesional_id]
         );
         const yaRetiradoTotal = parseFloat(yaRetirado[0]?.total || 0);
