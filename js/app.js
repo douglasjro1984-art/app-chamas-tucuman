@@ -4294,7 +4294,7 @@ function renderUltimoCierreCard(data) {
         <div style="background:#e8f5e9;border:2px solid #28a745;border-radius:12px;padding:14px 18px;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div>
                 <strong style="color:#155724;display:block;">Último cierre (${fecha})</strong>
-                <small style="color:#256029;">Quedaron en caja <strong>${fmtPesos(parseFloat(a.monto_final || 0))}</strong>.${a.diferencia !== null && a.diferencia !== undefined ? ` Diferencia del cierre: <strong>${fmtPesos(parseFloat(a.diferencia))}</strong>.` : ''}</small>
+                <small style="color:#256029;">Quedaron en caja <strong>${fmtPesos(parseFloat(a.monto_final || 0))}</strong> (efectivo ${fmtPesos(parseFloat(a.monto_final || 0) - parseFloat(a.transferencia_final || 0))} · transferencias ${fmtPesos(parseFloat(a.transferencia_final || 0))}).${a.diferencia !== null && a.diferencia !== undefined ? ` Diferencia del cierre: <strong>${fmtPesos(parseFloat(a.diferencia))}</strong>.` : ''}</small>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button onclick="abrirFacturasCaja(${a.id}, ${esAdmin})" style="background:#B9770E;color:white;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Ver facturas</button>
@@ -4385,27 +4385,43 @@ async function editarCaja(cajaId) {
         const c = data.caja || {};
         const campo = (id, label, valor) => `
             <label style="display:flex;flex-direction:column;font-size:0.8rem;color:#555;gap:3px;">${label}
-                <input id="ec-${id}" type="number" step="0.01" min="0" value="${parseFloat(valor || 0).toFixed(0)}" style="padding:7px 9px;border:1px solid #ccc;border-radius:7px;">
+                <input id="ec-${id}" type="number" step="0.01" value="${parseFloat(valor || 0).toFixed(0)}" style="padding:7px 9px;border:1px solid #ccc;border-radius:7px;">
             </label>`;
         panel.innerHTML = `
             <div style="border:1px solid #B9770E;border-radius:10px;padding:14px;margin-bottom:14px;background:#fffdf7;">
                 <strong>Editar caja de hoy</strong>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0;">
-                    ${campo('monto_inicial', 'Apertura', c.monto_inicial)}
-                    ${campo('total_efectivo', 'Efectivo', c.total_efectivo)}
-                    ${campo('total_transferencia', 'Transferencia', c.total_transferencia)}
-                    ${campo('total_debito', 'Débito', c.total_debito)}
+                    ${campo('monto_inicial', 'Efectivo inicial', c.monto_inicial)}
+                    ${campo('transferencia_inicial', 'Transferencias iniciales', c.transferencia_inicial)}
+                    ${campo('total_efectivo', 'Efectivo del día (cobrado − salidas)', c.total_efectivo)}
+                    ${campo('total_transferencia', 'Transferencia del día (cobrado − salidas)', c.total_transferencia)}
+                    ${campo('total_debito', 'Débito del día (cobrado − salidas)', c.total_debito)}
                 </div>
                 <label style="display:block;font-size:0.8rem;color:#555;margin-bottom:10px;">Motivo del cambio <strong>(obligatorio)</strong>
                     <textarea id="ec-motivo" rows="2" style="width:100%;padding:7px;border:1px solid #ccc;border-radius:7px;box-sizing:border-box;"></textarea>
                 </label>
                 <div style="display:flex;gap:8px;">
                     <button onclick="guardarEdicionCaja(${cajaId})" style="background:#B9770E;color:white;padding:8px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Guardar cambios</button>
+                    <button onclick="recalcularCaja(${cajaId})" style="background:#2c7be5;color:white;padding:8px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Recalcular desde registros</button>
                     <button onclick="document.getElementById('panel-caja-${cajaId}').innerHTML=''" style="background:#eee;color:#333;padding:8px 14px;border:none;border-radius:7px;cursor:pointer;">Cancelar</button>
                 </div>
             </div>`;
     } catch (e) {
         notificarCaja('No se pudo abrir la edición', 'error');
+    }
+}
+
+async function recalcularCaja(id) {
+    if (!(await confirmarAccion('Se recalculan efectivo, transferencia y débito de esta caja desde sus facturas, gastos y retiros. Los importes cargados a mano en esos campos se reemplazan. ¿Continuar?'))) return;
+    try {
+        const res = await fetch(`${API_BASE}/caja/${id}/recalcular`, { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) { notificarCaja(data.message || 'No se pudo recalcular', 'error'); return; }
+        notificarCaja('Caja recalculada desde sus registros');
+        cargarEstadoCaja();
+        if (typeof cargarHistorialCajas === 'function') cargarHistorialCajas();
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
     }
 }
 
@@ -4422,6 +4438,7 @@ async function guardarEdicionCaja(cajaId) {
             body: JSON.stringify({
                 motivo,
                 monto_inicial: v('monto_inicial'),
+                transferencia_inicial: v('transferencia_inicial'),
                 total_efectivo: v('total_efectivo'),
                 total_transferencia: v('total_transferencia'),
                 total_debito: v('total_debito')
@@ -4458,7 +4475,7 @@ async function cargarPendientesRevision() {
         cont.insertAdjacentHTML('beforeend', `
             <div style="background:#fff5f5;border:2px solid #dc3545;border-radius:14px;padding:18px;margin-bottom:18px;">
                 <h3 style="margin:0 0 6px 0;color:#dc3545;">Revisar caja (${data.cajas.length})</h3>
-                <p style="margin:0 0 6px 0;color:#666;font-size:0.88rem;">Estas cajas se abrieron con un fondo que no concuerda con el cierre anterior.</p>
+                <p style="margin:0 0 6px 0;color:#666;font-size:0.88rem;">Estas cajas tienen diferencias de apertura o de arqueo para revisar.</p>
                 ${items}
             </div>`);
     } catch (e) {
@@ -4710,6 +4727,8 @@ async function cargarEstadoCaja() {
         const res = await fetch(`${API_BASE}/caja/estado`);
         if (!res.ok) throw new Error('Error');
         const data = await res.json();
+        window._saldosCaja = data.saldos || null;
+        window._cajaAnterior = data.caja_anterior || null;
         if (!data.abierta) {
             cont.innerHTML = `
                 <div style="background:white;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:18px;border-left:4px solid #C06C84;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
@@ -4735,9 +4754,14 @@ async function cargarEstadoCaja() {
             cont.innerHTML = avisoAnterior + renderizarAperturaCaja(data);
             if (c.alerta_revision) cont.insertAdjacentHTML('afterbegin', `
                 <div style="background:#f8d7da;border:2px solid #dc3545;border-radius:12px;padding:14px 18px;margin-bottom:14px;color:#721c24;">
-                    <strong>⚠ Revisar apertura:</strong> ${esc(c.alerta_revision)}
+                    <strong>⚠ ${/^(Apertura|Fondo inicial)/.test(c.alerta_revision) ? 'Revisar apertura' : 'Revisar caja'}:</strong> ${esc(c.alerta_revision)}
                 </div>`);
             const esAdminCaja = !!(data.usuario && (data.usuario.rol === 'admin' || data.usuario.rol === 'super_admin'));
+            if (data.saldos && data.saldos.desfasado) cont.insertAdjacentHTML('afterbegin', `
+                <div style="background:#fff3cd;border:2px solid #ffc107;border-radius:12px;padding:14px 18px;margin-bottom:14px;color:#856404;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <span><strong>Los importes por medio de pago no coinciden con las facturas, gastos y retiros de esta caja.</strong><br><small>Pasa cuando un gasto o retiro superó lo cobrado en ese medio. El cierre saldría mal hasta recalcular.</small></span>
+                    ${esAdminCaja ? `<button onclick="recalcularCaja(${c.id})" style="background:#B9770E;color:white;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Recalcular desde registros</button>` : ''}
+                </div>`);
             cont.insertAdjacentHTML('beforeend', `<div style="margin:0 0 14px;"><button onclick="abrirFacturasCaja(${c.id}, ${esAdminCaja})" style="background:#B9770E;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Ver facturas</button></div>`);
             if (data.usuario && (data.usuario.rol === 'admin' || data.usuario.rol === 'super_admin')) {
                 cont.insertAdjacentHTML('beforeend', `
@@ -4755,6 +4779,22 @@ async function cargarEstadoCaja() {
 // Renderiza la apertura del día con pagos, gastos y retiros de la caja abierta
 function renderizarAperturaCaja(data) {
     const c = data.caja;
+    const num = v => parseFloat(v || 0);
+    const s = data.saldos || {
+        efectivo_inicial: num(c.monto_inicial), transferencia_inicial: 0,
+        efectivo: num(c.monto_inicial) + num(c.total_efectivo), transferencia: num(c.total_transferencia), debito: num(c.total_debito),
+        neto: num(c.monto_inicial) + num(c.total_efectivo) + num(c.total_transferencia) + num(c.total_debito),
+        ventas: { efectivo: 0, transferencia: 0, debito: 0, total: 0 }, salidas: { efectivo: 0, transferencia: 0, debito: 0, total: 0 }, apertura_dif: null
+    };
+    const firmado = v => (v > 0.009 ? '+' : (v < -0.009 ? '−' : '')) + fmtPesos(Math.abs(v));
+    const tarjeta = (titulo, saldo, detalle, destacada) => `
+        <div style="background:${destacada ? '#eef7ee' : '#f9f9f9'};${destacada ? 'border:2px solid #28a745;' : ''}border-radius:8px;padding:8px;text-align:center;">
+            <small style="color:#888;">${titulo}</small><br>
+            <strong style="${saldo < 0 ? 'color:#dc3545;' : ''}font-size:${destacada ? '1.1rem' : '1rem'};">${fmtPesos(saldo)}</strong>
+            ${detalle ? `<br><small style="color:#aaa;font-size:0.72rem;">${detalle}</small>` : ''}
+        </div>`;
+    const dif = s.apertura_dif;
+    const hayDifApertura = dif && (Math.abs(dif.efectivo) > 0.009 || Math.abs(dif.transferencia) > 0.009);
     const tickets = data.tickets || [];
     const gastos = data.gastos || [];
     const retiros = data.retiros || [];
@@ -4791,18 +4831,20 @@ function renderizarAperturaCaja(data) {
                 <div>
                     <h3 style="margin:0;color:#28a745;">Apertura de Caja del Día</h3>
                     <p style="margin:6px 0 0;color:#666;font-size:0.9rem;">
-                        Fondo inicial: <strong>${fmtPesos(c.monto_inicial)}</strong> ·
-                        Cobrado: <strong style="color:#28a745;">${fmtPesos((parseFloat(c.total_efectivo || 0) + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0)))}</strong>
+                        Fondo inicial: efectivo <strong>${fmtPesos(s.efectivo_inicial)}</strong> + transferencias <strong>${fmtPesos(s.transferencia_inicial)}</strong> ·
+                        Cobrado hoy: <strong style="color:#28a745;">${fmtPesos(s.ventas.total)}</strong>
                         ${c.cajero_nombre ? ' · ' + c.cajero_nombre : ''}
                     </p>
                 </div>
                 <button onclick="cerrarCajaModal()" style="background:#e74c3c;color:white;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Arqueo y Cierre</button>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:14px 0;">
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Efectivo</small><br><strong>${fmtPesos(parseFloat(c.total_efectivo || 0))}</strong></div>
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Transferencia</small><br><strong>${fmtPesos(parseFloat(c.total_transferencia || 0))}</strong></div>
-                <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center;"><small style="color:#888;">Débito</small><br><strong>${fmtPesos(parseFloat(c.total_debito || 0))}</strong></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:14px 0 8px;">
+                ${tarjeta('Neto', s.neto, 'efectivo + transferencias + débito', true)}
+                ${tarjeta('Efectivo', s.efectivo, `inicial ${fmtPesos(s.efectivo_inicial)} + cobrado ${fmtPesos(s.ventas.efectivo)} − salidas ${fmtPesos(s.salidas.efectivo)}`)}
+                ${tarjeta('Transferencia', s.transferencia, `inicial ${fmtPesos(s.transferencia_inicial)} + cobrado ${fmtPesos(s.ventas.transferencia)} − salidas ${fmtPesos(s.salidas.transferencia)}`)}
+                ${tarjeta('Débito', s.debito, `cobrado ${fmtPesos(s.ventas.debito)} − salidas ${fmtPesos(s.salidas.debito)}`)}
             </div>
+            ${hayDifApertura ? `<div style="margin:0 0 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 12px;font-size:0.85rem;color:#856404;"><strong>Diferencia de apertura</strong> respecto del cierre anterior: efectivo ${firmado(dif.efectivo)} · transferencias ${firmado(dif.transferencia)}</div>` : ''}
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
                 <div>
                     <h4 style="margin:0 0 8px;color:#555;font-size:0.95rem;">Pagos de clientes (${tickets.length})</h4>
@@ -4822,6 +4864,10 @@ function renderizarAperturaCaja(data) {
 
 // Modal para abrir la caja del día
 function abrirCajaModal() {
+    const ant = window._cajaAnterior;
+    const trSug = ant ? parseFloat(ant.transferencia_final || 0) : 0;
+    const efSug = ant ? Math.max(0, parseFloat(ant.monto_final || 0) - trSug) : 0;
+    const fechaSug = ant ? String(ant.fecha_larga || '').split('-').reverse().join('/') : '';
     const modal = document.createElement('div');
     modal.id = 'modal-abrir-caja';
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
@@ -4831,10 +4877,16 @@ function abrirCajaModal() {
             <p style="color:#888;margin:0 0 20px 0;font-size:0.88rem;">Registrá el dinero con el que se abre la caja (fondo de cambio).</p>
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <div>
-                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Fondo inicial ($)</label>
-                    <input type="number" id="abrir-caja-monto" value="0" step="0.01" min="0"
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Efectivo inicial ($)</label>
+                    <input type="number" id="abrir-caja-monto" value="${efSug}" step="0.01" min="0"
                            style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
                 </div>
+                <div>
+                    <label style="font-weight:600;color:#555;font-size:0.85rem;display:block;margin-bottom:4px;">Transferencias que quedaron ($)</label>
+                    <input type="number" id="abrir-caja-transf" value="${trSug}" step="0.01" min="0"
+                           style="width:100%;padding:10px 12px;border:2px solid #C06C84;border-radius:9px;font-size:1rem;box-sizing:border-box;">
+                </div>
+                ${ant ? `<div style="background:#e8f5e9;border-radius:9px;padding:9px 12px;font-size:0.82rem;color:#256029;">Sugerido del cierre del ${fechaSug}: efectivo <strong>${fmtPesos(efSug)}</strong> · transferencias <strong>${fmtPesos(trSug)}</strong>. Podés ajustarlo si contás otra cosa; la diferencia queda registrada.</div>` : ''}
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;">
                 <button onclick="confirmarAbrirCaja()" style="flex:1;background:#28a745;color:white;padding:13px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:1rem;">Abrir Caja</button>
@@ -4848,10 +4900,11 @@ function abrirCajaModal() {
 
 async function confirmarAbrirCaja() {
     const monto = parseFloat(document.getElementById('abrir-caja-monto')?.value || 0);
+    const montoTr = parseFloat(document.getElementById('abrir-caja-transf')?.value || 0);
     try {
         const res = await fetch(`${API_BASE}/caja/abrir`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ monto_inicial: isNaN(monto) ? 0 : monto })
+            body: JSON.stringify({ monto_inicial: isNaN(monto) ? 0 : monto, transferencia_inicial: isNaN(montoTr) ? 0 : montoTr })
         });
         const data = await res.json();
         document.getElementById('modal-abrir-caja')?.remove();
@@ -4869,6 +4922,7 @@ async function confirmarAbrirCaja() {
 
 // Modal para cerrar la caja del día (conteo real de efectivo)
 function cerrarCajaModal() {
+    const sal = window._saldosCaja || { efectivo: 0, transferencia: 0, debito: 0, neto: 0 };
     const modal = document.createElement('div');
     modal.id = 'modal-cerrar-caja';
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
@@ -4892,15 +4946,16 @@ function cerrarCajaModal() {
                 <h4 style="margin:8px 0 6px;color:#555;font-size:0.9rem;">Transferencias y débito</h4>
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;">
                     <span style="font-weight:600;color:#555;min-width:90px;">Transferencia</span>
-                    <input id="arq-transf" type="number" min="0" step="0.01" value="0" oninput="actualizarTotalArqueo()" style="width:110px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
+                    <input id="arq-transf" type="number" min="0" step="0.01" value="${sal.transferencia}" oninput="actualizarTotalArqueo()" style="width:110px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
                     <span id="sub-transf" style="font-weight:700;color:#28a745;min-width:70px;text-align:right;">$0</span>
                 </div>
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;">
                     <span style="font-weight:600;color:#555;min-width:90px;">Débito</span>
-                    <input id="arq-debito" type="number" min="0" step="0.01" value="0" oninput="actualizarTotalArqueo()" style="width:110px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
+                    <input id="arq-debito" type="number" min="0" step="0.01" value="${sal.debito}" oninput="actualizarTotalArqueo()" style="width:110px;padding:6px 8px;border:2px solid #C06C84;border-radius:8px;text-align:center;font-weight:700;">
                     <span id="sub-debito" style="font-weight:700;color:#28a745;min-width:70px;text-align:right;">$0</span>
                 </div>
             </div>
+            <div style="margin-top:12px;background:#eef7ee;border-radius:10px;padding:10px 12px;font-size:0.82rem;color:#256029;">Cierre calculado: efectivo <strong>${fmtPesos(sal.efectivo)}</strong> · transferencias <strong>${fmtPesos(sal.transferencia)}</strong> · débito <strong>${fmtPesos(sal.debito)}</strong> = <strong>${fmtPesos(sal.neto)}</strong>. Las transferencias y el débito ya vienen cargados: corregilos solo si el banco muestra otro monto.</div>
             <div style="margin-top:14px;background:#f9f9f9;border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
                 <span style="font-weight:700;color:#555;">Total contado</span>
                 <strong id="arqueo-total" style="color:#28a745;font-size:1.25rem;">$0.00</strong>
@@ -4912,6 +4967,7 @@ function cerrarCajaModal() {
         </div>`;
     document.body.appendChild(modal);
     modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
+    actualizarTotalArqueo();
 }
 
 function actualizarTotalArqueo() {
@@ -7197,15 +7253,15 @@ function _filaCajaDia(c, i) {
             <td style="padding:10px 8px;font-weight:700;color:#B9770E;">${_fmtFechaCorta(c.fecha)}</td>
             <td style="padding:10px 8px;">${c.estado === 'abierta' ? '<span style="background:#e8f8f0;color:#1aa851;padding:3px 8px;border-radius:6px;font-weight:700;">Abierta</span>' : '<span style="background:#fdf5f8;color:#C06C84;padding:3px 8px;border-radius:6px;font-weight:700;">Cerrada</span>'}</td>
             <td style="padding:10px 8px;">${c.cajero_nombre || '—'}<br><small style="color:#aaa;">${fmtHora(c.abierta_at)}hs</small></td>
-            <td style="padding:10px 8px;">${_m(c.monto_inicial)}</td>
+            <td style="padding:10px 8px;">${_m(parseFloat(c.monto_inicial || 0) + parseFloat(c.transferencia_inicial || 0))}${parseFloat(c.transferencia_inicial || 0) > 0 ? `<br><small style="color:#aaa;font-weight:400;">ef. ${_m(c.monto_inicial)} · tr. ${_m(c.transferencia_inicial)}</small>` : ''}</td>
             <td style="padding:10px 8px;">${_m(c.efectivo)}</td>
             <td style="padding:10px 8px;">${_m(c.transferencia)}</td>
             <td style="padding:10px 8px;">${_m(c.debito)}</td>
             <td style="padding:10px 8px;font-weight:700;">${_m(c.total_cobrado)}</td>
             <td style="padding:10px 8px;color:#dc3545;">-${_m(c.total_gastos)}</td>
             <td style="padding:10px 8px;color:#C06C84;">-${_m(c.total_retiros)}</td>
-            <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? (c.monto_final == null ? '<span style="color:#bbb;font-weight:400;">Sin arqueo</span>' : _m(c.monto_final)) : '—'}</td>
-            <td style="padding:10px 8px;white-space:nowrap;"><button onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Ver</button>${c.estado === 'cerrada' && esAdmin() ? `<button onclick="reabrirCaja(${c.id}, true)" title="Solo administrador" style="background:#28a745;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;margin-left:6px;">Reabrir</button>` : ''}</td>
+            <td style="padding:10px 8px;font-weight:700;color:#1aa851;">${c.estado === 'cerrada' ? (c.monto_final == null ? '<span style="color:#bbb;font-weight:400;">Sin arqueo</span>' : _m(c.monto_final) + (c.transferencia_final != null ? `<br><small style="color:#aaa;font-weight:400;">ef. ${_m(parseFloat(c.monto_final) - parseFloat(c.transferencia_final))} · tr. ${_m(c.transferencia_final)}</small>` : '')) : '—'}</td>
+            <td style="padding:10px 8px;white-space:nowrap;"><button onclick="verDetalleCaja(${c.id})" style="background:#B9770E;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;">Ver</button>${c.estado === 'cerrada' && esAdmin() ? `<button onclick="reabrirCaja(${c.id}, true)" title="Solo administrador" style="background:#28a745;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;margin-left:6px;">Reabrir</button><button onclick="recalcularCaja(${c.id})" title="Recalcular desde facturas, gastos y retiros" style="background:#2c7be5;color:white;padding:6px 10px;border:none;border-radius:7px;cursor:pointer;font-weight:700;margin-left:6px;">Recalcular</button>` : ''}</td>
         </tr>
         <tr id="detalle-caja-${c.id}" style="display:none;"><td colspan="12" style="padding:0;background:#fffdf7;"></td></tr>`;
 }
