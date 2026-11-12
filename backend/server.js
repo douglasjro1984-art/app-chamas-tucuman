@@ -155,6 +155,8 @@ function fechaHoyAR() {
         if (!existentesHorarios.has('sobreturno_duracion')) await pool.query(`ALTER TABLE horarios_config ADD COLUMN sobreturno_duracion INT NOT NULL DEFAULT 30`);
         const [cajasCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cajas'`);
         if (!cajasCols.some(c => c.COLUMN_NAME === 'alerta_revision')) await pool.query(`ALTER TABLE cajas ADD COLUMN alerta_revision VARCHAR(255) NULL`);
+        if (!cajasCols.some(c => c.COLUMN_NAME === 'transferencia_inicial')) await pool.query(`ALTER TABLE cajas ADD COLUMN transferencia_inicial DECIMAL(12,2) NOT NULL DEFAULT 0`);
+        if (!cajasCols.some(c => c.COLUMN_NAME === 'transferencia_final')) await pool.query(`ALTER TABLE cajas ADD COLUMN transferencia_final DECIMAL(12,2) NULL`);
         await pool.query(`CREATE TABLE IF NOT EXISTS codigos_reapertura (id BIGINT AUTO_INCREMENT PRIMARY KEY, codigo_hash VARCHAR(64) NOT NULL, creado_por BIGINT NULL, expira_at DATETIME NOT NULL, usado TINYINT(1) NOT NULL DEFAULT 0, usado_por BIGINT NULL, usado_at DATETIME NULL, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`);
         try { await pool.query('ALTER TABLE cajas ADD COLUMN diferencia DECIMAL(10,2) NULL'); } catch (e) {}
         // Migración para cobros con varios métodos de pago (metodo_pago = 'mixto')
@@ -2022,18 +2024,18 @@ app.patch('/api/turnos/:id/revertir-cobro', autenticar, autorizar(['admin']), as
                         for (const k of ['efectivo', 'transferencia', 'debito']) {
                             const importe = Math.round((parseFloat(d[k]) || 0) * 100) / 100;
                             if (importe > 0 && colPorMetodo[k]) {
-                                await pool.query(`UPDATE cajas SET ${colPorMetodo[k]} = GREATEST(${colPorMetodo[k]} - ?, 0) WHERE id = ?`, [importe, cajaId]);
+                                await pool.query(`UPDATE cajas SET ${colPorMetodo[k]} = ${colPorMetodo[k]} - ? WHERE id = ?`, [importe, cajaId]);
                                 restado += importe;
                             }
                         }
                         if (monto - restado > 0.009) {
-                            await pool.query(`UPDATE cajas SET total_efectivo = GREATEST(total_efectivo - ?, 0) WHERE id = ?`, [monto - restado, cajaId]);
+                            await pool.query(`UPDATE cajas SET total_efectivo = total_efectivo - ? WHERE id = ?`, [monto - restado, cajaId]);
                         }
                     } else {
-                        await pool.query(`UPDATE cajas SET ${colMetodo} = GREATEST(${colMetodo} - ?, 0) WHERE id = ?`, [monto, cajaId]);
+                        await pool.query(`UPDATE cajas SET ${colMetodo} = ${colMetodo} - ? WHERE id = ?`, [monto, cajaId]);
                     }
                 } else {
-                    await pool.query(`UPDATE cajas SET ${colMetodo} = GREATEST(${colMetodo} - ?, 0) WHERE id = ?`, [monto, cajaId]);
+                    await pool.query(`UPDATE cajas SET ${colMetodo} = ${colMetodo} - ? WHERE id = ?`, [monto, cajaId]);
                 }
             }
 
@@ -2463,7 +2465,7 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
         );
         if (!caja.length) {
             const [ant] = await pool.query(
-                `SELECT id, DATE_FORMAT(fecha, '%Y-%m-%d') as fecha_larga, estado, monto_inicial, monto_final, diferencia
+                `SELECT id, DATE_FORMAT(fecha, '%Y-%m-%d') as fecha_larga, estado, monto_inicial, monto_final, transferencia_final, diferencia
                  FROM cajas WHERE estado = 'cerrada' ORDER BY fecha DESC, id DESC LIMIT 1`
             );
             return res.json({ abierta: false, caja_anterior: ant[0] || null, usuario: { rol: req.usuario.rol } });
@@ -2491,10 +2493,32 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
              HAVING cobrado_hoy > 0
              ORDER BY u.nombre`
         );
+        // Saldos de la caja: lo que queda en efectivo, en transferencias y en débito
+        const cj = caja[0];
+        const ventas = { efectivo: 0, transferencia: 0, debito: 0 };
+        tickets.forEach(t => acumularPagoPorMetodo(ventas, t.metodo_pago, t.total, t.metodo_pago_detalle));
+        const salidas = { efectivo: 0, transferencia: 0, debito: 0 };
+        gastos.forEach(g => { const k = ['efectivo', 'transferencia', 'debito'].includes(g.metodo_pago) ? g.metodo_pago : 'efectivo'; salidas[k] += parseFloat(g.monto || 0); });
+        retiros.forEach(r => { const k = r.metodo_retiro === 'transferencia' ? 'transferencia' : 'efectivo'; salidas[k] += parseFloat(r.monto_retirado || 0); });
+        const efIni = r2(cj.monto_inicial), trIni = r2(cj.transferencia_inicial);
+        const efSaldo = r2(efIni + parseFloat(cj.total_efectivo || 0));
+        const trSaldo = r2(trIni + parseFloat(cj.total_transferencia || 0));
+        const deSaldo = r2(cj.total_debito);
+        const antCierre = await obtenerCierreAnterior(pool, { id: cj.id, fecha: cj.fecha_larga });
+        const desfasado = ['efectivo', 'transferencia', 'debito'].some(k =>
+            Math.abs(parseFloat(cj['total_' + k] || 0) - (ventas[k] - salidas[k])) > 0.5);
+        const saldos = {
+            efectivo_inicial: efIni, transferencia_inicial: trIni,
+            efectivo: efSaldo, transferencia: trSaldo, debito: deSaldo, neto: r2(efSaldo + trSaldo + deSaldo),
+            ventas: { efectivo: r2(ventas.efectivo), transferencia: r2(ventas.transferencia), debito: r2(ventas.debito), total: r2(ventas.efectivo + ventas.transferencia + ventas.debito) },
+            salidas: { efectivo: r2(salidas.efectivo), transferencia: r2(salidas.transferencia), debito: r2(salidas.debito), total: r2(salidas.efectivo + salidas.transferencia + salidas.debito) },
+            apertura_dif: antCierre.existe ? { efectivo: r2(efIni - antCierre.efectivo), transferencia: r2(trIni - antCierre.transferencia) } : null,
+            desfasado
+        };
         res.json({
             abierta: true,
             dia_anterior: caja[0].es_hoy !== 1 && caja[0].es_hoy !== '1' && caja[0].es_hoy !== true,
-            caja: caja[0], gastos, tickets, retiros, sugerencias, usuario: { rol: req.usuario.rol }
+            caja: caja[0], gastos, tickets, retiros, sugerencias, saldos, usuario: { rol: req.usuario.rol }
         });
     } catch (e) {
         console.error('❌ Error caja estado:', e.message);
@@ -2506,14 +2530,40 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
 // Diferencia de una caja cerrada: contado - (apertura + ventas). Se guarda y se recalcula.
 async function recalcularDiferencia(db, cajaId) {
     const [rowsC] = await db.query(
-        'SELECT monto_inicial, monto_final, total_efectivo, total_transferencia, total_debito FROM cajas WHERE id = ?', [cajaId]
+        'SELECT monto_inicial, transferencia_inicial, monto_final, total_efectivo, total_transferencia, total_debito FROM cajas WHERE id = ?', [cajaId]
     );
     if (!rowsC.length || rowsC[0].monto_final === null) return;
     const c = rowsC[0];
-    const esperado = parseFloat(c.monto_inicial || 0) + parseFloat(c.total_efectivo || 0)
+    const esperado = parseFloat(c.monto_inicial || 0) + parseFloat(c.transferencia_inicial || 0) + parseFloat(c.total_efectivo || 0)
                    + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0);
     const dif = Math.round((parseFloat(c.monto_final) - esperado) * 100) / 100;
     await db.query('UPDATE cajas SET diferencia = ? WHERE id = ?', [dif, cajaId]);
+}
+
+const r2 = v => Math.round((parseFloat(v) || 0) * 100) / 100;
+
+// Cierre anterior separado en efectivo y transferencias (cuenta).
+// ref = null -> último cierre anterior a hoy; ref = {id, fecha} -> anterior a esa caja.
+async function obtenerCierreAnterior(db, ref) {
+    try {
+        let rows;
+        if (ref) {
+            [rows] = await db.query(
+                `SELECT monto_final, transferencia_final FROM cajas
+                 WHERE estado = 'cerrada' AND id <> ? AND (fecha < ? OR (fecha = ? AND id < ?))
+                 ORDER BY fecha DESC, id DESC LIMIT 1`, [ref.id, ref.fecha, ref.fecha, ref.id]);
+        } else {
+            [rows] = await db.query(
+                `SELECT monto_final, transferencia_final FROM cajas
+                 WHERE estado = 'cerrada' AND fecha < CURDATE() ORDER BY fecha DESC, id DESC LIMIT 1`);
+        }
+        if (!rows.length || rows[0].monto_final === null) return { existe: false, total: 0, efectivo: 0, transferencia: 0 };
+        const total = r2(rows[0].monto_final);
+        const transferencia = rows[0].transferencia_final === null ? 0 : r2(rows[0].transferencia_final);
+        return { existe: true, total, transferencia, efectivo: r2(total - transferencia) };
+    } catch (e) {
+        return { existe: false, total: 0, efectivo: 0, transferencia: 0 };
+    }
 }
 
 // Monto del último cierre (día anterior)
@@ -2530,7 +2580,7 @@ async function obtenerMontoCierreAnterior(pool) {
 }
 
 app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), async (req, res) => {
-    const { monto_inicial } = req.body;
+    const { monto_inicial, transferencia_inicial } = req.body;
     try {
         const [abierta] = await pool.query(
             "SELECT id, DATE_FORMAT(fecha, '%Y-%m-%d') as fec, DATE_FORMAT(fecha, '%Y-%m-%d') = CURDATE() as es_hoy FROM cajas WHERE estado = 'abierta' ORDER BY fecha ASC, id ASC LIMIT 1"
@@ -2543,20 +2593,26 @@ app.post('/api/caja/abrir', autenticar, autorizar(['admin','recepcionista']), as
                 : `Ya hay una caja abierta del día ${a.fec}. Cerrala con el arqueo antes de abrir la caja de hoy`;
             return res.status(400).json({ success: false, message: msg, dia_anterior: !esHoy });
         }
-        const inicial = Math.max(0, parseFloat(monto_inicial) || 0);
+        // La caja arranca con el efectivo y las transferencias que quedaron del cierre anterior.
+        const ant = await obtenerCierreAnterior(pool, null);
+        const vacio = v => v === undefined || v === null || v === '';
+        const inicial = vacio(monto_inicial) ? ant.efectivo : Math.max(0, r2(monto_inicial));
+        const inicialTr = vacio(transferencia_inicial) ? ant.transferencia : Math.max(0, r2(transferencia_inicial));
         const [r] = await pool.query(
-            'INSERT INTO cajas (fecha, estado, monto_inicial, cajero_id, cajero_nombre) VALUES (CURDATE(), "abierta", ?, ?, ?)',
-            [inicial, req.usuario.id, req.usuario.nombre || null]
+            'INSERT INTO cajas (fecha, estado, monto_inicial, transferencia_inicial, cajero_id, cajero_nombre) VALUES (CURDATE(), "abierta", ?, ?, ?, ?)',
+            [inicial, inicialTr, req.usuario.id, req.usuario.nombre || null]
         );
+        const avisos = [];
+        if (ant.existe && Math.abs(inicial - ant.efectivo) > 0.009)
+            avisos.push(`efectivo inicial $${inicial.toFixed(2)} no concuerda con el cierre anterior $${ant.efectivo.toFixed(2)} (diferencia $${(inicial - ant.efectivo).toFixed(2)})`);
+        if (ant.existe && Math.abs(inicialTr - ant.transferencia) > 0.009)
+            avisos.push(`transferencias iniciales $${inicialTr.toFixed(2)} no concuerdan con el cierre anterior $${ant.transferencia.toFixed(2)} (diferencia $${(inicialTr - ant.transferencia).toFixed(2)})`);
         let alerta = null;
-        if (monto_inicial !== undefined && monto_inicial !== '') {
-            const anterior = await obtenerMontoCierreAnterior(pool);
-            if (Math.abs(inicial - anterior) > 0.009) {
-                alerta = `Fondo inicial $${inicial.toFixed(2)} no concuerda con el cierre anterior $${anterior.toFixed(2)}`;
-                await pool.query('UPDATE cajas SET alerta_revision = ? WHERE id = ?', [alerta, r.insertId]);
-            }
+        if (avisos.length) {
+            alerta = 'Apertura: ' + avisos.join('; ');
+            await pool.query('UPDATE cajas SET alerta_revision = ? WHERE id = ?', [alerta, r.insertId]);
         }
-        res.json({ success: true, id: r.insertId, message: 'Caja abierta correctamente', monto_inicial: inicial, alerta });
+        res.json({ success: true, id: r.insertId, message: 'Caja abierta correctamente', monto_inicial: inicial, transferencia_inicial: inicialTr, alerta });
     } catch (e) {
         console.error('âŒ Error abrir caja:', e.message);
         res.status(500).json({ success: false, message: 'Error al abrir la caja' });
@@ -2584,21 +2640,29 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
         );
         const totalRetiros = retiros.reduce((s, r) => s + parseFloat(r.monto_retirado || 0), 0);
         const totalGastos = gastos.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
-        // Cierre automático = neto de la caja: apertura + ventas - gastos - retiros (ya descontados en las columnas)
-        const esperadoAuto = Math.round((parseFloat(c.monto_inicial || 0) + total) * 100) / 100;
+        // Saldos al cierre. Efectivo = apertura en efectivo + movimientos del día en efectivo.
+        // Transferencias = transferencias iniciales (arrastre del día anterior) + movimientos del día.
+        // Los gastos y retiros ya están descontados en cada medio (pueden salir del saldo inicial).
+        const efSaldo = r2(parseFloat(c.monto_inicial || 0) + parseFloat(c.total_efectivo || 0));
+        const trSaldo = r2(parseFloat(c.transferencia_inicial || 0) + parseFloat(c.total_transferencia || 0));
+        const deSaldo = r2(parseFloat(c.total_debito || 0));
+        const cuentaSaldo = r2(trSaldo + deSaldo);          // dinero en cuenta: transferencias y débito
+        const esperadoAuto = r2(efSaldo + cuentaSaldo);     // neto del cierre
 
         let arqueoContado = null;
+        let arqueoDetalle = '';
         let real;
         const detalleArqueo = [];
         if (Array.isArray(arqueo)) {
             const sumaArqueo = Math.round(arqueo.reduce((s, a) => s + (parseFloat(a.subtotal) || 0), 0) * 100) / 100;
-            const trContado = Math.round((parseFloat(req.body.transferencia_contada) || 0) * 100) / 100;
-            const deContado = Math.round((parseFloat(req.body.debito_contado) || 0) * 100) / 100;
-            const efeEsperado = Math.round((parseFloat(c.monto_inicial || 0) + parseFloat(c.total_efectivo || 0)) * 100) / 100;
-            const trEsperado = Math.round(parseFloat(c.total_transferencia || 0) * 100) / 100;
-            const deEsperado = Math.round(parseFloat(c.total_debito || 0) * 100) / 100;
-            const hayDif = Math.abs(sumaArqueo - efeEsperado) > 0.009 || Math.abs(trContado - trEsperado) > 0.009 || Math.abs(deContado - deEsperado) > 0.009;
-            if (hayDif) arqueoContado = Math.round((sumaArqueo + trContado + deContado) * 100) / 100;
+            const sinDato = v => v === undefined || v === null || v === '';
+            const trContado = sinDato(req.body.transferencia_contada) ? trSaldo : r2(req.body.transferencia_contada);
+            const deContado = sinDato(req.body.debito_contado) ? deSaldo : r2(req.body.debito_contado);
+            const partesDif = [];
+            if (Math.abs(sumaArqueo - efSaldo) > 0.009) partesDif.push(`efectivo contado $${sumaArqueo.toFixed(2)} vs $${efSaldo.toFixed(2)}`);
+            if (Math.abs(trContado - trSaldo) > 0.009) partesDif.push(`transferencias $${trContado.toFixed(2)} vs $${trSaldo.toFixed(2)}`);
+            if (Math.abs(deContado - deSaldo) > 0.009) partesDif.push(`débito $${deContado.toFixed(2)} vs $${deSaldo.toFixed(2)}`);
+            if (partesDif.length) { arqueoContado = r2(sumaArqueo + trContado + deContado); arqueoDetalle = partesDif.join('; '); }
             real = esperadoAuto;
             for (const a of arqueo) {
                 const denominacion = (a.denominacion || '').trim();
@@ -2622,17 +2686,17 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
 
         // Los retiros y gastos ya descontaron dinero de las columnas al registrarse,
         // por eso el esperado NO vuelve a restarlos: monto_inicial + ventas netas.
-        const esperado = Math.round((parseFloat(c.monto_inicial || 0) + total) * 100) / 100;
+        const esperado = esperadoAuto;
         const diferencia = Math.round((real - esperado) * 100) / 100;
 
         await pool.query(
-            `UPDATE cajas SET estado = 'cerrada', monto_final = ?, cerrada_at = NOW() WHERE id = ?`,
-            [real, c.id]
+            `UPDATE cajas SET estado = 'cerrada', monto_final = ?, transferencia_final = ?, cerrada_at = NOW() WHERE id = ?`,
+            [real, cuentaSaldo, c.id]
         );
         if (arqueoContado !== null) {
             const dif = Math.round((arqueoContado - esperado) * 100) / 100;
             await pool.query('UPDATE cajas SET diferencia = ?, alerta_revision = ? WHERE id = ?', [dif,
-                `Arqueo $${arqueoContado.toFixed(2)} no coincide con el neto $${esperado.toFixed(2)} (diferencia $${dif.toFixed(2)}). Caja cerrada con el neto; revisar el conteo.`, c.id]);
+                `Arqueo con diferencia de $${dif.toFixed(2)} (${arqueoDetalle}). Caja cerrada con el neto $${esperado.toFixed(2)}; revisar el conteo.`, c.id]);
         }
         await recalcularDiferencia(pool, c.id);
         if (Math.abs(real - esperado) > 0.009) await pool.query('UPDATE cajas SET alerta_revision = ? WHERE id = ?', [`Cierre con diferencia de $${(real - esperado).toFixed(2)} (contado $${real.toFixed(2)} vs calculado $${esperado.toFixed(2)})`, c.id]);
@@ -2667,6 +2731,44 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
 //  - mensual: todos los días del mes de "fecha" (días sin caja = "sin_caja")
 //  - semanal: los 7 días de la semana (lunes a domingo) de "fecha"
 //  - diario (o sin filtro): solo los días con caja registrada
+// Recalcula los totales de una caja desde sus registros (facturas, gastos y retiros). Solo admin.
+// Corrige cajas cuyos totales quedaron recortados en $0. Si la caja está cerrada, recalcula también el cierre.
+app.post('/api/caja/:id/recalcular', autenticar, autorizar(['admin']), async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [rows] = await conn.query('SELECT * FROM cajas WHERE id = ? FOR UPDATE', [req.params.id]);
+        if (!rows.length) { await conn.rollback(); return res.status(404).json({ success: false, message: 'Caja no encontrada' }); }
+        const c = rows[0];
+        const ventas = { efectivo: 0, transferencia: 0, debito: 0 };
+        const [tk] = await conn.query('SELECT total, metodo_pago, metodo_pago_detalle FROM tickets WHERE caja_id = ?', [c.id]);
+        tk.forEach(t => acumularPagoPorMetodo(ventas, t.metodo_pago, t.total, t.metodo_pago_detalle));
+        const salidas = { efectivo: 0, transferencia: 0, debito: 0 };
+        const [gs] = await conn.query('SELECT metodo_pago, monto FROM gastos WHERE caja_id = ?', [c.id]);
+        gs.forEach(g => { const k = ['efectivo', 'transferencia', 'debito'].includes(g.metodo_pago) ? g.metodo_pago : 'efectivo'; salidas[k] += parseFloat(g.monto || 0); });
+        const [rt] = await conn.query('SELECT metodo_retiro, monto_retirado FROM retiros WHERE caja_id = ? AND deshecho = 0', [c.id]);
+        rt.forEach(r => { const k = r.metodo_retiro === 'transferencia' ? 'transferencia' : 'efectivo'; salidas[k] += parseFloat(r.monto_retirado || 0); });
+        const ef = r2(ventas.efectivo - salidas.efectivo), tr = r2(ventas.transferencia - salidas.transferencia), de = r2(ventas.debito - salidas.debito);
+        await conn.query('UPDATE cajas SET total_efectivo = ?, total_transferencia = ?, total_debito = ? WHERE id = ?', [ef, tr, de, c.id]);
+        let cierre = null;
+        if (c.estado === 'cerrada') {
+            const cuenta = r2(parseFloat(c.transferencia_inicial || 0) + tr + de);
+            const total = r2(parseFloat(c.monto_inicial || 0) + ef + cuenta);
+            await conn.query('UPDATE cajas SET monto_final = ?, transferencia_final = ? WHERE id = ?', [total, cuenta, c.id]);
+            await recalcularDiferencia(conn, c.id);
+            cierre = { monto_final: total, transferencia_final: cuenta };
+        }
+        await conn.commit();
+        res.json({ success: true, message: 'Caja recalculada desde sus registros', totales: { efectivo: ef, transferencia: tr, debito: de }, cierre });
+    } catch (e) {
+        await conn.rollback();
+        console.error('❌ Error recalcular caja:', e.message);
+        res.status(500).json({ success: false, message: 'Error al recalcular la caja' });
+    } finally {
+        conn.release();
+    }
+});
+
 // Código de reapertura (un solo uso, vence en 10 minutos). Solo admin.
 app.post('/api/caja/codigo-reapertura', autenticar, autorizar(['admin']), async (req, res) => {
     try {
@@ -2737,14 +2839,14 @@ app.put('/api/caja/:id', autenticar, autorizar(['admin', 'recepcionista']), asyn
                 await conn.query("UPDATE cajas SET estado = 'abierta', monto_final = NULL, cerrada_at = NULL WHERE id = ?", [id]);
             }
         } else {
-            const permitidos = ['monto_inicial', 'total_efectivo', 'total_transferencia', 'total_debito'];
+            const permitidos = ['monto_inicial', 'transferencia_inicial', 'total_efectivo', 'total_transferencia', 'total_debito'];
             const campos = permitidos.filter(k => body[k] !== undefined && body[k] !== '');
             if (!campos.length) {
                 await conn.rollback();
                 return res.status(400).json({ success: false, message: 'No hay cambios para guardar' });
             }
             const sets = campos.map(k => `${k} = ?`).join(', ');
-            await conn.query(`UPDATE cajas SET ${sets} WHERE id = ?`, [...campos.map(k => Math.max(0, parseFloat(body[k]) || 0)), id]);
+            await conn.query(`UPDATE cajas SET ${sets} WHERE id = ?`, [...campos.map(k => (k === 'monto_inicial' || k === 'transferencia_inicial') ? Math.max(0, parseFloat(body[k]) || 0) : (parseFloat(body[k]) || 0)), id]);
         }
         await conn.commit();
         res.json({ success: true, message: reabrir ? 'Caja reabierta' : 'Caja actualizada' });
@@ -2816,7 +2918,7 @@ app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (re
                 ? JSON.parse(t.metodo_pago_detalle || '{}')
                 : { [t.metodo_pago]: parseFloat(t.total) || 0 };
             for (const [m, monto] of Object.entries(anterior)) {
-                if (col[m]) await conn.query(`UPDATE cajas SET ${col[m]} = GREATEST(${col[m]} - ?, 0) WHERE id = ?`, [monto, t.caja_id]);
+                if (col[m]) await conn.query(`UPDATE cajas SET ${col[m]} = ${col[m]} - ? WHERE id = ?`, [monto, t.caja_id]);
             }
             if (!esMixto) {
                 await conn.query(`UPDATE cajas SET ${col[metodoNuevo]} = ${col[metodoNuevo]} + ? WHERE id = ?`, [totalNuevo, t.caja_id]);
@@ -2945,7 +3047,7 @@ app.get('/api/caja/historial', autenticar, autorizar(['admin','recepcionista']),
             diasPeriodo.reverse();
         }
 
-        let sql = `SELECT c.id, DATE_FORMAT(c.fecha, '%Y-%m-%d') as fecha, c.estado, c.monto_inicial, c.monto_final,
+        let sql = `SELECT c.id, DATE_FORMAT(c.fecha, '%Y-%m-%d') as fecha, c.estado, c.monto_inicial, c.monto_final, c.transferencia_inicial, c.transferencia_final,
                     c.total_efectivo, c.total_transferencia, c.total_debito, c.total_credito,
                     c.cajero_nombre, c.abierta_at, c.cerrada_at,
                     (SELECT COUNT(*) FROM tickets t WHERE t.caja_id = c.id) AS cantidad_turnos,
@@ -3096,7 +3198,7 @@ app.post('/api/gastos', autenticar, autorizar(['admin','recepcionista']), async 
                 efectivo: 'total_efectivo', transferencia: 'total_transferencia', debito: 'total_debito'
             }[metodo] || 'total_efectivo';
             await pool.query(
-                `UPDATE cajas SET ${colMetodo} = GREATEST(0, ${colMetodo} - ?) WHERE id = ?`,
+                `UPDATE cajas SET ${colMetodo} = ${colMetodo} - ? WHERE id = ?`,
                 [mto, cajaId]
             );
         }
@@ -3728,7 +3830,7 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
             const parte = partes[k];
             const colMetodo = parte.metodo === 'transferencia' ? 'total_transferencia' : 'total_efectivo';
             await pool.query(
-                `UPDATE cajas SET ${colMetodo} = GREATEST(0, ${colMetodo} - ?) WHERE id = ?`,
+                `UPDATE cajas SET ${colMetodo} = ${colMetodo} - ? WHERE id = ?`,
                 [parte.monto, cajaId]
             );
             // Estética y neto se registran una sola vez (en la primera fila)
