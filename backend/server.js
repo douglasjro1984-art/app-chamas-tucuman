@@ -157,6 +157,7 @@ function fechaHoyAR() {
         if (!cajasCols.some(c => c.COLUMN_NAME === 'alerta_revision')) await pool.query(`ALTER TABLE cajas ADD COLUMN alerta_revision VARCHAR(255) NULL`);
         if (!cajasCols.some(c => c.COLUMN_NAME === 'transferencia_inicial')) await pool.query(`ALTER TABLE cajas ADD COLUMN transferencia_inicial DECIMAL(12,2) NOT NULL DEFAULT 0`);
         if (!cajasCols.some(c => c.COLUMN_NAME === 'transferencia_final')) await pool.query(`ALTER TABLE cajas ADD COLUMN transferencia_final DECIMAL(12,2) NULL`);
+        if (!cajasCols.some(c => c.COLUMN_NAME === 'contado_final')) await pool.query(`ALTER TABLE cajas ADD COLUMN contado_final DECIMAL(12,2) NULL`);
         await pool.query(`CREATE TABLE IF NOT EXISTS codigos_reapertura (id BIGINT AUTO_INCREMENT PRIMARY KEY, codigo_hash VARCHAR(64) NOT NULL, creado_por BIGINT NULL, expira_at DATETIME NOT NULL, usado TINYINT(1) NOT NULL DEFAULT 0, usado_por BIGINT NULL, usado_at DATETIME NULL, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`);
         try { await pool.query('ALTER TABLE cajas ADD COLUMN diferencia DECIMAL(10,2) NULL'); } catch (e) {}
         // Migración para cobros con varios métodos de pago (metodo_pago = 'mixto')
@@ -2530,13 +2531,14 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
 // Diferencia de una caja cerrada: contado - (apertura + ventas). Se guarda y se recalcula.
 async function recalcularDiferencia(db, cajaId) {
     const [rowsC] = await db.query(
-        'SELECT monto_inicial, transferencia_inicial, monto_final, total_efectivo, total_transferencia, total_debito FROM cajas WHERE id = ?', [cajaId]
+        'SELECT monto_inicial, transferencia_inicial, monto_final, contado_final, total_efectivo, total_transferencia, total_debito FROM cajas WHERE id = ?', [cajaId]
     );
     if (!rowsC.length || rowsC[0].monto_final === null) return;
     const c = rowsC[0];
     const esperado = parseFloat(c.monto_inicial || 0) + parseFloat(c.transferencia_inicial || 0) + parseFloat(c.total_efectivo || 0)
                    + parseFloat(c.total_transferencia || 0) + parseFloat(c.total_debito || 0);
-    const dif = Math.round((parseFloat(c.monto_final) - esperado) * 100) / 100;
+    const base = c.contado_final !== null && c.contado_final !== undefined ? parseFloat(c.contado_final) : parseFloat(c.monto_final);
+    const dif = Math.round((base - esperado) * 100) / 100;
     await db.query('UPDATE cajas SET diferencia = ? WHERE id = ?', [dif, cajaId]);
 }
 
@@ -2695,8 +2697,8 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
         );
         if (arqueoContado !== null) {
             const dif = Math.round((arqueoContado - esperado) * 100) / 100;
-            await pool.query('UPDATE cajas SET diferencia = ?, alerta_revision = ? WHERE id = ?', [dif,
-                `Arqueo con diferencia de $${dif.toFixed(2)} (${arqueoDetalle}). Caja cerrada con el neto $${esperado.toFixed(2)}; revisar el conteo.`, c.id]);
+            await pool.query('UPDATE cajas SET diferencia = ?, alerta_revision = ?, contado_final = ? WHERE id = ?', [dif,
+                `Arqueo con diferencia de $${dif.toFixed(2)} (${arqueoDetalle}). Caja cerrada con el neto $${esperado.toFixed(2)}; revisar el conteo.`, arqueoContado, c.id]);
         }
         await recalcularDiferencia(pool, c.id);
         if (Math.abs(real - esperado) > 0.009) await pool.query('UPDATE cajas SET alerta_revision = ? WHERE id = ?', [`Cierre con diferencia de $${(real - esperado).toFixed(2)} (contado $${real.toFixed(2)} vs calculado $${esperado.toFixed(2)})`, c.id]);
@@ -2836,7 +2838,7 @@ app.put('/api/caja/:id', autenticar, autorizar(['admin', 'recepcionista']), asyn
                     await conn.rollback();
                     return res.status(400).json({ success: false, message: 'Ya hay otra caja abierta. Cerrala antes de reabrir esta.' });
                 }
-                await conn.query("UPDATE cajas SET estado = 'abierta', monto_final = NULL, cerrada_at = NULL WHERE id = ?", [id]);
+                await conn.query("UPDATE cajas SET estado = 'abierta', monto_final = NULL, transferencia_final = NULL, contado_final = NULL, cerrada_at = NULL WHERE id = ?", [id]);
             }
         } else {
             const permitidos = ['monto_inicial', 'transferencia_inicial', 'total_efectivo', 'total_transferencia', 'total_debito'];
