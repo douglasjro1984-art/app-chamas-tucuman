@@ -2126,6 +2126,16 @@ app.post('/api/turnos/:id/servicios', autenticar, autorizar(['admin','profesiona
     const { id } = req.params;
     const { servicio_id, promocion_id } = req.body;
     try {
+        // Turnos viejos sin lista de servicios: primero se registra el servicio principal como item
+        const [yaItems] = await pool.query('SELECT id FROM turno_items WHERE turno_id = ? LIMIT 1', [id]);
+        if (!yaItems.length) {
+            const [base] = await pool.query(
+                'SELECT t.servicio_id, t.precio AS precio_turno, s.nombre, s.precio AS precio_lista FROM turnos t JOIN servicios s ON s.id = t.servicio_id WHERE t.id = ?', [id]);
+            if (base.length) {
+                const precioBase = parseFloat(base[0].precio_turno || 0) > 0 ? parseFloat(base[0].precio_turno) : parseFloat(base[0].precio_lista || 0);
+                await pool.query('INSERT INTO turno_items (turno_id, servicio_id, nombre, precio) VALUES (?, ?, ?, ?)', [id, base[0].servicio_id, base[0].nombre, precioBase]);
+            }
+        }
         if (promocion_id) {
             const [pr] = await pool.query('SELECT id, nombre, precio FROM promociones WHERE id = ?', [promocion_id]);
             if (!pr.length) return res.status(400).json({ success: false, message: 'Promocion invalida' });
@@ -2154,6 +2164,8 @@ app.post('/api/turnos/:id/servicios', autenticar, autorizar(['admin','profesiona
 app.delete('/api/turnos/:id/servicios/:itemId', autenticar, autorizar(['admin','profesional','recepcionista']), async (req, res) => {
     const { id, itemId } = req.params;
     try {
+        const [cuenta] = await pool.query('SELECT COUNT(*) AS n FROM turno_items WHERE turno_id = ?', [id]);
+        if (cuenta[0].n <= 1) return res.status(400).json({ success: false, message: 'El turno debe tener al menos un servicio' });
         const [r] = await pool.query('DELETE FROM turno_items WHERE id = ? AND turno_id = ?', [itemId, id]);
         if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Item no encontrado' });
 

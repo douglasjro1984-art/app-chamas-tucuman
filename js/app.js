@@ -1912,6 +1912,9 @@ async function abrirModalEditar(turnoId) {
         await cargarHorariosModal(turno.profesional_id, turno.fecha.split('T')[0], turno.id);
         document.getElementById('edit-turno-hora').value = turno.hora_inicio.substring(0,5);
         document.getElementById('edit-turno-hora').removeAttribute('required');
+        window._estadoTurnoEdit = turno.estado;
+        window._turnoServiciosCambiados = false;
+        await cargarServiciosDelTurno(turno.id);
         const usuario = obtenerUsuarioActual();
         const btnBorrar = document.getElementById('btn-borrar-cobro');
         if (btnBorrar) {
@@ -1925,6 +1928,81 @@ async function abrirModalEditar(turnoId) {
 
 function cerrarModalEditar() {
     document.getElementById('modal-editar-turno').style.display = 'none';
+    if (window._turnoServiciosCambiados) {
+        window._turnoServiciosCambiados = false;
+        if (typeof cargarTodosLosTurnos === 'function') cargarTodosLosTurnos();
+        if (typeof cargarTurnosCaja === 'function') cargarTurnosCaja();
+    }
+}
+
+// Servicios del turno dentro del formulario de edición: ver, quitar y agregar
+async function cargarServiciosDelTurno(turnoId) {
+    const base = document.getElementById('edit-servicio-select');
+    if (!base) return;
+    const grupo = base.closest('.form-group') || base.parentElement;
+    document.getElementById('edit-servicios-panel')?.remove();
+    let items = [];
+    try {
+        const r = await fetch(`${API_BASE}/turnos/${turnoId}/items`);
+        const d = await r.json();
+        if (Array.isArray(d)) items = d;
+    } catch (e) { items = []; }
+    const total = items.reduce((s, it) => s + parseFloat(it.precio || 0), 0);
+    const cobrado = window._estadoTurnoEdit === 'cobrado';
+    const filas = items.map(it => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid #f0d9e2;border-radius:10px;margin-bottom:6px;background:#fffafb;">
+            <span style="font-size:0.92rem;">${esc(it.nombre)}</span>
+            <span style="display:flex;align-items:center;gap:10px;">
+                <strong style="font-size:0.9rem;">${fmtPesos(it.precio)}</strong>
+                ${items.length > 1 ? `<button type="button" onclick="quitarServicioTurno(${turnoId}, ${it.id})" title="Quitar servicio" style="background:#dc3545;color:white;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-weight:700;">×</button>` : ''}
+            </span>
+        </div>`).join('');
+    const panel = document.createElement('div');
+    panel.id = 'edit-servicios-panel';
+    panel.style.cssText = 'margin:0 0 18px;';
+    panel.innerHTML = `
+        <label style="display:block;color:#d98ca3;font-weight:700;font-size:0.9rem;margin-bottom:8px;">Servicios del turno</label>
+        ${items.length ? filas : '<div style="color:#999;font-size:0.85rem;margin-bottom:8px;">Este turno usa un solo servicio. Podés agregar otros acá abajo.</div>'}
+        ${items.length ? `<div style="text-align:right;font-size:0.9rem;color:#555;margin:4px 0 10px;">Total: <strong>${fmtPesos(total)}</strong></div>` : ''}
+        <div style="display:flex;gap:8px;">
+            <select id="edit-servicio-agregar" style="flex:1;min-width:0;"><option value="">Elegí un servicio…</option>${base.innerHTML}</select>
+            <button type="button" onclick="agregarServicioTurno(${turnoId})" style="background:#28a745;color:white;border:none;border-radius:10px;padding:0 14px;cursor:pointer;font-weight:700;white-space:nowrap;">+ Agregar</button>
+        </div>
+        ${cobrado ? '<div style="margin-top:10px;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 12px;font-size:0.82rem;color:#856404;">Este turno ya está cobrado. Cambiar los servicios no modifica la factura emitida: para corregirla, editá la factura desde Caja.</div>' : ''}`;
+    grupo.insertAdjacentElement('afterend', panel);
+    grupo.style.display = items.length ? 'none' : '';
+}
+
+async function agregarServicioTurno(turnoId) {
+    const sel = document.getElementById('edit-servicio-agregar');
+    if (!sel || !sel.value) { mostrarNotificacion('Elegí un servicio para agregar', 'error'); return; }
+    try {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}/servicios`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ servicio_id: parseInt(sel.value) })
+        });
+        const data = await res.json();
+        if (!data.success) { mostrarNotificacion(data.message || 'No se pudo agregar el servicio', 'error'); return; }
+        window._turnoServiciosCambiados = true;
+        mostrarNotificacion('Servicio agregado');
+        await cargarServiciosDelTurno(turnoId);
+    } catch (e) {
+        mostrarNotificacion('Error al agregar el servicio', 'error');
+    }
+}
+
+async function quitarServicioTurno(turnoId, itemId) {
+    if (!(await confirmarAccion('¿Quitar este servicio del turno?'))) return;
+    try {
+        const res = await fetch(`${API_BASE}/turnos/${turnoId}/servicios/${itemId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!data.success) { mostrarNotificacion(data.message || 'No se pudo quitar el servicio', 'error'); return; }
+        window._turnoServiciosCambiados = true;
+        mostrarNotificacion('Servicio quitado');
+        await cargarServiciosDelTurno(turnoId);
+    } catch (e) {
+        mostrarNotificacion('Error al quitar el servicio', 'error');
+    }
 }
 
 async function borrarCobroTurno() {
