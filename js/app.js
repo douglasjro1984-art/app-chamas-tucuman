@@ -4728,19 +4728,32 @@ async function abrirFacturasCaja(cajaId, esAdmin) {
     modal.onclick = ev => { if (ev.target === modal) modal.remove(); };
 }
 
-function editarFactura(numero, cajaId) {
+async function editarFactura(numero, cajaId) {
     const f = _facturasCaja[numero];
     if (!f) return;
+    let items = [];
+    try {
+        const r = await fetch(`${API_BASE}/caja/tickets/${numero}`);
+        const d = await r.json();
+        const raw = d.ticket ? d.ticket.items : [];
+        items = typeof raw === 'string' ? JSON.parse(raw || '[]') : (raw || []);
+    } catch (e) { items = []; }
     document.getElementById('modal-editar-factura')?.remove();
     const mixto = f.metodo_pago === 'mixto';
     const opciones = ['efectivo', 'transferencia', 'debito']
         .map(m => `<option value="${m}" ${f.metodo_pago === m ? 'selected' : ''}>${m}</option>`).join('');
     const campo = 'width:100%;padding:8px 10px;border:2px solid #C06C84;border-radius:8px;box-sizing:border-box;font-size:0.9rem;';
+    const filaItem = it => `
+        <div class="ef-item" style="display:grid;grid-template-columns:1fr 110px auto;gap:6px;align-items:center;margin-bottom:6px;">
+            <input class="ef-serv" value="${esc(it.servicio || it.nombre || '')}" placeholder="Servicio" ${mixto ? 'disabled' : ''} style="${campo}">
+            <input class="ef-imp" type="number" min="0" step="0.01" value="${parseFloat(it.importe ?? it.precio ?? 0) || 0}" oninput="actualizarTotalEditorFactura()" ${mixto ? 'disabled' : ''} style="${campo}">
+            <button type="button" onclick="this.closest('.ef-item').remove();actualizarTotalEditorFactura()" ${mixto ? 'disabled' : ''} title="Quitar" style="background:#dc3545;color:white;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-weight:700;">×</button>
+        </div>`;
     const modal = document.createElement('div');
     modal.id = 'modal-editar-factura';
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:21000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:21000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);overflow:auto;';
     modal.innerHTML = `
-        <div style="background:white;border-radius:16px;padding:24px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="background:white;border-radius:16px;padding:24px;max-width:460px;width:94%;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:92vh;overflow:auto;">
             <h3 style="margin:0 0 12px 0;color:#C06C84;">Editar factura N° ${String(numero).padStart(6, '0')}</h3>
             <div style="display:flex;flex-direction:column;gap:10px;">
                 <label>Cliente<input id="ef-cliente" value="${esc(f.cliente_nombre || '')}" style="${campo}"></label>
@@ -4749,7 +4762,13 @@ function editarFactura(numero, cajaId) {
                 <label>Método de pago
                     <select id="ef-metodo" ${mixto ? 'disabled' : ''} style="${campo}">${mixto ? '<option>Mixto (no editable)</option>' : opciones}</select>
                 </label>
-                <label>Descuento ($)<input id="ef-descuento" type="number" min="0" step="0.01" value="${parseFloat(f.descuento || 0).toFixed(0)}" ${mixto ? 'disabled' : ''} style="${campo}"></label>
+                <div>
+                    <div style="font-weight:600;color:#555;margin-bottom:6px;">Servicios de la factura</div>
+                    <div id="ef-items">${items.map(filaItem).join('')}</div>
+                    ${mixto ? '<div style="font-size:0.8rem;color:#856404;background:#fff3cd;border-radius:6px;padding:6px 8px;">Las facturas con pago mixto no permiten cambiar los servicios.</div>' : `<button type="button" onclick="agregarItemEditorFactura()" style="margin-top:4px;background:#28a745;color:white;border:none;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700;">+ Agregar servicio</button>`}
+                    <div id="ef-total" style="text-align:right;margin-top:8px;font-weight:700;color:#1aa851;"></div>
+                </div>
+                <label>Descuento ($)<input id="ef-descuento" type="number" min="0" step="0.01" value="${parseFloat(f.descuento || 0).toFixed(2)}" oninput="actualizarTotalEditorFactura()" ${mixto ? 'disabled' : ''} style="${campo}"></label>
                 <label>Motivo del cambio <strong>(obligatorio)</strong>
                     <textarea id="ef-motivo" rows="2" style="${campo}"></textarea>
                 </label>
@@ -4760,6 +4779,23 @@ function editarFactura(numero, cajaId) {
             </div>
         </div>`;
     document.body.appendChild(modal);
+    window._efItemTpl = filaItem;
+    actualizarTotalEditorFactura();
+}
+
+function agregarItemEditorFactura() {
+    const cont = document.getElementById('ef-items');
+    if (!cont || !window._efItemTpl) return;
+    cont.insertAdjacentHTML('beforeend', window._efItemTpl({ servicio: '', importe: 0 }));
+    actualizarTotalEditorFactura();
+}
+
+function actualizarTotalEditorFactura() {
+    const imps = [...document.querySelectorAll('#ef-items .ef-imp')];
+    const sub = imps.reduce((s, i) => s + (parseFloat(i.value) || 0), 0);
+    const desc = parseFloat(document.getElementById('ef-descuento')?.value) || 0;
+    const el = document.getElementById('ef-total');
+    if (el) el.textContent = `Subtotal ${fmtPesos(sub)} · Total ${fmtPesos(Math.max(0, sub - desc))}`;
 }
 
 async function guardarEdicionFactura(numero, cajaId) {
@@ -4777,6 +4813,11 @@ async function guardarEdicionFactura(numero, cajaId) {
     if (!document.getElementById('ef-metodo').disabled) {
         body.metodo_pago = document.getElementById('ef-metodo').value;
         body.descuento = parseFloat(document.getElementById('ef-descuento').value) || 0;
+        body.items = [...document.querySelectorAll('#ef-items .ef-item')].map(row => ({
+            servicio: row.querySelector('.ef-serv').value.trim(),
+            importe: parseFloat(row.querySelector('.ef-imp').value) || 0
+        }));
+        if (!body.items.length) { notificarCaja('La factura debe tener al menos un servicio', 'error'); return; }
     }
     try {
         const res = await fetch(`${API_BASE}/caja/tickets/${numero}`, {

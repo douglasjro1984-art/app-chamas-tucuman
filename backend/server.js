@@ -2907,13 +2907,24 @@ app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (re
         }
         const t = rows[0];
         const esMixto = t.metodo_pago === 'mixto';
-        const subtotal = parseFloat(t.subtotal) || parseFloat(t.total) || 0;
+        // Servicios del ticket editados por el administrador (si vienen, reemplazan el detalle)
+        let itemsNuevos = null;
+        if (Array.isArray(body.items)) {
+            itemsNuevos = body.items
+                .map(it => ({ servicio: String(it.servicio || '').trim() || 'Servicio', importe: r2(Math.max(0, parseFloat(it.importe) || 0)) }));
+            if (!itemsNuevos.length) {
+                await conn.rollback();
+                return res.status(400).json({ success: false, message: 'La factura debe tener al menos un servicio' });
+            }
+        }
+        const subtotalAnt = parseFloat(t.subtotal) || parseFloat(t.total) || 0;
+        const subtotal = itemsNuevos ? r2(itemsNuevos.reduce((s, it) => s + it.importe, 0)) : subtotalAnt;
         const descAnt = parseFloat(t.descuento) || 0;
         const descNuevo = body.descuento === undefined ? descAnt
             : Math.max(0, Math.round((parseFloat(body.descuento) || 0) * 100) / 100);
         const metodoNuevo = body.metodo_pago === undefined ? t.metodo_pago : String(body.metodo_pago).toLowerCase();
 
-        if (esMixto && (descNuevo !== descAnt || metodoNuevo !== t.metodo_pago)) {
+        if (esMixto && (descNuevo !== descAnt || metodoNuevo !== t.metodo_pago || (itemsNuevos !== null && Math.abs(subtotal - subtotalAnt) > 0.009))) {
             await conn.rollback();
             return res.status(400).json({ success: false, message: 'Las facturas con pago mixto solo permiten editar cliente y profesional' });
         }
@@ -2941,7 +2952,7 @@ app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (re
 
         await conn.query(
             `UPDATE tickets SET cliente_nombre = ?, cliente_telefono = ?, profesional_nombre = ?,
-                    metodo_pago = ?, metodo_pago_detalle = ?, descuento = ?, total = ?
+                    metodo_pago = ?, metodo_pago_detalle = ?, descuento = ?, total = ?, subtotal = ?, items = ?
              WHERE id = ?`,
             [
                 body.cliente_nombre ?? t.cliente_nombre,
@@ -2951,6 +2962,8 @@ app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (re
                 esMixto ? t.metodo_pago_detalle : null,
                 descNuevo,
                 totalNuevo,
+                subtotal,
+                itemsNuevos ? JSON.stringify(itemsNuevos) : t.items,
                 t.id
             ]
         );
