@@ -3909,6 +3909,44 @@ app.post('/api/caja/retiros/:id/deshacer', autenticar, autorizar(['admin','super
     }
 });
 
+// Editar un retiro de profesional (solo administración): monto y medio de pago. Ajusta la caja y la diferencia.
+app.put('/api/caja/retiros/:id', autenticar, autorizar(['admin','super_admin']), async (req, res) => {
+    const { id } = req.params;
+    const body = req.body || {};
+    const motivo = String(body.motivo || '').trim();
+    if (motivo.length < 5) return res.status(400).json({ success: false, message: 'El motivo es obligatorio (mínimo 5 caracteres)' });
+    const nuevoMonto = r2(body.monto_retirado);
+    if (!(nuevoMonto > 0)) return res.status(400).json({ success: false, message: 'El monto del retiro debe ser mayor a 0' });
+    const nuevoMetodo = body.metodo_retiro === 'transferencia' ? 'transferencia' : 'efectivo';
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [rows] = await conn.query('SELECT * FROM retiros WHERE id = ? FOR UPDATE', [id]);
+        if (!rows.length) { await conn.rollback(); return res.status(404).json({ success: false, message: 'Retiro no encontrado' }); }
+        const rt = rows[0];
+        if (rt.deshecho) { await conn.rollback(); return res.status(400).json({ success: false, message: 'Este retiro está deshecho: no se puede editar' }); }
+        const [cj] = await conn.query('SELECT id, estado FROM cajas WHERE id = ? FOR UPDATE', [rt.caja_id]);
+        if (!cj.length) { await conn.rollback(); return res.status(404).json({ success: false, message: 'La caja del retiro no existe' }); }
+        const colViejo = rt.metodo_retiro === 'transferencia' ? 'total_transferencia' : 'total_efectivo';
+        const colNuevo = nuevoMetodo === 'transferencia' ? 'total_transferencia' : 'total_efectivo';
+        // Devolver el retiro anterior a la caja y descontar el nuevo
+        await conn.query(`UPDATE cajas SET ${colViejo} = ${colViejo} + ? WHERE id = ?`, [parseFloat(rt.monto_retirado || 0), rt.caja_id]);
+        await conn.query(`UPDATE cajas SET ${colNuevo} = ${colNuevo} - ? WHERE id = ?`, [nuevoMonto, rt.caja_id]);
+        await conn.query('UPDATE retiros SET monto_retirado = ?, metodo_retiro = ? WHERE id = ?', [nuevoMonto, nuevoMetodo, id]);
+        if (cj[0].estado === 'cerrada') await recalcularDiferencia(conn, rt.caja_id);
+        await conn.commit();
+        res.json({ success: true, message: cj[0].estado === 'cerrada'
+            ? 'Retiro corregido. La caja está cerrada: se recalculó la diferencia del cierre.'
+            : 'Retiro corregido y caja actualizada.' });
+    } catch (e) {
+        await conn.rollback();
+        console.error('❌ Error editar retiro:', e.message);
+        res.status(500).json({ success: false, message: 'Error al editar el retiro' });
+    } finally {
+        conn.release();
+    }
+});
+
 // ============================================
 //  NUEVOS ENDPOINTS - RBAC, SOBRETURNOS, CANCELADOS, COMISIONES
 // ============================================

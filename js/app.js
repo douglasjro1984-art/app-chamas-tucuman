@@ -4489,6 +4489,60 @@ async function editarCaja(cajaId) {
     }
 }
 
+async function editarRetiroCaja(retiroId) {
+    document.getElementById('modal-editar-retiro')?.remove();
+    const estado = window._saldosCaja;
+    const r = (window._retirosCaja || []).find(x => String(x.id) === String(retiroId));
+    if (!r) { notificarCaja('No se encontró el retiro', 'error'); return; }
+    const campo = 'width:100%;padding:9px 11px;border:2px solid #C06C84;border-radius:8px;box-sizing:border-box;font-size:0.95rem;';
+    const modal = document.createElement('div');
+    modal.id = 'modal-editar-retiro';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:21000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 6px 0;color:#C06C84;">Editar retiro</h3>
+            <p style="margin:0 0 14px 0;color:#666;font-size:0.9rem;"><strong>${esc(r.profesional_nombre)}</strong> · bruto ${fmtPesos(parseFloat(r.monto_bruto))} · retira ${r.porcentaje_retiro}%</p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <label>Monto retirado ($)<input id="er-monto" type="number" min="0" step="0.01" value="${parseFloat(r.monto_retirado || 0).toFixed(2)}" style="${campo}"></label>
+                <label>Medio de pago
+                    <select id="er-metodo" style="${campo}">
+                        <option value="efectivo" ${r.metodo_retiro !== 'transferencia' ? 'selected' : ''}>Efectivo</option>
+                        <option value="transferencia" ${r.metodo_retiro === 'transferencia' ? 'selected' : ''}>Transferencia</option>
+                    </select>
+                </label>
+                <label>Motivo del cambio <strong>(obligatorio)</strong>
+                    <textarea id="er-motivo" rows="2" style="${campo}"></textarea>
+                </label>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button onclick="guardarEdicionRetiro(${r.id})" style="flex:1;background:#28a745;color:white;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Guardar</button>
+                <button onclick="document.getElementById('modal-editar-retiro').remove()" style="flex:1;background:#f0f0f0;color:#555;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">Cancelar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+async function guardarEdicionRetiro(retiroId) {
+    const motivo = (document.getElementById('er-motivo')?.value || '').trim();
+    if (motivo.length < 5) { notificarCaja('El motivo es obligatorio (mínimo 5 caracteres)', 'error'); return; }
+    const monto = parseFloat(document.getElementById('er-monto')?.value);
+    if (!(monto > 0)) { notificarCaja('El monto debe ser mayor a 0', 'error'); return; }
+    const metodo = document.getElementById('er-metodo')?.value || 'efectivo';
+    try {
+        const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto_retirado: monto, metodo_retiro: metodo, motivo })
+        });
+        const data = await res.json();
+        if (!data.success) { notificarCaja(data.message || 'No se pudo editar el retiro', 'error'); return; }
+        document.getElementById('modal-editar-retiro')?.remove();
+        notificarCaja(data.message || 'Retiro corregido');
+        cargarEstadoCaja();
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+    }
+}
+
 async function recalcularCaja(id) {
     if (!(await confirmarAccion('Se recalculan efectivo, transferencia y débito de esta caja desde sus facturas, gastos y retiros. Los importes cargados a mano en esos campos se reemplazan. ¿Continuar?'))) return;
     try {
@@ -4847,6 +4901,7 @@ async function cargarEstadoCaja() {
         if (!res.ok) throw new Error('Error');
         const data = await res.json();
         window._saldosCaja = data.saldos || null;
+        window._retirosCaja = data.retiros || [];
         window._cajaAnterior = data.caja_anterior || null;
         if (!data.abierta) {
             cont.innerHTML = `
@@ -4938,10 +4993,11 @@ function renderizarAperturaCaja(data) {
             <span style="font-weight:700;color:#dc3545;">-${fmtPesos(parseFloat(g.monto))}</span>
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Sin gastos registrados.</p>';
 
+    const esAdminR = !!(data.usuario && (data.usuario.rol === 'admin' || data.usuario.rol === 'super_admin'));
     const retirosHtml = retiros.length ? retiros.map((r, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
             <span style="color:#555;"><strong>${esc(r.profesional_nombre)}</strong><br><small style="color:#aaa;">Bruto ${fmtPesos(parseFloat(r.monto_bruto))} · Retira ${r.porcentaje_retiro}%</small></span>
-            <span style="font-weight:700;color:#C06C84;">-${fmtPesos(parseFloat(r.monto_retirado))}</span>
+            <span style="display:flex;align-items:center;gap:8px;"><strong style="color:#C06C84;">-${fmtPesos(parseFloat(r.monto_retirado))}</strong>${esAdminR ? `<button onclick="editarRetiroCaja(${r.id})" style="background:#2c7be5;color:white;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-weight:700;font-size:0.78rem;">Editar</button>` : ''}</span>
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Aún no se retiraron porcentajes. Se sugieren abajo según los cobros del día.</p>';
 
     return `
