@@ -3740,6 +3740,31 @@ async function montoSinPorcentajeHoy(profesionalId) {
     return Math.round((parseFloat(r[0]?.excluido) || 0) * 100) / 100;
 }
 
+// Cantidad de servicios sin porcentaje cobrados hoy (cada uno paga solo su neto, no el %)
+async function contarSinPorcentajeHoy(profesionalId) {
+    const [r] = await pool.query(
+        `SELECT COUNT(ti.id) AS n
+         FROM turno_items ti
+         JOIN turnos t ON t.id = ti.turno_id
+         JOIN profesional_servicios ps ON ps.profesional_id = t.profesional_id
+              AND ps.servicio_id = ti.servicio_id AND ps.sin_porcentaje = 1
+         WHERE t.profesional_id = ? AND t.estado = 'cobrado' AND t.fecha = CURDATE()`,
+        [profesionalId]
+    );
+    return parseInt(r[0]?.n, 10) || 0;
+}
+
+// Retiro sugerido: los servicios normales pagan el % sobre (cobrado − neto);
+// los servicios sin porcentaje le quedan completos a la profesional menos su neto.
+function calcularRetiro(pct, cobradoTotal, excluidoHoy, netoPorServicio, nServTotal, nServExcl) {
+    const netoExcl = Math.round(netoPorServicio * nServExcl * 100) / 100;
+    const netoNorm = Math.round((netoPorServicio * (nServTotal - nServExcl)) * 100) / 100;
+    const baseNorm = Math.round((cobradoTotal - excluidoHoy) * 100) / 100;
+    const parteNorm = Math.round((baseNorm - netoNorm) * pct / 100 * 100) / 100;
+    const parteExcl = Math.round((excluidoHoy - netoExcl) * 100) / 100;
+    return { netoExcl, netoNorm, baseNorm, parteNorm, parteExcl, total: Math.round((parteNorm + parteExcl) * 100) / 100 };
+}
+
 // Cantidad de servicios cobrados hoy de una profesional (cada servicio cuenta)
 async function contarServiciosCobradosHoy(profesionalId) {
     const [r] = await pool.query(
@@ -3770,6 +3795,11 @@ app.get('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), a
             sg.neto_total = Math.round((parseFloat(sg.neto_estetica) || 0) * nServ * 100) / 100;
             sg.excluido_hoy = await montoSinPorcentajeHoy(sg.profesional_id);
             sg.base_pct = Math.round((parseFloat(sg.cobrado_hoy) - sg.excluido_hoy) * 100) / 100;
+            sg.servicios_sin_pct = await contarSinPorcentajeHoy(sg.profesional_id);
+            const calc = calcularRetiro(parseFloat(sg.porcentaje_retiro) || 70, parseFloat(sg.cobrado_hoy) || 0,
+                sg.excluido_hoy, parseFloat(sg.neto_estetica) || 0, nServ, sg.servicios_sin_pct);
+            sg.neto_norm = calc.netoNorm; sg.neto_excl = calc.netoExcl;
+            sg.parte_pct = calc.parteNorm; sg.parte_excl = calc.parteExcl; sg.sugerido = calc.total;
         }
         const [retiros] = await pool.query(
             `SELECT r.id, r.profesional_id, r.profesional_nombre, r.monto_bruto,
@@ -3812,9 +3842,10 @@ app.post('/api/caja/retiros', autenticar, autorizar(['admin','recepcionista']), 
         const netoPorServicio = parseFloat(p.neto_estetica) || 0;
         const neto = Math.round(netoPorServicio * (await contarServiciosCobradosHoy(profesional_id)) * 100) / 100;
         const excluidoHoy = await montoSinPorcentajeHoy(profesional_id);
-        const basePct = Math.round((bruto - excluidoHoy) * 100) / 100;
-        // Primero se restan los servicios realizados (neto) y después se aplica el porcentaje
-        const porcionProf = (basePct - neto) * pct / 100;
+        const nServExclHoy = await contarSinPorcentajeHoy(profesional_id);
+        const nServHoy = await contarServiciosCobradosHoy(profesional_id);
+        // Servicios normales: % sobre (cobrado − neto). Sin porcentaje: completo menos su neto.
+        const porcionProf = calcularRetiro(pct, bruto, excluidoHoy, netoPorServicio, nServHoy, nServExclHoy).total;
         if (porcionProf < 0) {
             return res.status(400).json({ success: false, message: 'El neto fijo supera lo que le corresponde a la profesional hoy' });
         }

@@ -4281,12 +4281,23 @@ async function cargarRetiros() {
                     const nServ = parseInt(s.servicios_hoy, 10) || 0;
                     const netoUnitario = parseFloat(s.neto_estetica) || 0;
                     const baseP = parseFloat(s.base_pct ?? s.cobrado_hoy) || 0;
-                    const montoMax = Math.max(0, (baseP - netoFijo) * (parseFloat(s.porcentaje_retiro)||70) / 100).toFixed(0);
+                    const excl = parseFloat(s.excluido_hoy) || 0;
+                    const nServExcl = parseInt(s.servicios_sin_pct, 10) || 0;
+                    const netoExcl = parseFloat(s.neto_excl) || 0;
+                    const netoNorm = parseFloat(s.neto_norm ?? netoFijo) || 0;
+                    const pctRet = parseFloat(s.porcentaje_retiro) || 70;
+                    const parteP = parseFloat(s.parte_pct ?? Math.max(0, (baseP - netoNorm) * pctRet / 100)) || 0;
+                    const parteE = parseFloat(s.parte_excl ?? 0) || 0;
+                    const montoMax = Math.max(0, parseFloat(s.sugerido ?? (parteP + parteE))).toFixed(0);
+                    const detalleExcl = nServExcl > 0
+                        ? ` · Sin porcentaje: ${nServExcl} servicio(s) cobrados ${fmtPesos(excl)} − neto ${fmtPesos(netoExcl)} = <strong>${fmtPesos(parteE)}</strong> (100 %)`
+                        : '';
+                    const detalleNorm = `Resto: (${fmtPesos(baseP)} − neto ${fmtPesos(netoNorm)}) × ${pctRet}% = <strong>${fmtPesos(parteP)}</strong>`;
                     return `
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff8e1;border-left:3px solid #ffc107;border-radius:8px;padding:10px 12px;flex-wrap:wrap;">
                         <div>
                             <strong>${s.profesional_nombre}</strong>
-                            <small style="display:block;color:#888;">Cobrado hoy: ${fmtPesos(parseFloat(s.cobrado_hoy))} · ${s.turnos_cobrados} turno(s) · Cobrado − neto estética ${fmtPesos(netoFijo)} (${nServ} servicio${nServ === 1 ? '' : 's'} × ${fmtPesos(netoUnitario)}) = ${fmtPesos(baseP - netoFijo)} → ${parseFloat(s.porcentaje_retiro)}% = <strong>${fmtPesos(montoMax)}</strong></small>
+                            <small style="display:block;color:#888;">Cobrado hoy: ${fmtPesos(parseFloat(s.cobrado_hoy))} · ${s.turnos_cobrados} turno(s) · Neto estética ${fmtPesos(netoFijo)} (${nServ} servicio${nServ === 1 ? '' : 's'} × ${fmtPesos(netoUnitario)}) · ${detalleNorm}${detalleExcl} · Total: <strong>${fmtPesos(montoMax)}</strong></small>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <select id="metodo-retiro-${s.profesional_id}" onchange="toggleRetiroAmbos(${s.profesional_id})" style="padding:8px 10px;border:2px solid #e0e0e0;border-radius:8px;font-size:0.85rem;background:white;"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="ambos">Efectivo + Transferencia</option></select><span id="split-retiro-${s.profesional_id}" style="display:none;gap:6px;"><input id="ret-ef-${s.profesional_id}" type="number" min="0" step="0.01" placeholder="Efectivo $" style="width:110px;padding:7px;border:2px solid #e0e0e0;border-radius:8px;"><input id="ret-tr-${s.profesional_id}" type="number" min="0" step="0.01" placeholder="Transf. $" style="width:110px;padding:7px;border:2px solid #e0e0e0;border-radius:8px;"></span>
