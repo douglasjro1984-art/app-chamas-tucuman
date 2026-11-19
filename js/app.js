@@ -4357,13 +4357,27 @@ async function registrarRetiro(event, profesionalId) {
     }
 }
 
+async function deshacerRetiroCaja(retiroId) {
+    if (!(await confirmarAccion('¿Deshacer este retiro? El monto vuelve a la caja y el profesional puede registrarlo de nuevo.'))) return;
+    try {
+        const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}/deshacer`, { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) { notificarCaja(data.message || 'No se pudo deshacer', 'error'); return; }
+        notificarCaja(data.message || 'Retiro deshecho');
+        cargarEstadoCaja();
+        if (typeof cargarRetiros === 'function') cargarRetiros();
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+    }
+}
+
 async function deshacerRetiro(retiroId) {
     if (!esAdmin()) { mostrarNotificacion('Solo el admin puede deshacer retiros', 'error'); return; }
     if (!(await confirmarAccion('¿Deshacer este retiro? Se restaurará el monto a la caja de hoy. El registro se conserva.')))  return;
     try {
         const res = await fetch(`${API_BASE}/caja/retiros/${retiroId}/deshacer`, { method: 'POST' });
         const data = await res.json();
-        if (data.success) { mostrarNotificacion('Retiro deshecho y dinero restaurado'); cargarRetiros(); }
+        if (data.success) { mostrarNotificacion('Retiro deshecho y dinero restaurado'); cargarRetiros(); cargarEstadoCaja(); }
         else { mostrarNotificacion((data.message || 'Error'), 'error'); }
     } catch (e) { mostrarNotificacion('Error de conexión', 'error'); }
 }
@@ -5005,10 +5019,11 @@ function renderizarAperturaCaja(data) {
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Sin gastos registrados.</p>';
 
     const esAdminR = !!(data.usuario && (data.usuario.rol === 'admin' || data.usuario.rol === 'super_admin'));
+    const puedeDeshacerR = esAdminR || !!(data.usuario && data.usuario.rol === 'recepcionista');
     const retirosHtml = retiros.length ? retiros.map((r, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${i % 2 === 0 ? '#fdf5f8' : '#fff'};border-radius:8px;margin-bottom:5px;font-size:0.86rem;gap:8px;flex-wrap:wrap;">
             <span style="color:#555;"><strong>${esc(r.profesional_nombre)}</strong><br><small style="color:#aaa;">Bruto ${fmtPesos(parseFloat(r.monto_bruto))} · Retira ${r.porcentaje_retiro}%</small></span>
-            <span style="display:flex;align-items:center;gap:8px;"><strong style="color:#C06C84;">-${fmtPesos(parseFloat(r.monto_retirado))}</strong>${esAdminR ? `<button onclick="editarRetiroCaja(${r.id})" style="background:#2c7be5;color:white;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-weight:700;font-size:0.78rem;">Editar</button>` : ''}</span>
+            <span style="display:flex;align-items:center;gap:8px;"><strong style="color:#C06C84;">-${fmtPesos(parseFloat(r.monto_retirado))}</strong>${esAdminR ? `<button onclick="editarRetiroCaja(${r.id})" style="background:#2c7be5;color:white;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-weight:700;font-size:0.78rem;">Editar</button>` : ''}${puedeDeshacerR ? `<button onclick="deshacerRetiroCaja(${r.id})" title="Deshacer para volver a registrarlo" style="background:#f0f0f0;color:#C06C84;border:1px solid #C06C84;border-radius:6px;padding:4px 9px;cursor:pointer;font-weight:700;font-size:0.78rem;">Deshacer</button>` : ''}</span>
         </div>`).join('') : '<p style="color:#888;font-size:0.86rem;padding:6px 0;">Aún no se retiraron porcentajes. Se sugieren abajo según los cobros del día.</p>';
 
     return `

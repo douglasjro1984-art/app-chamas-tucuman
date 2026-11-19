@@ -3925,15 +3925,15 @@ app.post('/api/caja/retiros/:id/deshacer', autenticar, autorizar(['admin','super
         if (!row.length) return res.status(404).json({ success: false, message: 'Retiro no encontrado' });
         const r = row[0];
         if (r.deshecho) return res.status(400).json({ success: false, message: 'Este retiro ya fue deshecho' });
-        // Restaurar el monto a la caja del día
-        const [caja] = await pool.query("SELECT id FROM cajas WHERE estado = 'abierta' AND fecha = CURDATE() ORDER BY id DESC LIMIT 1");
-        if (caja.length) {
-            const cajaId = caja[0].id;
+        // Restaurar el monto a la caja a la que pertenece el retiro
+        const [cj] = await pool.query('SELECT id, estado FROM cajas WHERE id = ?', [r.caja_id]);
+        if (cj.length) {
             const colMetodo = (r.metodo_retiro === 'transferencia') ? 'total_transferencia' : 'total_efectivo';
-            await pool.query(`UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ?`, [parseFloat(r.monto_retirado), cajaId]);
+            await pool.query(`UPDATE cajas SET ${colMetodo} = ${colMetodo} + ? WHERE id = ?`, [parseFloat(r.monto_retirado), r.caja_id]);
         }
         await pool.query('UPDATE retiros SET deshecho = 1, deshecho_por = ?, deshecho_at = NOW() WHERE id = ?', [req.usuario.id, id]);
-        res.json({ success: true, message: 'Retiro deshecho y dinero restaurado a la caja (el registro se conserva)' });
+        if (cj.length && cj[0].estado === 'cerrada') await recalcularDiferencia(pool, r.caja_id);
+        res.json({ success: true, message: 'Retiro deshecho: el monto volvió a la caja y el profesional puede registrarlo de nuevo.' });
     } catch (e) {
         console.error('Error deshacer retiro:', e.message);
         res.status(500).json({ success: false, message: 'Error al deshacer el retiro' });
