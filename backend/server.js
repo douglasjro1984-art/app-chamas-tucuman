@@ -159,6 +159,7 @@ function fechaHoyAR() {
         if (!cajasCols.some(c => c.COLUMN_NAME === 'transferencia_final')) await pool.query(`ALTER TABLE cajas ADD COLUMN transferencia_final DECIMAL(12,2) NULL`);
         if (!cajasCols.some(c => c.COLUMN_NAME === 'contado_final')) await pool.query(`ALTER TABLE cajas ADD COLUMN contado_final DECIMAL(12,2) NULL`);
         await pool.query(`CREATE TABLE IF NOT EXISTS codigos_reapertura (id BIGINT AUTO_INCREMENT PRIMARY KEY, codigo_hash VARCHAR(64) NOT NULL, creado_por BIGINT NULL, expira_at DATETIME NOT NULL, usado TINYINT(1) NOT NULL DEFAULT 0, usado_por BIGINT NULL, usado_at DATETIME NULL, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS ingresos_caja (id BIGINT AUTO_INCREMENT PRIMARY KEY, caja_id BIGINT NOT NULL, metodo VARCHAR(20) NOT NULL, monto DECIMAL(12,2) NOT NULL, motivo VARCHAR(255) NOT NULL, creado_por BIGINT NULL, creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB`);
         try { await pool.query('ALTER TABLE cajas ADD COLUMN diferencia DECIMAL(10,2) NULL'); } catch (e) {}
         // Migración para cobros con varios métodos de pago (metodo_pago = 'mixto')
         const [ticketsCols] = await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'tickets' AND COLUMN_NAME = 'metodo_pago_detalle'`);
@@ -2510,6 +2511,9 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
         const cj = caja[0];
         const ventas = { efectivo: 0, transferencia: 0, debito: 0 };
         tickets.forEach(t => acumularPagoPorMetodo(ventas, t.metodo_pago, t.total, t.metodo_pago_detalle));
+        const [ingEst] = await pool.query('SELECT metodo, monto FROM ingresos_caja WHERE caja_id = ?', [cj.id]);
+        const ingresos = { efectivo: 0, transferencia: 0, debito: 0 };
+        ingEst.forEach(i => { const k = ['efectivo', 'transferencia', 'debito'].includes(i.metodo) ? i.metodo : 'efectivo'; ingresos[k] += parseFloat(i.monto || 0); ventas[k] += parseFloat(i.monto || 0); });
         const salidas = { efectivo: 0, transferencia: 0, debito: 0 };
         gastos.forEach(g => { const k = ['efectivo', 'transferencia', 'debito'].includes(g.metodo_pago) ? g.metodo_pago : 'efectivo'; salidas[k] += parseFloat(g.monto || 0); });
         retiros.forEach(r => { const k = r.metodo_retiro === 'transferencia' ? 'transferencia' : 'efectivo'; salidas[k] += parseFloat(r.monto_retirado || 0); });
@@ -2521,7 +2525,7 @@ app.get('/api/caja/estado', autenticar, autorizar(['admin','recepcionista']), as
         const desfasado = ['efectivo', 'transferencia', 'debito'].some(k =>
             Math.abs(parseFloat(cj['total_' + k] || 0) - (ventas[k] - salidas[k])) > 0.5);
         const saldos = {
-            efectivo_inicial: efIni, transferencia_inicial: trIni,
+            efectivo_inicial: efIni, transferencia_inicial: trIni, ingresos: { efectivo: r2(ingresos.efectivo), transferencia: r2(ingresos.transferencia), debito: r2(ingresos.debito) },
             efectivo: efSaldo, transferencia: trSaldo, debito: deSaldo, neto: r2(efSaldo + trSaldo + deSaldo),
             ventas: { efectivo: r2(ventas.efectivo), transferencia: r2(ventas.transferencia), debito: r2(ventas.debito), total: r2(ventas.efectivo + ventas.transferencia + ventas.debito) },
             salidas: { efectivo: r2(salidas.efectivo), transferencia: r2(salidas.transferencia), debito: r2(salidas.debito), total: r2(salidas.efectivo + salidas.transferencia + salidas.debito) },
@@ -2745,6 +2749,35 @@ app.post('/api/caja/cerrar', autenticar, autorizar(['admin','recepcionista']), a
 //  - mensual: todos los días del mes de "fecha" (días sin caja = "sin_caja")
 //  - semanal: los 7 días de la semana (lunes a domingo) de "fecha"
 //  - diario (o sin filtro): solo los días con caja registrada
+// Ingreso de dinero adicional a la caja (ej: el dueño pone efectivo para dar cambio).
+app.post('/api/caja/:id/ingresos', autenticar, autorizar(['admin','super_admin','recepcionista']), async (req, res) => {
+    const { id } = req.params;
+    const body = req.body || {};
+    const monto = r2(body.monto);
+    const metodo = ['efectivo', 'transferencia', 'debito'].includes(body.metodo) ? body.metodo : 'efectivo';
+    const motivo = String(body.motivo || '').trim();
+    if (!(monto > 0)) return res.status(400).json({ success: false, message: 'El monto debe ser mayor a 0' });
+    if (motivo.length < 5) return res.status(400).json({ success: false, message: 'El motivo es obligatorio (mínimo 5 caracteres)' });
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [cj] = await conn.query('SELECT id, estado FROM cajas WHERE id = ? FOR UPDATE', [id]);
+        if (!cj.length) { await conn.rollback(); return res.status(404).json({ success: false, message: 'Caja no encontrada' }); }
+        const col = metodo === 'transferencia' ? 'total_transferencia' : (metodo === 'debito' ? 'total_debito' : 'total_efectivo');
+        await conn.query('INSERT INTO ingresos_caja (caja_id, metodo, monto, motivo, creado_por) VALUES (?, ?, ?, ?, ?)', [id, metodo, monto, motivo, req.usuario.id]);
+        await conn.query(`UPDATE cajas SET ${col} = ${col} + ? WHERE id = ?`, [monto, id]);
+        if (cj[0].estado === 'cerrada') await recalcularDiferencia(conn, id);
+        await conn.commit();
+        res.json({ success: true, message: `Ingreso de $${monto.toFixed(2)} (${metodo}) agregado a la caja` });
+    } catch (e) {
+        await conn.rollback();
+        console.error('❌ Error ingreso caja:', e.message);
+        res.status(500).json({ success: false, message: 'Error al registrar el ingreso' });
+    } finally {
+        conn.release();
+    }
+});
+
 // Recalcula los totales de una caja desde sus registros (facturas, gastos y retiros). Solo admin.
 // Corrige cajas cuyos totales quedaron recortados en $0. Si la caja está cerrada, recalcula también el cierre.
 app.post('/api/caja/:id/recalcular', autenticar, autorizar(['admin']), async (req, res) => {
@@ -2760,6 +2793,8 @@ app.post('/api/caja/:id/recalcular', autenticar, autorizar(['admin']), async (re
         const salidas = { efectivo: 0, transferencia: 0, debito: 0 };
         const [gs] = await conn.query('SELECT metodo_pago, monto FROM gastos WHERE caja_id = ?', [c.id]);
         gs.forEach(g => { const k = ['efectivo', 'transferencia', 'debito'].includes(g.metodo_pago) ? g.metodo_pago : 'efectivo'; salidas[k] += parseFloat(g.monto || 0); });
+        const [ig] = await conn.query('SELECT metodo, monto FROM ingresos_caja WHERE caja_id = ?', [c.id]);
+        ig.forEach(i => { const k = ['efectivo', 'transferencia', 'debito'].includes(i.metodo) ? i.metodo : 'efectivo'; ventas[k] += parseFloat(i.monto || 0); });
         const [rt] = await conn.query('SELECT metodo_retiro, monto_retirado FROM retiros WHERE caja_id = ? AND deshecho = 0', [c.id]);
         rt.forEach(r => { const k = r.metodo_retiro === 'transferencia' ? 'transferencia' : 'efectivo'; salidas[k] += parseFloat(r.monto_retirado || 0); });
         const ef = r2(ventas.efectivo - salidas.efectivo), tr = r2(ventas.transferencia - salidas.transferencia), de = r2(ventas.debito - salidas.debito);

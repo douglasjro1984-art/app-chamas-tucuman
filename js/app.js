@@ -1,3 +1,103 @@
+// Mejoras generales de tablas y responsive: buscador por tabla, 5 filas por defecto con "Ver todas",
+// tablas en tarjetas en celulares y tablets, y sin desplazamiento horizontal.
+(function () {
+    const LIMITE = 5;
+    const st = document.createElement('style');
+    st.textContent = `
+        html, body { max-width: 100%; overflow-x: hidden; }
+        img, video, iframe { max-width: 100%; height: auto; }
+        input, select, textarea { max-width: 100%; box-sizing: border-box; }
+        .enh-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+        .enh-buscar { flex: 1 1 180px; min-width: 0; padding: 8px 10px; border: 2px solid #C06C84; border-radius: 8px; font-size: 0.9rem; }
+        .enh-info { font-size: 0.8rem; color: #888; }
+        .enh-btn { background: #C06C84; color: #fff; border: none; border-radius: 8px; padding: 7px 12px; cursor: pointer; font-weight: 700; font-size: 0.85rem; }
+        @media (max-width: 768px) {
+            .resp-table, .resp-table tbody, .resp-table tr, .resp-table td { display: block; width: 100%; }
+            .resp-table thead { display: none; }
+            .resp-table { border: none !important; }
+            .resp-table tr { background: #fff; border: 1px solid #f0e2e8; border-radius: 12px; margin: 8px 0; padding: 8px 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+            .resp-table tr[style*="display: none"], .resp-table tr[style*="display:none"] { display: none !important; }
+            .resp-table td { border: none !important; padding: 5px 0 !important; text-align: right !important; display: flex !important; justify-content: space-between; align-items: center; gap: 12px; white-space: normal !important; word-break: break-word; }
+            .resp-table td::before { content: attr(data-label); font-weight: 700; color: #888; font-size: 0.78rem; text-align: left; flex: 0 0 auto; }
+            .resp-table td:empty { display: none !important; }
+            .resp-table td[colspan] { display: block !important; text-align: center !important; }
+            .resp-table td[colspan]::before { content: none; }
+        }
+        @media (max-width: 480px) {
+            h1, h2, h3 { word-break: break-word; }
+            .enh-buscar { flex-basis: 100%; }
+        }`;
+    document.head.appendChild(st);
+
+    const filas = t => [...t.querySelectorAll('tbody tr')];
+    const esAviso = tr => !!tr.querySelector('td[colspan]');
+
+    function etiquetar(t) {
+        t.classList.add('resp-table');
+        const heads = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+        filas(t).forEach(tr => [...tr.children].forEach((td, i) => {
+            if (td.tagName !== 'TD' || td.hasAttribute('colspan')) return;
+            const etq = heads[i] || '';
+            if (td.getAttribute('data-label') !== etq) td.setAttribute('data-label', etq);
+        }));
+    }
+
+    function aplicar(t) {
+        const bar = t._enhBar;
+        if (!bar || !bar.isConnected) return;
+        const q = bar._input.value.trim().toLowerCase();
+        const datos = filas(t).filter(tr => !esAviso(tr));
+        const coinciden = datos.filter(tr => !q || tr.textContent.toLowerCase().includes(q));
+        const limite = bar._expandido ? Infinity : LIMITE;
+        datos.forEach(tr => { tr.style.display = 'none'; });
+        coinciden.slice(0, limite).forEach(tr => { tr.style.display = ''; });
+        filas(t).filter(esAviso).forEach(tr => { tr.style.display = datos.length ? 'none' : ''; });
+        const total = coinciden.length;
+        const info = total ? `Mostrando ${Math.min(limite, total)} de ${total}` : 'Sin resultados';
+        const btn = total > LIMITE ? (bar._expandido ? 'Mostrar menos' : `Ver todas (${total})`) : '';
+        if (bar._info.textContent !== info) bar._info.textContent = info;
+        if (bar._btn.textContent !== btn) bar._btn.textContent = btn;
+        bar._btn.style.display = total > LIMITE ? '' : 'none';
+    }
+
+    function asegurarBarra(t) {
+        if (t._enhBar && t._enhBar.isConnected) return;
+        if (filas(t).filter(tr => !esAviso(tr)).length < 4 || !t.parentNode) return;
+        const bar = document.createElement('div');
+        bar.className = 'enh-bar';
+        bar.innerHTML = '<input type="search" class="enh-buscar" placeholder="Buscar en esta tabla…"><span class="enh-info"></span><button type="button" class="enh-btn"></button>';
+        t.parentNode.insertBefore(bar, t);
+        bar._input = bar.querySelector('.enh-buscar');
+        bar._info = bar.querySelector('.enh-info');
+        bar._btn = bar.querySelector('.enh-btn');
+        bar._expandido = false;
+        bar._input.addEventListener('input', () => { bar._expandido = false; aplicar(t); });
+        bar._btn.addEventListener('click', () => { bar._expandido = !bar._expandido; aplicar(t); });
+        t._enhBar = bar;
+    }
+
+    let pendiente = false;
+    function procesar() {
+        pendiente = false;
+        document.querySelectorAll('table').forEach(t => {
+            etiquetar(t);
+            asegurarBarra(t);
+            aplicar(t);
+        });
+    }
+    function programar() {
+        if (pendiente) return;
+        pendiente = true;
+        requestAnimationFrame(procesar);
+    }
+    function iniciar() {
+        programar();
+        new MutationObserver(programar).observe(document.body, { childList: true, subtree: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+})();
+
 // Barra del usuario dentro del menú en celulares
 (function () {
     const st = document.createElement('style');
@@ -4514,6 +4614,58 @@ async function editarCaja(cajaId) {
     }
 }
 
+function abrirIngresoCaja() {
+    if (!window._cajaId) { notificarCaja('No hay una caja abierta', 'error'); return; }
+    document.getElementById('modal-ingreso-caja')?.remove();
+    const campo = 'width:100%;padding:9px 11px;border:2px solid #C06C84;border-radius:8px;box-sizing:border-box;font-size:0.95rem;';
+    const modal = document.createElement('div');
+    modal.id = 'modal-ingreso-caja';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:22000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;max-width:400px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 6px 0;color:#28a745;">Ingreso de dinero</h3>
+            <p style="margin:0 0 14px 0;color:#666;font-size:0.88rem;">Dinero que entra a la caja y no viene de una venta (por ejemplo, efectivo para dar cambio).</p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <label>Monto ($)<input id="ing-monto" type="number" min="0" step="0.01" style="${campo}"></label>
+                <label>Medio de pago
+                    <select id="ing-metodo" style="${campo}">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="debito">Débito</option>
+                    </select>
+                </label>
+                <label>Motivo <strong>(obligatorio)</strong><textarea id="ing-motivo" rows="2" style="${campo}"></textarea></label>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button onclick="guardarIngresoCaja()" style="flex:1;background:#28a745;color:white;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:700;">Agregar a la caja</button>
+                <button onclick="document.getElementById('modal-ingreso-caja').remove()" style="flex:1;background:#f0f0f0;color:#555;padding:11px;border:none;border-radius:9px;cursor:pointer;font-weight:600;">Cancelar</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+async function guardarIngresoCaja() {
+    const monto = parseFloat(document.getElementById('ing-monto')?.value);
+    const metodo = document.getElementById('ing-metodo')?.value || 'efectivo';
+    const motivo = (document.getElementById('ing-motivo')?.value || '').trim();
+    if (!(monto > 0)) { notificarCaja('El monto debe ser mayor a 0', 'error'); return; }
+    if (motivo.length < 5) { notificarCaja('El motivo es obligatorio (mínimo 5 caracteres)', 'error'); return; }
+    try {
+        const res = await fetch(`${API_BASE}/caja/${window._cajaId}/ingresos`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto, metodo, motivo })
+        });
+        const data = await res.json();
+        if (!data.success) { notificarCaja(data.message || 'No se pudo registrar', 'error'); return; }
+        document.getElementById('modal-ingreso-caja')?.remove();
+        notificarCaja(data.message || 'Ingreso registrado');
+        await cargarEstadoCaja();
+        if (document.getElementById('arq-transf')) notificarCaja('Reabrí el arqueo para ver el total actualizado');
+    } catch (e) {
+        notificarCaja('Error de conexión', 'error');
+    }
+}
+
 async function editarRetiroCaja(retiroId) {
     document.getElementById('modal-editar-retiro')?.remove();
     const estado = window._saldosCaja;
@@ -4927,6 +5079,7 @@ async function cargarEstadoCaja() {
         const data = await res.json();
         window._saldosCaja = data.saldos || null;
         window._retirosCaja = data.retiros || [];
+        window._cajaId = data.caja ? data.caja.id : null;
         window._cajaAnterior = data.caja_anterior || null;
         if (!data.abierta) {
             cont.innerHTML = `
@@ -4961,7 +5114,7 @@ async function cargarEstadoCaja() {
                     <span><strong>Los importes por medio de pago no coinciden con las facturas, gastos y retiros de esta caja.</strong><br><small>Pasa cuando un gasto o retiro superó lo cobrado en ese medio. El cierre saldría mal hasta recalcular.</small></span>
                     ${esAdminCaja ? `<button onclick="recalcularCaja(${c.id})" style="background:#B9770E;color:white;padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Recalcular desde registros</button>` : ''}
                 </div>`);
-            cont.insertAdjacentHTML('beforeend', `<div style="margin:0 0 14px;"><button onclick="abrirFacturasCaja(${c.id}, ${esAdminCaja})" style="background:#B9770E;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Ver facturas</button></div>`);
+            cont.insertAdjacentHTML('beforeend', `<div style="margin:0 0 14px;"><button onclick="abrirFacturasCaja(${c.id}, ${esAdminCaja})" style="background:#B9770E;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Ver facturas</button> <button onclick="abrirIngresoCaja()" style="background:#28a745;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">+ Ingreso de dinero</button></div>`);
             if (data.usuario && (data.usuario.rol === 'admin' || data.usuario.rol === 'super_admin')) {
                 cont.insertAdjacentHTML('beforeend', `
                     <div style="margin:0 0 14px;"><button onclick="editarCaja(${c.id})" style="background:#B9770E;color:white;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Editar caja</button></div>
@@ -5158,7 +5311,7 @@ function cerrarCajaModal() {
             </div>
             <div style="margin-top:12px;background:#eef7ee;border-radius:10px;padding:10px 12px;font-size:0.82rem;color:#256029;">Cierre calculado: efectivo <strong>${fmtPesos(sal.efectivo)}</strong> · transferencias <strong>${fmtPesos(sal.transferencia)}</strong> · débito <strong>${fmtPesos(sal.debito)}</strong> = <strong>${fmtPesos(sal.neto)}</strong>. Las transferencias y el débito ya vienen cargados: corregilos solo si el banco muestra otro monto.</div>
             <div style="margin-top:14px;background:#f9f9f9;border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-weight:700;color:#555;">Total contado</span>
+                <span style="font-weight:700;color:#555;">Total contado</span> <button onclick="abrirIngresoCaja()" style="background:#28a745;color:white;padding:7px 12px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.85rem;">+ Ingreso de dinero</button>
                 <strong id="arqueo-total" style="color:#28a745;font-size:1.25rem;">$0.00</strong>
             </div>
             <div style="display:flex;gap:10px;margin-top:16px;">
