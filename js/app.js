@@ -10,6 +10,10 @@
         .enh-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
         .enh-buscar { flex: 1 1 180px; min-width: 0; padding: 8px 10px; border: 2px solid #C06C84; border-radius: 8px; font-size: 0.9rem; }
         .enh-info { font-size: 0.8rem; color: #888; }
+        /* Sin scroll de costado en las tablas: se ajustan al ancho disponible */
+        div:has(> table.resp-table) { overflow: visible !important; max-width: 100%; }
+        table.resp-table { width: 100% !important; min-width: 0 !important; table-layout: auto; }
+        table.resp-table td, table.resp-table th { word-break: break-word; }
         .enh-btn { background: #C06C84; color: #fff; border: none; border-radius: 8px; padding: 7px 12px; cursor: pointer; font-weight: 700; font-size: 0.85rem; }
         @media (max-width: 768px) {
             .resp-table, .resp-table tbody, .resp-table tr, .resp-table td { display: block; width: 100%; }
