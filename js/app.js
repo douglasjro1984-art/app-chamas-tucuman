@@ -46,6 +46,54 @@
         }));
     }
 
+    // Fecha dd/mm/aaaa de una fila (primera celda que la tenga)
+    function fechaDe(tr) {
+        for (const td of tr.children) {
+            const m = td.textContent.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+            if (m) return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+        }
+        return null;
+    }
+
+    // Ordena las filas por fecha, de la más reciente a la más antigua.
+    // Cada fila de detalle (Ver) se mueve junto con su fila.
+    function ordenarPorFecha(t) {
+        const tb = t.querySelector('tbody');
+        if (!tb) return;
+        const hijos = [...tb.children];
+        const grupos = [];
+        hijos.forEach(tr => {
+            if (tr.id && tr.id.startsWith('detalle-') && grupos.length) grupos[grupos.length - 1].push(tr);
+            else grupos.push([tr]);
+        });
+        const conFecha = grupos.filter(g => !esAviso(g[0]) && fechaDe(g[0]) !== null);
+        if (conFecha.length < 2) return;
+        const otros = grupos.filter(g => !conFecha.includes(g));
+        const ordenados = conFecha
+            .map((g, i) => ({ g, i, f: fechaDe(g[0]) }))
+            .sort((x, y) => (y.f - x.f) || (x.i - y.i))
+            .map(x => x.g);
+        const flat = [...ordenados, ...otros].flat();
+        if (flat.every((n, i) => n === hijos[i])) return;
+        flat.forEach(n => tb.appendChild(n));
+    }
+
+    // Muestra u oculta una fila y su detalle (Ver) junto con ella
+    function setVis(tr, visible) {
+        const d = tr.nextElementSibling && tr.nextElementSibling.id && tr.nextElementSibling.id.startsWith('detalle-')
+            ? tr.nextElementSibling : null;
+        if (visible) {
+            tr.style.display = '';
+            if (d && d.dataset.enhPrev !== undefined) { d.style.display = d.dataset.enhPrev; delete d.dataset.enhPrev; }
+        } else {
+            tr.style.display = 'none';
+            if (d) {
+                if (d.dataset.enhPrev === undefined) d.dataset.enhPrev = d.style.display;
+                d.style.display = 'none';
+            }
+        }
+    }
+
     function aplicar(t) {
         const bar = t._enhBar;
         if (!bar || !bar.isConnected) return;
@@ -53,11 +101,10 @@
         const datos = filas(t).filter(tr => !esAviso(tr));
         const coinciden = datos.filter(tr => !q || tr.textContent.toLowerCase().includes(q));
         const limite = bar._expandido ? Infinity : LIMITE;
-        datos.forEach(tr => { tr.style.display = 'none'; });
-        coinciden.slice(0, limite).forEach(tr => { tr.style.display = ''; });
-        // Las filas de detalle (Ver) y los avisos de tabla vacía no se tocan
+        const visibles = new Set(coinciden.slice(0, limite));
+        datos.forEach(tr => setVis(tr, visibles.has(tr)));
         const total = coinciden.length;
-        const info = total ? `Mostrando ${Math.min(limite, total)} de ${total}` : 'Sin resultados';
+        const info = total ? `Mostrando ${Math.min(limite, total)} de ${total} (más recientes primero)` : 'Sin resultados';
         const btn = total > LIMITE ? (bar._expandido ? 'Mostrar menos' : `Ver todas (${total})`) : '';
         if (bar._info.textContent !== info) bar._info.textContent = info;
         if (bar._btn.textContent !== btn) bar._btn.textContent = btn;
@@ -85,6 +132,7 @@
         pendiente = false;
         document.querySelectorAll('table').forEach(t => {
             etiquetar(t);
+            ordenarPorFecha(t);
             asegurarBarra(t);
             aplicar(t);
         });
