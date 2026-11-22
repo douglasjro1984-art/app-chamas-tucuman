@@ -51,7 +51,7 @@
         const limite = bar._expandido ? Infinity : LIMITE;
         datos.forEach(tr => { tr.style.display = 'none'; });
         coinciden.slice(0, limite).forEach(tr => { tr.style.display = ''; });
-        filas(t).filter(esAviso).forEach(tr => { tr.style.display = datos.length ? 'none' : ''; });
+        // Las filas de detalle (Ver) y los avisos de tabla vacía no se tocan
         const total = coinciden.length;
         const info = total ? `Mostrando ${Math.min(limite, total)} de ${total}` : 'Sin resultados';
         const btn = total > LIMITE ? (bar._expandido ? 'Mostrar menos' : `Ver todas (${total})`) : '';
