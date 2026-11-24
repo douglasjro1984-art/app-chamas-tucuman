@@ -5014,23 +5014,35 @@ async function abrirFacturasCaja(cajaId, esAdmin) {
 async function editarFactura(numero, cajaId) {
     const f = _facturasCaja[numero];
     if (!f) return;
-    let items = [];
+    let items = [], medios = [];
     try {
         const r = await fetch(`${API_BASE}/caja/tickets/${numero}`);
         const d = await r.json();
-        const raw = d.ticket ? d.ticket.items : [];
-        items = typeof raw === 'string' ? JSON.parse(raw || '[]') : (raw || []);
-    } catch (e) { items = []; }
+        const t = d.ticket || {};
+        const raw = t.items || [];
+        items = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw;
+        if (f.metodo_pago === 'mixto') {
+            const det = typeof t.metodo_pago_detalle === 'string' ? JSON.parse(t.metodo_pago_detalle || '{}') : (t.metodo_pago_detalle || {});
+            medios = Object.entries(det).map(([metodo, monto]) => ({ metodo, monto: parseFloat(monto) || 0 }));
+        } else {
+            medios = [{ metodo: f.metodo_pago, monto: parseFloat(f.total) || 0 }];
+        }
+    } catch (e) { items = []; medios = []; }
     document.getElementById('modal-editar-factura')?.remove();
-    const mixto = f.metodo_pago === 'mixto';
-    const opciones = ['efectivo', 'transferencia', 'debito']
-        .map(m => `<option value="${m}" ${f.metodo_pago === m ? 'selected' : ''}>${m}</option>`).join('');
     const campo = 'width:100%;padding:8px 10px;border:2px solid #C06C84;border-radius:8px;box-sizing:border-box;font-size:0.9rem;';
     const filaItem = it => `
         <div class="ef-item" style="display:grid;grid-template-columns:1fr 110px auto;gap:6px;align-items:center;margin-bottom:6px;">
-            <input class="ef-serv" value="${esc(it.servicio || it.nombre || '')}" placeholder="Servicio" ${mixto ? 'disabled' : ''} style="${campo}">
-            <input class="ef-imp" type="number" min="0" step="0.01" value="${parseFloat(it.importe ?? it.precio ?? 0) || 0}" oninput="actualizarTotalEditorFactura()" ${mixto ? 'disabled' : ''} style="${campo}">
-            <button type="button" onclick="this.closest('.ef-item').remove();actualizarTotalEditorFactura()" ${mixto ? 'disabled' : ''} title="Quitar" style="background:#dc3545;color:white;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-weight:700;">×</button>
+            <input class="ef-serv" value="${esc(it.servicio || it.nombre || '')}" placeholder="Servicio" style="${campo}">
+            <input class="ef-imp" type="number" min="0" step="0.01" value="${parseFloat(it.importe ?? it.precio ?? 0) || 0}" oninput="actualizarTotalEditorFactura()" style="${campo}">
+            <button type="button" onclick="this.closest('.ef-item').remove();actualizarTotalEditorFactura()" title="Quitar" style="background:#dc3545;color:white;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-weight:700;">×</button>
+        </div>`;
+    const filaPago = p => `
+        <div class="ef-pago" style="display:grid;grid-template-columns:1fr 110px auto;gap:6px;align-items:center;margin-bottom:6px;">
+            <select class="ef-pago-m" onchange="actualizarTotalEditorFactura()" style="${campo}">
+                ${['efectivo', 'transferencia', 'debito'].map(m => `<option value="${m}" ${p.metodo === m ? 'selected' : ''}>${m}</option>`).join('')}
+            </select>
+            <input class="ef-pago-v" type="number" min="0" step="0.01" value="${parseFloat(p.monto) || 0}" oninput="actualizarTotalEditorFactura()" style="${campo}">
+            <button type="button" onclick="this.closest('.ef-pago').remove();actualizarTotalEditorFactura()" title="Quitar medio" style="background:#dc3545;color:white;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-weight:700;">×</button>
         </div>`;
     const modal = document.createElement('div');
     modal.id = 'modal-editar-factura';
@@ -5042,16 +5054,18 @@ async function editarFactura(numero, cajaId) {
                 <label>Cliente<input id="ef-cliente" value="${esc(f.cliente_nombre || '')}" style="${campo}"></label>
                 <label>Teléfono<input id="ef-telefono" value="${esc(f.cliente_telefono || '')}" style="${campo}"></label>
                 <label>Profesional<input id="ef-profesional" value="${esc(f.profesional_nombre || '')}" style="${campo}"></label>
-                <label>Método de pago
-                    <select id="ef-metodo" ${mixto ? 'disabled' : ''} style="${campo}">${mixto ? '<option>Mixto (no editable)</option>' : opciones}</select>
-                </label>
                 <div>
                     <div style="font-weight:600;color:#555;margin-bottom:6px;">Servicios de la factura</div>
                     <div id="ef-items">${items.map(filaItem).join('')}</div>
-                    ${mixto ? '<div style="font-size:0.8rem;color:#856404;background:#fff3cd;border-radius:6px;padding:6px 8px;">Las facturas con pago mixto no permiten cambiar los servicios.</div>' : `<button type="button" onclick="agregarItemEditorFactura()" style="margin-top:4px;background:#28a745;color:white;border:none;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700;">+ Agregar servicio</button>`}
-                    <div id="ef-total" style="text-align:right;margin-top:8px;font-weight:700;color:#1aa851;"></div>
+                    <button type="button" onclick="agregarItemEditorFactura()" style="margin-top:4px;background:#28a745;color:white;border:none;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700;">+ Agregar servicio</button>
                 </div>
-                <label>Descuento ($)<input id="ef-descuento" type="number" min="0" step="0.01" value="${parseFloat(f.descuento || 0).toFixed(2)}" oninput="actualizarTotalEditorFactura()" ${mixto ? 'disabled' : ''} style="${campo}"></label>
+                <label>Descuento ($)<input id="ef-descuento" type="number" min="0" step="0.01" value="${parseFloat(f.descuento || 0).toFixed(2)}" oninput="actualizarTotalEditorFactura()" style="${campo}"></label>
+                <div>
+                    <div style="font-weight:600;color:#555;margin-bottom:6px;">Medios de pago</div>
+                    <div id="ef-pagos">${medios.map(filaPago).join('')}</div>
+                    <button type="button" onclick="agregarPagoEditorFactura()" style="margin-top:4px;background:#28a745;color:white;border:none;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700;">+ Agregar medio de pago</button>
+                </div>
+                <div id="ef-total" style="text-align:right;font-weight:700;color:#1aa851;"></div>
                 <label>Motivo del cambio <strong>(obligatorio)</strong>
                     <textarea id="ef-motivo" rows="2" style="${campo}"></textarea>
                 </label>
@@ -5063,6 +5077,14 @@ async function editarFactura(numero, cajaId) {
         </div>`;
     document.body.appendChild(modal);
     window._efItemTpl = filaItem;
+    window._efPagoTpl = filaPago;
+    actualizarTotalEditorFactura();
+}
+
+function agregarPagoEditorFactura() {
+    const cont = document.getElementById('ef-pagos');
+    if (!cont || !window._efPagoTpl) return;
+    cont.insertAdjacentHTML('beforeend', window._efPagoTpl({ metodo: 'transferencia', monto: 0 }));
     actualizarTotalEditorFactura();
 }
 
@@ -5074,11 +5096,16 @@ function agregarItemEditorFactura() {
 }
 
 function actualizarTotalEditorFactura() {
-    const imps = [...document.querySelectorAll('#ef-items .ef-imp')];
-    const sub = imps.reduce((s, i) => s + (parseFloat(i.value) || 0), 0);
+    const sub = [...document.querySelectorAll('#ef-items .ef-imp')].reduce((s, i) => s + (parseFloat(i.value) || 0), 0);
     const desc = parseFloat(document.getElementById('ef-descuento')?.value) || 0;
+    const total = Math.max(0, sub - desc);
+    const pagos = [...document.querySelectorAll('#ef-pagos .ef-pago-v')].reduce((s, i) => s + (parseFloat(i.value) || 0), 0);
+    const cuadra = Math.abs(pagos - total) < 0.01;
     const el = document.getElementById('ef-total');
-    if (el) el.textContent = `Subtotal ${fmtPesos(sub)} · Total ${fmtPesos(Math.max(0, sub - desc))}`;
+    if (el) {
+        el.style.color = cuadra ? '#1aa851' : '#dc3545';
+        el.textContent = `Total ${fmtPesos(total)} · Medios ${fmtPesos(pagos)}${cuadra ? '' : ' (no coinciden)'}`;
+    }
 }
 
 async function guardarEdicionFactura(numero, cajaId) {
@@ -5091,17 +5118,19 @@ async function guardarEdicionFactura(numero, cajaId) {
         motivo,
         cliente_nombre: document.getElementById('ef-cliente').value.trim(),
         cliente_telefono: document.getElementById('ef-telefono').value.trim(),
-        profesional_nombre: document.getElementById('ef-profesional').value.trim()
-    };
-    if (!document.getElementById('ef-metodo').disabled) {
-        body.metodo_pago = document.getElementById('ef-metodo').value;
-        body.descuento = parseFloat(document.getElementById('ef-descuento').value) || 0;
-        body.items = [...document.querySelectorAll('#ef-items .ef-item')].map(row => ({
+        profesional_nombre: document.getElementById('ef-profesional').value.trim(),
+        descuento: parseFloat(document.getElementById('ef-descuento').value) || 0,
+        items: [...document.querySelectorAll('#ef-items .ef-item')].map(row => ({
             servicio: row.querySelector('.ef-serv').value.trim(),
             importe: parseFloat(row.querySelector('.ef-imp').value) || 0
-        }));
-        if (!body.items.length) { notificarCaja('La factura debe tener al menos un servicio', 'error'); return; }
-    }
+        })),
+        pagos: [...document.querySelectorAll('#ef-pagos .ef-pago')].map(row => ({
+            metodo: row.querySelector('.ef-pago-m').value,
+            monto: parseFloat(row.querySelector('.ef-pago-v').value) || 0
+        }))
+    };
+    if (!body.items.length) { notificarCaja('La factura debe tener al menos un servicio', 'error'); return; }
+    if (!body.pagos.length) { notificarCaja('Agregá al menos un medio de pago', 'error'); return; }
     try {
         const res = await fetch(`${API_BASE}/caja/tickets/${numero}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },

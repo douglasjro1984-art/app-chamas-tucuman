@@ -2959,11 +2959,12 @@ app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (re
             : Math.max(0, Math.round((parseFloat(body.descuento) || 0) * 100) / 100);
         const metodoNuevo = body.metodo_pago === undefined ? t.metodo_pago : String(body.metodo_pago).toLowerCase();
 
-        if (esMixto && (descNuevo !== descAnt || metodoNuevo !== t.metodo_pago || (itemsNuevos !== null && Math.abs(subtotal - subtotalAnt) > 0.009))) {
+        const pagosIn = Array.isArray(body.pagos) ? body.pagos : null;
+        if (!pagosIn && esMixto && (descNuevo !== descAnt || (itemsNuevos !== null && Math.abs(subtotal - subtotalAnt) > 0.009))) {
             await conn.rollback();
-            return res.status(400).json({ success: false, message: 'Las facturas con pago mixto solo permiten editar cliente y profesional' });
+            return res.status(400).json({ success: false, message: 'Indicá cómo se reparte el pago entre los medios' });
         }
-        if (!esMixto && !METODOS.includes(metodoNuevo)) {
+        if (!pagosIn && !esMixto && !METODOS.includes(metodoNuevo)) {
             await conn.rollback();
             return res.status(400).json({ success: false, message: 'Método de pago inválido' });
         }
@@ -2971,7 +2972,32 @@ app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (re
             await conn.rollback();
             return res.status(400).json({ success: false, message: 'El descuento no puede superar el subtotal' });
         }
-        const totalNuevo = esMixto ? parseFloat(t.total) : Math.round((subtotal - descNuevo) * 100) / 100;
+        const totalNuevo = Math.round((subtotal - descNuevo) * 100) / 100;
+
+        // Medios de pago finales: se suman por medio y el total tiene que coincidir con la factura
+        let mapaNuevo;
+        if (pagosIn) {
+            mapaNuevo = {};
+            for (const p of pagosIn) {
+                const m = String(p.metodo || '').toLowerCase();
+                const v = r2(Math.max(0, parseFloat(p.monto) || 0));
+                if (v <= 0) continue;
+                if (!METODOS.includes(m)) { await conn.rollback(); return res.status(400).json({ success: false, message: 'Medio de pago inválido' }); }
+                mapaNuevo[m] = r2((mapaNuevo[m] || 0) + v);
+            }
+            const suma = r2(Object.values(mapaNuevo).reduce((s, v) => s + v, 0));
+            if (!Object.keys(mapaNuevo).length || Math.abs(suma - totalNuevo) > 0.009) {
+                await conn.rollback();
+                return res.status(400).json({ success: false, message: `La suma de los medios ($${suma.toFixed(2)}) debe ser igual al total de la factura ($${totalNuevo.toFixed(2)})` });
+            }
+        } else if (esMixto) {
+            mapaNuevo = JSON.parse(t.metodo_pago_detalle || '{}');
+        } else {
+            mapaNuevo = { [metodoNuevo]: totalNuevo };
+        }
+        const medios = Object.keys(mapaNuevo);
+        const metodoFinal = medios.length > 1 ? 'mixto' : medios[0];
+        const detalleFinal = medios.length > 1 ? JSON.stringify(mapaNuevo) : null;
 
         if (t.caja_id) {
             const anterior = esMixto
@@ -2980,8 +3006,8 @@ app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (re
             for (const [m, monto] of Object.entries(anterior)) {
                 if (col[m]) await conn.query(`UPDATE cajas SET ${col[m]} = ${col[m]} - ? WHERE id = ?`, [monto, t.caja_id]);
             }
-            if (!esMixto) {
-                await conn.query(`UPDATE cajas SET ${col[metodoNuevo]} = ${col[metodoNuevo]} + ? WHERE id = ?`, [totalNuevo, t.caja_id]);
+            for (const [m, monto] of Object.entries(mapaNuevo)) {
+                if (col[m]) await conn.query(`UPDATE cajas SET ${col[m]} = ${col[m]} + ? WHERE id = ?`, [monto, t.caja_id]);
             }
         }
 
@@ -2993,8 +3019,8 @@ app.put('/api/caja/tickets/:numero', autenticar, autorizar(['admin']), async (re
                 body.cliente_nombre ?? t.cliente_nombre,
                 body.cliente_telefono ?? t.cliente_telefono,
                 body.profesional_nombre ?? t.profesional_nombre,
-                esMixto ? t.metodo_pago : metodoNuevo,
-                esMixto ? t.metodo_pago_detalle : null,
+                metodoFinal,
+                detalleFinal,
                 descNuevo,
                 totalNuevo,
                 subtotal,
